@@ -6,7 +6,7 @@
 // migração local — nunca pode ir para dentro do produto distribuído.
 
 import { execSync } from 'node:child_process';
-import { cpSync, rmSync, existsSync, mkdtempSync, readFileSync } from 'node:fs';
+import { cpSync, rmSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -28,6 +28,12 @@ rmSync(saida, { force: true });
 execSync(`cd "${temp}" && zip -r -q "${saida}" .`);
 rmSync(temp, { recursive: true, force: true });
 
+// Publica também no painel, para a equipe baixar em /instalar.
+const noPainel = join(raiz, 'painel', 'public', 'buildchat-extensao.zip');
+cpSync(saida, noPainel);
+writeFileSync(join(raiz, 'painel', 'public', 'versao-extensao.txt'), versao + '\n');
+
 const tamanho = execSync(`du -h "${saida}"`).toString().split('\t')[0];
 console.log(`pacote pronto: ${saida} (${tamanho})`);
+console.log(`publicado no painel: painel/public/buildchat-extensao.zip (versão ${versao})`);
 console.log('conteúdo sem a pasta seed/ — nenhum dado pessoal embarcado.');

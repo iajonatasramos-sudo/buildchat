@@ -14,3 +14,4 @@ painel.zip
 # Contém 188 números de telefone reais e as mídias da clínica (áudios, PDFs),
 # usados apenas na migração local do acervo. Mantenha a cópia no seu computador.
 public/seed/
+buildchat-extensao-*.zip

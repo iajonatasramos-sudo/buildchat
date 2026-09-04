@@ -1,13 +1,27 @@
 // Página pública: o admin manda este link para a equipe instalar a extensão.
+// O arquivo fica em painel/public/ e é gerado por `npm run pacote` na raiz.
 
 import Link from 'next/link';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 // Preencha quando a extensão estiver publicada na Chrome Web Store.
 const LINK_LOJA = '';
+const ARQUIVO = '/buildchat-extensao.zip';
 
 export const metadata = { title: 'Instalar o BuildChat' };
 
+function versaoAtual(): string {
+  try {
+    return readFileSync(join(process.cwd(), 'public', 'versao-extensao.txt'), 'utf8').trim();
+  } catch {
+    return '';
+  }
+}
+
 export default function Instalar() {
+  const versao = versaoAtual();
+
   return (
     <main className="mx-auto max-w-[680px] px-6 py-14">
       <div className="mb-10 flex items-center gap-2 text-[18px] font-extrabold">
@@ -22,7 +36,7 @@ export default function Instalar() {
 
       {LINK_LOJA ? (
         <section className="cartao mb-6 px-6 py-6">
-          <Passo n={1} titulo="Instale pela Chrome Web Store">
+          <Passo n={1} titulo="Instale pela Chrome Web Store" ultimo>
             <a
               href={LINK_LOJA}
               target="_blank"
@@ -34,33 +48,54 @@ export default function Instalar() {
           </Passo>
         </section>
       ) : (
-        <section className="cartao mb-6 px-6 py-6">
-          <div className="mb-4 rounded-controle border border-alerta-borda bg-alerta-fundo px-4 py-3 leading-relaxed text-alerta">
-            A publicação na Chrome Web Store está em andamento. Enquanto isso, a instalação é manual
-            — peça o arquivo <code className="font-mono">buildchat-extensao.zip</code> ao
-            administrador da clínica.
-          </div>
-          <Passo n={1} titulo="Descompacte o arquivo">
-            Deixe a pasta num lugar fixo do computador (ex.: Documentos). Se apagar a pasta, a
-            extensão para de funcionar.
-          </Passo>
-          <Passo n={2} titulo="Abra as extensões do Chrome">
-            Digite <code className="font-mono">chrome://extensions</code> na barra de endereços.
-          </Passo>
-          <Passo n={3} titulo="Ative o Modo do desenvolvedor">
-            O botão fica no canto superior direito da página.
-          </Passo>
-          <Passo n={4} titulo="Clique em “Carregar sem compactação”">
-            Selecione a pasta que você descompactou.
-          </Passo>
-        </section>
+        <>
+          <section className="cartao mb-6 px-6 py-6">
+            <div className="mb-5 flex flex-wrap items-center gap-4 rounded-controle border border-borda bg-fundo px-5 py-4">
+              <div className="min-w-0">
+                <div className="font-extrabold">Arquivo da extensão</div>
+                <div className="text-[12.5px] text-tinta-3">
+                  buildchat-extensao.zip{versao && ` · versão ${versao}`}
+                </div>
+              </div>
+              <a
+                href={ARQUIVO}
+                download
+                className="ml-auto rounded-controle bg-marca px-[18px] py-[11px] text-[13.5px] font-semibold text-white transition hover:bg-marca-hover"
+              >
+                Baixar extensão
+              </a>
+            </div>
+
+            <Passo n={1} titulo="Descompacte o arquivo baixado">
+              No Mac, dê dois cliques no .zip. No Windows, clique com o botão direito → “Extrair
+              tudo”. Deixe a pasta num lugar fixo do computador (ex.: Documentos) — se ela for
+              apagada ou movida, a extensão para de funcionar.
+            </Passo>
+            <Passo n={2} titulo="Abra as extensões do Chrome">
+              Copie <code className="rounded bg-linha px-1.5 py-0.5 font-mono text-[12.5px]">chrome://extensions</code>{' '}
+              e cole na barra de endereços.
+            </Passo>
+            <Passo n={3} titulo="Ative o “Modo do desenvolvedor”">
+              O botão fica no canto superior direito da página.
+            </Passo>
+            <Passo n={4} titulo="Clique em “Carregar sem compactação”" ultimo>
+              Selecione a pasta que você descompactou (a que contém o arquivo{' '}
+              <span className="font-mono text-[12.5px]">manifest.json</span>).
+            </Passo>
+          </section>
+
+          <p className="mb-6 text-[12.5px] leading-relaxed text-tinta-4">
+            O Chrome pede o modo do desenvolvedor porque a extensão ainda está em publicação na
+            Chrome Web Store. Quando ela for aprovada, a instalação passa a ser um clique só.
+          </p>
+        </>
       )}
 
       <section className="cartao mb-6 px-6 py-6">
         <Passo n={LINK_LOJA ? 2 : 5} titulo="Abra o WhatsApp Web e entre na sua conta">
-          Acesse <span className="font-mono">web.whatsapp.com</span>. No topo da tela aparece a barra
-          do BuildChat — clique em <strong>Entrar</strong> e use o e-mail e a senha que a clínica
-          cadastrou para você.
+          Acesse <span className="font-mono text-[13px]">web.whatsapp.com</span>. No topo da tela
+          aparece a barra do BuildChat — clique em <strong>Entrar</strong> e use o e-mail e a senha
+          que a clínica cadastrou para você.
         </Passo>
         <Passo n={LINK_LOJA ? 3 : 6} titulo="Pronto" ultimo>
           Suas mensagens rápidas, pastas e anotações aparecem automaticamente, em qualquer computador
