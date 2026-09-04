@@ -1,0 +1,2 @@
+Arquivos estáticos do painel (favicon, imagens). A pasta precisa existir porque
+o Dockerfile a copia para a imagem final.
