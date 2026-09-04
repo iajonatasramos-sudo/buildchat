@@ -1,0 +1,11 @@
+.git
+node_modules
+dist
+.next
+painel/node_modules
+painel/.next
+painel/.env.local
+public/seed
+painel.zip
+extens-o-web-naveg-vel-prototipada
+server/node_modules
