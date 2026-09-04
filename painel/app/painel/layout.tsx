@@ -99,7 +99,15 @@ export default function LayoutPainel({ children }: { children: React.ReactNode }
             </Link>
           </div>
         )}
-        <div className="max-w-[1180px] px-10 pb-[72px] pt-9">{children}</div>
+        <div className="max-w-[1180px] px-10 pb-10 pt-9">{children}</div>
+        <div className="mt-auto flex gap-4 px-10 pb-8 text-[12.5px] text-tinta-4">
+          <Link href="/instalar" target="_blank" className="hover:text-marca">
+            Instalar a extensão
+          </Link>
+          <Link href="/privacidade" target="_blank" className="hover:text-marca">
+            Política de privacidade
+          </Link>
+        </div>
       </main>
     </div>
   );

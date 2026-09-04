@@ -117,7 +117,11 @@ export default function Usuarios() {
 
       <p className="mt-3 leading-relaxed text-tinta-3">
         Você define a senha no cadastro e entrega ao usuário. Ele usa esse e-mail e senha para entrar na extensão —
-        e pode trocar a senha depois pela tela de recuperação.
+        e pode trocar a senha depois pela tela de recuperação.{' '}
+        <Link href="/instalar" target="_blank" className="font-medium text-marca">
+          Como instalar a extensão
+        </Link>{' '}
+        (mande este link para a equipe).
       </p>
 
       {criando && (
