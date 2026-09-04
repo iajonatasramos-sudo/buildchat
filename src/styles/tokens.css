@@ -1,0 +1,244 @@
+/* BuildChat 2 — tokens visuais do BuildClinic/Saleschat, adaptados p/ shadow DOM.
+   Sem preflight do Tailwind: fazemos um reset mínimo escopado no .bc-root. */
+
+@layer theme, base, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+@theme inline {
+  /* remove paleta default que não usamos (mantém black/white/transparent) */
+  --color-brand: var(--brand);
+  --color-brand-600: var(--brand-600);
+  --color-brand-500: var(--brand-500);
+  --color-brand-400: var(--brand-400);
+  --color-brand-100: var(--brand-100);
+  --color-brand-50: var(--brand-50);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-surface-hover: var(--surface-2);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-muted: var(--muted);
+  --color-text-2: var(--text-2);
+  --color-text: var(--text);
+  --color-success: var(--green);
+  --color-warning: var(--amber);
+  --color-danger: var(--red);
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-xl);
+  --shadow-sm: var(--sh-sm);
+  --shadow-md: var(--sh-md);
+  --shadow-lg: var(--sh-lg);
+  --font-sans: var(--ff-sans);
+  --font-mono: var(--ff-mono);
+}
+
+:host,
+.bc-root {
+  --brand: oklch(54% 0.18 264);
+  --brand-600: oklch(48% 0.18 264);
+  --brand-500: oklch(54% 0.18 264);
+  --brand-400: oklch(64% 0.16 264);
+  --brand-100: oklch(94% 0.04 264);
+  --brand-50: oklch(97% 0.02 264);
+
+  --bg: oklch(98.5% 0.003 260);
+  --surface: #ffffff;
+  --surface-2: oklch(97% 0.004 260);
+  --surface-3: oklch(94% 0.005 260);
+  --border: oklch(91% 0.006 260);
+  --border-strong: oklch(85% 0.008 260);
+  --muted: oklch(60% 0.01 260);
+  --text-2: oklch(40% 0.012 260);
+  --text: oklch(22% 0.015 260);
+
+  --green: oklch(62% 0.14 150);
+  --green-bg: oklch(95% 0.04 150);
+  --amber: oklch(70% 0.16 70);
+  --amber-bg: oklch(96% 0.05 80);
+  --red: oklch(58% 0.18 25);
+  --red-bg: oklch(95% 0.04 25);
+
+  --r-sm: 3px;
+  --r-md: 4px;
+  --r-lg: 6px;
+  --r-xl: 8px;
+
+  --sh-sm: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 1px rgba(15, 23, 42, 0.04);
+  --sh-md: 0 4px 12px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --sh-lg: 0 10px 30px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.05);
+
+  /* WhatsApp/Dental Chat usam Segoe UI */
+  --ff-sans: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --ff-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Tema "gray" (grafite) — mesmos valores do [data-theme='dim'] do BuildClinic. */
+.bc-root[data-tema='dim'] {
+  --bg: oklch(32% 0.012 260);
+  --surface: oklch(38% 0.012 260);
+  --surface-2: oklch(42% 0.012 260);
+  --surface-3: oklch(46% 0.014 260);
+  --border: oklch(47% 0.014 260);
+  --border-strong: oklch(54% 0.014 260);
+  --muted: oklch(72% 0.012 260);
+  --text-2: oklch(86% 0.01 260);
+  --text: oklch(96% 0.005 260);
+  --brand-100: oklch(40% 0.1 264);
+  --brand-50: oklch(36% 0.07 264);
+  --green-bg: oklch(38% 0.08 150);
+  --amber-bg: oklch(40% 0.09 70);
+  --red-bg: oklch(38% 0.09 25);
+  --sh-sm: 0 1px 2px rgba(0, 0, 0, 0.18);
+  --sh-md: 0 4px 12px rgba(0, 0, 0, 0.22);
+  --sh-lg: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+/* Tema escuro — mesmos valores do [data-theme='dark'] do BuildClinic.
+   Aplicado quando o WhatsApp Web está em modo escuro (detecção no content). */
+.bc-root[data-tema='dark'] {
+  --bg: oklch(16% 0.012 260);
+  --surface: oklch(20% 0.012 260);
+  --surface-2: oklch(23% 0.012 260);
+  --surface-3: oklch(27% 0.014 260);
+  --border: oklch(28% 0.014 260);
+  --border-strong: oklch(36% 0.014 260);
+  --muted: oklch(60% 0.012 260);
+  --text-2: oklch(78% 0.01 260);
+  --text: oklch(95% 0.005 260);
+  --brand-100: oklch(28% 0.06 264);
+  --brand-50: oklch(24% 0.04 264);
+  --green-bg: oklch(26% 0.06 150);
+  --amber-bg: oklch(28% 0.07 70);
+  --red-bg: oklch(26% 0.07 25);
+  --sh-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --sh-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --sh-lg: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+@layer base {
+  .bc-root,
+  .bc-root * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border: 0 solid var(--border);
+  }
+  .bc-root {
+    /* Interface 25% maior que o WhatsApp (zoom escala texto, ícones e botões). */
+    zoom: 1.25;
+    font-family: var(--ff-sans);
+    font-size: 14px;
+    line-height: 1.45;
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+  .bc-root button {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+    background: none;
+    cursor: pointer;
+  }
+  .bc-root input,
+  .bc-root textarea,
+  .bc-root select {
+    font-family: inherit;
+    color: inherit;
+    background: var(--surface);
+  }
+  .bc-root a {
+    color: inherit;
+    text-decoration: none;
+  }
+  .bc-root ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .bc-root ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .bc-root ::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 999px;
+  }
+
+  /* Categorias do painel de mensagens rápidas (padrão Dental Chat):
+     caixa translúcida na cor da pasta. A cor entra pela variável --cat e é
+     composta com o --surface do tema, então funciona no claro, gray e escuro. */
+  .bc-cat-box {
+    background: color-mix(in oklab, var(--cat) 10%, var(--surface));
+    border-color: color-mix(in oklab, var(--cat) 55%, transparent);
+  }
+  .bc-cat-head {
+    background: color-mix(in oklab, var(--cat) 22%, var(--surface));
+  }
+  .bc-cat-item + .bc-cat-item {
+    border-top: 1px solid color-mix(in oklab, var(--cat) 28%, transparent);
+  }
+  .bc-cat-item:hover {
+    background: color-mix(in oklab, var(--cat) 18%, var(--surface));
+  }
+  .bc-cat-chip {
+    background: color-mix(in oklab, var(--cat) 30%, transparent);
+    color: var(--cat);
+  }
+
+  /* Elevação e transições — dão profundidade sem pesar a interface. */
+  .bc-elev {
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 20px -14px rgba(15, 23, 42, 0.35);
+  }
+  .bc-elev-hover {
+    transition: box-shadow 0.16s ease, transform 0.16s ease;
+  }
+  .bc-elev-hover:hover {
+    box-shadow: 0 2px 4px rgba(15, 23, 42, 0.06), 0 14px 28px -16px rgba(15, 23, 42, 0.45);
+  }
+  /* Controle segmentado (abas e filtros) */
+  .bc-seg {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 2px;
+    display: inline-flex;
+    gap: 2px;
+  }
+  .bc-seg > button {
+    border-radius: calc(var(--r-md) - 2px);
+    padding: 3px 6px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--muted);
+    transition: background 0.14s ease, color 0.14s ease;
+    white-space: nowrap;
+  }
+  .bc-seg > button:hover { color: var(--text-2); }
+  .bc-seg > button[data-ativo='1'] {
+    background: var(--surface);
+    color: var(--brand);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  }
+
+  @keyframes bc-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes bc-pop {
+    from { opacity: 0; transform: scale(0.97); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes bc-slide-in {
+    from { opacity: 0; transform: translateX(24px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  .bc-anim-pop { animation: bc-pop 0.14s ease-out; }
+  .bc-anim-slide { animation: bc-slide-in 0.18s ease-out; }
+  .bc-anim-fade { animation: bc-fade-in 0.14s ease-out; }
+}

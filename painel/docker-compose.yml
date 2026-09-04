@@ -1,0 +1,22 @@
+# Sobe o painel na VPS. Ajuste o domínio e as labels conforme o seu proxy.
+name: buildchat-painel
+
+services:
+  painel:
+    container_name: buildchat-painel
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+    restart: unless-stopped
+    expose:
+      - 3100
+    # Se o proxy estiver em outra rede, conecte-o a esta.
+    labels:
+      # Traefik (ajuste o domínio e o entrypoint do seu ambiente)
+      - traefik.enable=true
+      - traefik.http.routers.buildchat.rule=Host(`painel.seudominio.com.br`)
+      - traefik.http.routers.buildchat.entrypoints=websecure
+      - traefik.http.routers.buildchat.tls.certresolver=letsencrypt
+      - traefik.http.services.buildchat.loadbalancer.server.port=3100
