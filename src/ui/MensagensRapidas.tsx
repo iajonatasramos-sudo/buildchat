@@ -277,7 +277,9 @@ export function MensagensRapidasPanel({
         )}
       </div>
 
-      {view === 'cliente' && <ContatoGuia contato={contato} tags={data?.tags ?? []} />}
+      {view === 'cliente' && (
+        <ContatoGuia contato={contato} tags={data?.tags ?? []} onTagsMudaram={carregar} />
+      )}
 
       {view === 'rapidas' && (
         <>
@@ -1041,7 +1043,15 @@ function GuiaSecao({ titulo, Icon, children }: { titulo: string; Icon: typeof Ta
 }
 
 /** Guia "Contato": dados da conversa aberta, etiquetas e notas locais. */
-function ContatoGuia({ contato, tags }: { contato: ContatoAtivo | null; tags: TagOpt[] }) {
+function ContatoGuia({
+  contato,
+  tags,
+  onTagsMudaram,
+}: {
+  contato: ContatoAtivo | null;
+  tags: TagOpt[];
+  onTagsMudaram: () => void;
+}) {
   const [tagsContato, setTagsContato] = useState<string[]>([]);
   const [notas, setNotas] = useState<NotaContato[]>([]);
   const [novaNota, setNovaNota] = useState('');
@@ -1050,6 +1060,8 @@ function ContatoGuia({ contato, tags }: { contato: ContatoAtivo | null; tags: Ta
   const [nomeRascunho, setNomeRascunho] = useState('');
   const [interesses, setInteresses] = useState('');
   const [addEtiqueta, setAddEtiqueta] = useState(false);
+  const [buscaEtiqueta, setBuscaEtiqueta] = useState('');
+  const [criandoEtiqueta, setCriandoEtiqueta] = useState(false);
 
   useEffect(() => {
     if (!contato) {
@@ -1071,6 +1083,7 @@ function ContatoGuia({ contato, tags }: { contato: ContatoAtivo | null; tags: Ta
       setInteresses(f.interesses ?? '');
       setEditandoNome(false);
       setAddEtiqueta(false);
+      setBuscaEtiqueta('');
     });
     return () => {
       vivo = false;
@@ -1110,8 +1123,34 @@ function ContatoGuia({ contato, tags }: { contato: ContatoAtivo | null; tags: Ta
     setFicha(await db.salvarFicha(contato!.chatId, { interesses: texto || null }));
   }
 
+  /**
+   * Cria a pasta e já aplica ao contato. A cor é a próxima da paleta, para as
+   * pastas novas não nascerem todas iguais.
+   */
+  async function criarEAplicar(nome: string) {
+    const limpo = nome.trim();
+    if (!limpo || criandoEtiqueta) return;
+    setCriandoEtiqueta(true);
+    const cor = CORES_CATEGORIA[tags.length % CORES_CATEGORIA.length];
+    const nova = await db.criarTag(limpo, cor);
+    const novoConjunto = await db.alternarTagContato(contato!.chatId, nova.id);
+    setTagsContato(novoConjunto);
+    setBuscaEtiqueta('');
+    setAddEtiqueta(false);
+    setCriandoEtiqueta(false);
+    onTagsMudaram();
+    toast.success(`Pasta "${limpo}" criada.`);
+  }
+
   /** Nome usado nas mensagens: o cadastrado tem prioridade sobre o do WhatsApp. */
   const nomeExibido = ficha?.nome?.trim() || contato.nome;
+
+  // Busca sem acento e sem caixa, entre as pastas que o contato ainda não tem.
+  const semAcento = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const termo = semAcento(buscaEtiqueta.trim());
+  const disponiveis = tags.filter((t) => !tagsContato.includes(t.id));
+  const sugestoes = termo ? disponiveis.filter((t) => semAcento(t.nome).includes(termo)) : disponiveis;
+  const jaExiste = tags.some((t) => semAcento(t.nome) === termo);
 
   return (
     <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
@@ -1207,25 +1246,63 @@ function ContatoGuia({ contato, tags }: { contato: ContatoAtivo | null; tags: Ta
         </div>
 
         {addEtiqueta && (
-          <div className="mt-2 flex max-h-40 flex-wrap gap-1.5 overflow-y-auto border-t border-border pt-2">
-            {tags.filter((t) => !tagsContato.includes(t.id)).length === 0 ? (
-              <span className="text-[12px] text-muted">O contato já está em todas as pastas.</span>
-            ) : (
-              tags
-                .filter((t) => !tagsContato.includes(t.id))
-                .map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => alternarTag(t.id)}
-                    className="rounded-md border bg-surface px-2.5 py-0.5 text-[11.5px] font-semibold transition hover:text-white"
-                    style={{ borderColor: t.cor, color: t.cor }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = t.cor)}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = '')}
-                  >
-                    {t.nome}
-                  </button>
-                ))
+          <div className="mt-2 border-t border-border pt-2">
+            <div className="relative mb-2">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
+              <input
+                autoFocus
+                value={buscaEtiqueta}
+                onChange={(e) => setBuscaEtiqueta(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    setAddEtiqueta(false);
+                    setBuscaEtiqueta('');
+                  }
+                  if (e.key === 'Enter') {
+                    // Enter aplica a única sugestão; sem nenhuma, cria a pasta.
+                    if (sugestoes.length === 1) alternarTag(sugestoes[0].id);
+                    else if (sugestoes.length === 0 && termo && !jaExiste) criarEAplicar(buscaEtiqueta);
+                  }
+                }}
+                placeholder="Buscar ou criar pasta…"
+                className="h-8 w-full rounded-md border border-border-strong bg-surface pl-8 pr-2 text-[12px] outline-none focus:border-brand"
+              />
+            </div>
+
+            <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto">
+              {sugestoes.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => alternarTag(t.id)}
+                  className="rounded-md border bg-surface px-2.5 py-0.5 text-[11.5px] font-semibold transition hover:text-white"
+                  style={{ borderColor: t.cor, color: t.cor }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = t.cor)}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = '')}
+                >
+                  {t.nome}
+                </button>
+              ))}
+
+              {sugestoes.length === 0 && !termo && (
+                <span className="text-[12px] text-muted">O contato já está em todas as pastas.</span>
+              )}
+
+              {termo && sugestoes.length === 0 && jaExiste && (
+                <span className="text-[12px] text-muted">O contato já está nesta pasta.</span>
+              )}
+            </div>
+
+            {termo && !jaExiste && (
+              <button
+                type="button"
+                onClick={() => criarEAplicar(buscaEtiqueta)}
+                disabled={criandoEtiqueta}
+                className="mt-2 inline-flex w-full items-center gap-1.5 rounded-md border border-dashed border-brand/60 px-2.5 py-1.5 text-[12px] font-semibold text-brand transition hover:bg-brand/10 disabled:opacity-50"
+              >
+                {criandoEtiqueta ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+                Criar pasta “{buscaEtiqueta.trim()}”
+              </button>
             )}
           </div>
         )}
