@@ -356,7 +356,7 @@ function SettingsModal({
           </div>
           <label className="block">
             <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-muted">
-              Token da API de propostas
+              Token da API de propostas (reserva)
             </span>
             <input
               type="password"
@@ -366,7 +366,7 @@ function SettingsModal({
               className="h-9 w-full rounded-md border border-border-strong bg-surface px-2.5 text-[13px] outline-none focus:border-brand"
             />
             <span className="mt-1 block text-[10px] text-muted">
-              Necessário para o botão “Gerar proposta” da guia Contato.
+              Normalmente vem do painel do gestor. Preencha só se usar a extensão sem conta.
             </span>
           </label>
 

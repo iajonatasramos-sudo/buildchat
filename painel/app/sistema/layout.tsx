@@ -12,6 +12,7 @@ const MENU = [
   { href: '/sistema', rotulo: 'Visão geral' },
   { href: '/sistema/empresas', rotulo: 'Empresas' },
   { href: '/sistema/vendas', rotulo: 'Vendas' },
+  { href: '/sistema/api', rotulo: 'API' },
 ];
 
 export default function LayoutSistema({ children }: { children: React.ReactNode }) {

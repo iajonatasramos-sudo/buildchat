@@ -510,6 +510,10 @@ async function puxar(perfil: Perfil, desde: string | null): Promise<string> {
     }
   }
 
+  // Integrações (API de propostas etc.) — configuradas pelo gestor.
+  const { data: integracoes } = await sb.rpc('minhas_integracoes');
+  if (integracoes) await db.salvarIntegracoes(integracoes as any[]);
+
   // Equipes de que faço parte — a extensão filtra o acervo por elas.
   const { data: minhas } = await sb.from('equipe_usuarios').select('equipe_id').eq('usuario_id', perfil.id);
   await gravar(K_EQUIPES, (minhas ?? []).map((e: any) => e.equipe_id));

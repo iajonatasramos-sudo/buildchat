@@ -1,10 +1,10 @@
 // Geração de proposta em PDF.
 //
 // O PDF NÃO é montado aqui: a extensão só junta os dados, chama a API do
-// BuildClinic e recebe o arquivo pronto. O token fica nas Configurações da
-// extensão (chrome.storage), para trocar sem precisar recompilar.
+// BuildClinic e recebe o arquivo pronto. Endereço e token vêm da integração
+// "propostas", cadastrada pelo gestor em /sistema/api e trazida pelo sync.
 
-import { getSettings } from './db';
+import { getSettings, obterIntegracao } from './db';
 
 export const API_PROPOSTAS = 'https://app.buildclinic.com.br/api/propostas/gerar';
 
@@ -91,16 +91,29 @@ export type DadosProposta = {
   mostrarParcelado?: boolean;
 };
 
+/**
+ * Endereço e token da integração "propostas". Vêm do painel do gestor (via
+ * sincronização); o token local só existe como reserva para quem usa a
+ * extensão sem conta.
+ */
+async function credenciais(): Promise<{ url: string; token: string }> {
+  const integracao = await obterIntegracao('propostas');
+  const token = integracao?.token?.trim() || (await getSettings()).tokenPropostas.trim();
+  if (!token) {
+    throw new Error(
+      'A API de propostas ainda não foi configurada. Peça ao gestor do BuildChat para cadastrá-la.',
+    );
+  }
+  return { url: integracao?.url?.trim() || API_PROPOSTAS, token };
+}
+
 /** Chama a API e devolve o PDF. Erros da API sobem com a mensagem dela. */
 export async function gerarProposta(dados: DadosProposta, tipo: TipoProposta): Promise<Blob> {
-  const { tokenPropostas } = await getSettings();
-  if (!tokenPropostas.trim()) {
-    throw new Error('Configure o token da API de propostas em ⚙ Configurações.');
-  }
+  const { url, token } = await credenciais();
 
   let resposta: Response;
   try {
-    resposta = await fetch(`${API_PROPOSTAS}?token=${encodeURIComponent(tokenPropostas.trim())}`, {
+    resposta = await fetch(`${url}?token=${encodeURIComponent(token)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tipo, dados }),

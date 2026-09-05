@@ -111,8 +111,11 @@ Réplica da tela do BuildClinic. **O PDF não é montado aqui**: a extensão man
 para `POST https://app.buildclinic.com.br/api/propostas/gerar?token=…` e recebe
 `application/pdf`.
 
-- Token fica em **⚙ Configurações** (`settings.tokenPropostas`), não no código — e o sync
-  **mescla** as configurações vindas do servidor para não apagá-lo.
+- **Endereço e token vêm da integração `propostas`**, cadastrada pelo gestor em
+  `/sistema/api` (tabela `integracoes`) e trazida pelo sync (`minhas_integracoes()`).
+  A configuração da empresa vence a global. O campo em ⚙ Configurações virou **reserva**
+  para quem usa a extensão sem conta (o sync mescla as preferências para não apagá-lo).
+- Trocar o endereço para outro domínio exige liberá-lo em `host_permissions`.
 - Tipos: `EXEC_SP | INT_SP | EXEC_BR | INT_BR | VIGILANCIA`. Interiores troca metragem por
   nº/quais ambientes; Vigilância parcela 50/30/20 e tem os 3 checkboxes de formas a exibir.
 - Cálculo a partir do valor total (à vista com desconto, cartão em N parcelas, entrada/saldo)
@@ -231,7 +234,9 @@ escondidos na interface — esconder botão não impede chamada direta à API.
   (`sistema_lancar_fatura`, `sistema_baixar_fatura`, `sistema_definir_comercial`).
   Dar baixa reativa a assinatura e adia a próxima cobrança um ciclo.
   `sistema_vendas()` calcula MRR (anual diluído em 12), recebido no mês, em aberto e vencidas.
-- Páginas: `/sistema` (métricas do negócio), `/sistema/vendas` (receita e faturas) e
+- Páginas: `/sistema` (métricas), `/sistema/vendas` (receita e faturas), `/sistema/api`
+  (integrações: chave, endereço, token com botão de revelar/copiar, escopo global ou por
+  clínica) e
   `/sistema/empresas` (situação, assentos, uso
   e as ações comerciais). O atalho na barra lateral só aparece para operadores.
 

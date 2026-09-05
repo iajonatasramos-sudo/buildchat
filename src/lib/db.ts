@@ -33,6 +33,7 @@ const K = {
   msgCache: 'bc2_msg_cache',
   apagadas: 'bc2_apagadas',
   contatos: 'bc2_contatos',
+  integracoes: 'bc2_integracoes',
 } as const;
 
 const DEFAULT_SETTINGS: Settings = { webhookUrl: '', triggerChar: '/', tema: 'auto', tokenPropostas: '' };
@@ -357,6 +358,20 @@ export async function removerNota(chatId: string, notaId: string): Promise<void>
   await set(K.notes, map);
   const { enfileirar } = await import('./sync');
   await enfileirar({ op: 'anotacao.delete', id: notaId });
+}
+
+// ───────────────────────── Integrações (APIs) ─────────────────────────
+// Configuradas pelo gestor no painel; a extensão só lê o que vale para ela.
+
+export type Integracao = { chave: string; nome: string; url: string | null; token: string | null };
+
+export async function salvarIntegracoes(lista: Integracao[]): Promise<void> {
+  await set(K.integracoes, lista);
+}
+
+export async function obterIntegracao(chave: string): Promise<Integracao | null> {
+  const lista = await get<Integracao[]>(K.integracoes, []);
+  return lista.find((i) => i.chave === chave) ?? null;
 }
 
 // ───────────────────────── Apoio à sincronização ─────────────────────────
