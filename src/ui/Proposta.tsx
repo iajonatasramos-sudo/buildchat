@@ -219,7 +219,7 @@ export function PropostaModal({ contato }: { contato: ContatoAtivo | null }) {
 
           <div className="grid grid-cols-2 gap-2.5">
             <ValorComAjuste
-              label="À vista"
+              label={`À vista (–${Number(desconto) || 0}%)`}
               valor={derivados.avista}
               onValor={(v) => editarDerivado('avista', v)}
               ajuste={desconto}
@@ -228,7 +228,7 @@ export function PropostaModal({ contato }: { contato: ContatoAtivo | null }) {
               titulo="Desconto à vista"
             />
             <ValorComAjuste
-              label="Cartão"
+              label={`Cartão (${Number(parcelas) || 1}x)`}
               valor={derivados.cartao}
               onValor={(v) => editarDerivado('cartao', v)}
               ajuste={parcelas}
@@ -276,7 +276,7 @@ export function PropostaModal({ contato }: { contato: ContatoAtivo | null }) {
           ) : (
             <div className="grid grid-cols-2 gap-2.5">
               <ValorComAjuste
-                label="Entrada"
+                label={`Entrada (${Number(entradaPct) || 0}%)`}
                 valor={derivados.entrada}
                 onValor={(v) => editarDerivado('entrada', v)}
                 ajuste={entradaPct}
@@ -407,16 +407,17 @@ function ValorComAjuste({
 }) {
   return (
     <Campo label={label}>
-      <div className="flex">
-        <input value={valor} onChange={(e) => onValor(e.target.value)} className={cn(ent, 'rounded-r-none')} />
-        <label
-          title={titulo}
-          className="flex flex-shrink-0 items-center rounded-r-md border border-l-0 border-brand bg-brand px-1.5 text-[12px] font-bold text-white"
-        >
+      <div className="flex overflow-hidden rounded-md border border-border-strong bg-surface focus-within:border-brand">
+        <input
+          value={valor}
+          onChange={(e) => onValor(e.target.value)}
+          className="h-9 min-w-0 flex-1 bg-transparent px-2.5 text-[13px] outline-none"
+        />
+        <label title={titulo} className="flex flex-shrink-0 items-center gap-0.5 bg-brand px-2 text-[12px] font-bold text-white">
           <input
             value={ajuste}
             onChange={(e) => onAjuste(e.target.value.replace(/\D/g, ''))}
-            className="w-6 bg-transparent text-right text-white outline-none"
+            className="w-5 bg-transparent text-right text-white outline-none"
           />
           {sufixo}
         </label>

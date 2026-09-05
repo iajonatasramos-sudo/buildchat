@@ -50,8 +50,8 @@
   --surface: #ffffff;
   --surface-2: oklch(97% 0.004 260);
   --surface-3: oklch(94% 0.005 260);
-  --border: oklch(91% 0.006 260);
-  --border-strong: oklch(85% 0.008 260);
+  --border: oklch(87% 0.007 260);
+  --border-strong: oklch(78% 0.010 260);
   --muted: oklch(60% 0.01 260);
   --text-2: oklch(40% 0.012 260);
   --text: oklch(22% 0.015 260);
@@ -63,10 +63,10 @@
   --red: oklch(58% 0.18 25);
   --red-bg: oklch(95% 0.04 25);
 
-  --r-sm: 3px;
-  --r-md: 4px;
-  --r-lg: 6px;
-  --r-xl: 8px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
 
   --sh-sm: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 1px rgba(15, 23, 42, 0.04);
   --sh-md: 0 4px 12px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
@@ -83,8 +83,8 @@
   --surface: oklch(38% 0.012 260);
   --surface-2: oklch(42% 0.012 260);
   --surface-3: oklch(46% 0.014 260);
-  --border: oklch(47% 0.014 260);
-  --border-strong: oklch(54% 0.014 260);
+  --border: oklch(51% 0.016 260);
+  --border-strong: oklch(60% 0.018 260);
   --muted: oklch(72% 0.012 260);
   --text-2: oklch(86% 0.01 260);
   --text: oklch(96% 0.005 260);
@@ -105,8 +105,8 @@
   --surface: oklch(20% 0.012 260);
   --surface-2: oklch(23% 0.012 260);
   --surface-3: oklch(27% 0.014 260);
-  --border: oklch(28% 0.014 260);
-  --border-strong: oklch(36% 0.014 260);
+  --border: oklch(33% 0.016 260);
+  --border-strong: oklch(44% 0.018 260);
   --muted: oklch(60% 0.012 260);
   --text-2: oklch(78% 0.01 260);
   --text: oklch(95% 0.005 260);
