@@ -25,9 +25,14 @@ export default function LayoutPainel({ children }: { children: React.ReactNode }
   const [operador, setOperador] = useState(false);
 
   useEffect(() => {
-    carregarPerfil().then((p) => {
-      if (!p) router.replace('/entrar');
-      else setPerfil(p);
+    carregarPerfil().then(async (p) => {
+      if (!p) {
+        // Conta sem clínica: se for o gestor do produto, é a área dele.
+        const { data: ehOperador } = await supabase.rpc('sou_operador');
+        router.replace(ehOperador === true ? '/sistema' : '/entrar');
+        return;
+      }
+      setPerfil(p);
       setCarregando(false);
     });
     // Só o gestor do produto enxerga o atalho para a área do sistema.

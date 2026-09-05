@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { carregarPerfil, supabase } from '@/lib/supabase';
 
 export default function Entrar() {
   const router = useRouter();
@@ -40,7 +40,13 @@ export default function Entrar() {
         });
         if (erroRpc) throw erroRpc;
       }
-      router.push('/painel');
+      // Gestor do sistema pode não ter clínica — nesse caso o /painel o
+      // devolveria para cá, num laço. Manda direto para a área dele.
+      const [{ data: ehOperador }, perfil] = await Promise.all([
+        supabase.rpc('sou_operador'),
+        carregarPerfil(),
+      ]);
+      router.push(ehOperador === true && !perfil ? '/sistema' : '/painel');
     } catch (e: unknown) {
       setErro(traduzir(e instanceof Error ? e.message : String(e)));
       setCarregando(false);
