@@ -353,6 +353,52 @@ async function enviarMidiaPorDom(dataUrl: string, mime: string | null, nome: str
   await aguardar(600);
 }
 
+/**
+ * Envia um arquivo pronto (ex.: o PDF da proposta) na conversa aberta.
+ * Tenta o WPP e cai no fluxo de anexo do próprio WhatsApp se ele não estiver
+ * disponível — mesma estratégia das mídias das mensagens rápidas.
+ */
+export async function enviarArquivo(
+  blob: Blob,
+  nome: string,
+  legenda?: string,
+): Promise<{ ok: true } | { ok: false; erro: string }> {
+  const contato = await getContatoAtivo();
+  if (!contato) return { ok: false, erro: 'Abra a conversa antes de anexar.' };
+
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(String(fr.result));
+    fr.onerror = () => reject(fr.error);
+    fr.readAsDataURL(blob);
+  });
+
+  try {
+    if (bridgePronta) {
+      await chamar(
+        'sendFile',
+        {
+          chatId: contato.chatId.startsWith('wa:') ? undefined : contato.chatId,
+          dataUrl,
+          tipo: 'documento',
+          mime: blob.type || 'application/pdf',
+          nome,
+          legenda: legenda || null,
+        },
+        90000,
+      );
+    } else {
+      await enviarMidiaPorDom(dataUrl, blob.type || 'application/pdf', nome);
+      if (legenda?.trim()) await enviarTexto(legenda);
+    }
+    registrarUltimoContato(contato.chatId, contato.nome).catch(() => {});
+    return { ok: true };
+  } catch (e: any) {
+    console.warn('[BuildChat] anexar arquivo falhou:', e);
+    return { ok: false, erro: e?.message ?? 'Não consegui anexar o arquivo.' };
+  }
+}
+
 export async function enviarMidia(
   acao: { midiaPath: string; midiaMime: string | null; midiaNome: string | null; tipo: string; texto: string },
   chatId?: string,

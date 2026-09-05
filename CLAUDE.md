@@ -105,6 +105,24 @@ valores de exemplo, a extensão roda 100% local** e o botão "Entrar" nem aparec
 - Licença tem **tolerância offline de 7 dias** (perfil em cache): sem rede o atendente
   não pode ficar travado.
 
+## Gerar proposta (`src/lib/propostas.ts` + `src/ui/Proposta.tsx`)
+
+Réplica da tela do BuildClinic. **O PDF não é montado aqui**: a extensão manda os dados
+para `POST https://app.buildclinic.com.br/api/propostas/gerar?token=…` e recebe
+`application/pdf`.
+
+- Token fica em **⚙ Configurações** (`settings.tokenPropostas`), não no código — e o sync
+  **mescla** as configurações vindas do servidor para não apagá-lo.
+- Tipos: `EXEC_SP | INT_SP | EXEC_BR | INT_BR | VIGILANCIA`. Interiores troca metragem por
+  nº/quais ambientes; Vigilância parcela 50/30/20 e tem os 3 checkboxes de formas a exibir.
+- Cálculo a partir do valor total (à vista com desconto, cartão em N parcelas, entrada/saldo)
+  só sobrescreve campo que o usuário **ainda não editou** (conjunto `tocados`).
+- Depois do `await` o clique deixa de valer como gesto do usuário e o Chrome pode bloquear a
+  aba do PDF — por isso o botão “Abrir para revisão” fica destacado quando isso acontece.
+- Anexar na conversa usa `enviarArquivo()` (WPP, com o fluxo de anexo do WhatsApp como
+  reserva) e registra o último contato no CRM.
+- `host_permissions` precisa de `https://app.buildclinic.com.br/*`.
+
 ## Sincronização (`src/lib/sync.ts`) — Fase 2
 
 Offline-first. Toda alteração é aplicada no `chrome.storage` na hora e enfileirada numa

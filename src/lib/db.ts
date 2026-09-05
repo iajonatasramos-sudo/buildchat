@@ -35,7 +35,7 @@ const K = {
   contatos: 'bc2_contatos',
 } as const;
 
-const DEFAULT_SETTINGS: Settings = { webhookUrl: '', triggerChar: '/', tema: 'auto' };
+const DEFAULT_SETTINGS: Settings = { webhookUrl: '', triggerChar: '/', tema: 'auto', tokenPropostas: '' };
 
 function get<T>(key: string, fallback: T): Promise<T> {
   return new Promise((resolve) => {

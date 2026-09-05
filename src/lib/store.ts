@@ -48,3 +48,6 @@ export const modalConta = criarSinal<boolean>(false);
 /** Estado da sincronização mostrado na barra do topo. */
 export type EstadoSync = 'local' | 'sincronizando' | 'ok' | 'erro' | 'bloqueado';
 export const estadoSync = criarSinal<EstadoSync>('local');
+
+/** Modal "Gerar proposta" (usa o contato da conversa aberta). */
+export const modalProposta = criarSinal<boolean>(false);

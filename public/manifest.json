@@ -30,7 +30,11 @@
     }
   ],
   "permissions": ["storage", "unlimitedStorage", "alarms", "tabs"],
-  "host_permissions": ["https://web.whatsapp.com/*", "https://*.supabase.co/*"],
+  "host_permissions": [
+    "https://web.whatsapp.com/*",
+    "https://*.supabase.co/*",
+    "https://app.buildclinic.com.br/*"
+  ],
   "web_accessible_resources": [
     {
       "matches": ["https://web.whatsapp.com/*"],

@@ -469,8 +469,12 @@ async function puxar(perfil: Perfil, desde: string | null): Promise<string> {
       .eq('usuario_id', perfil.id)
       .maybeSingle();
     if (cfg) {
+      // Mescla: o token da API de propostas é local e não pode ser apagado
+      // pelo que vem do servidor.
+      const atuais = await db.getSettings();
       await db.saveSettings(
         {
+          ...atuais,
           tema: (cfg as any).tema,
           triggerChar: (cfg as any).atalho,
           webhookUrl: (cfg as any).webhook_url,

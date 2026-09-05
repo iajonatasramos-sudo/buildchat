@@ -51,6 +51,7 @@ import { cn } from '@/lib/utils';
 import { toast } from './toast';
 import * as db from '@/lib/db';
 import { getInfoConta } from '@/lib/wa';
+import { modalProposta } from '@/lib/store';
 import { minhasEquipes } from '@/lib/sync';
 import { carregarPerfil } from '@/lib/auth';
 import {
@@ -1370,6 +1371,16 @@ function ContatoGuia({
             Último envio: {new Date(ficha.ultimoContato).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
           </p>
         )}
+      </GuiaSecao>
+
+      <GuiaSecao titulo="Propostas" Icon={FileText} cor="var(--brand)">
+        <button
+          type="button"
+          onClick={() => modalProposta.set(true)}
+          className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-border-strong bg-surface px-3 py-2 text-[12.5px] font-semibold transition hover:border-brand hover:text-brand"
+        >
+          <FileText size={13} /> Gerar proposta
+        </button>
       </GuiaSecao>
 
       <GuiaSecao titulo="Notas" Icon={NotebookPen} cor="var(--green)" contador={notas.length}>

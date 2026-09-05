@@ -15,7 +15,8 @@ import { ALTURA_TOPBAR } from './TopBar';
 import { HeaderMenuOverlay } from './HeaderMenus';
 import { AnotacoesModal } from './Anotacoes';
 import { ContaModal } from './Conta';
-import { gavetaAberta, menuHeader, modalAnotacoes, modalConta, perfilAtual, pastaAtiva, type MenuHeader } from '@/lib/store';
+import { PropostaModal } from './Proposta';
+import { gavetaAberta, menuHeader, modalAnotacoes, modalConta, modalProposta, perfilAtual, pastaAtiva, type MenuHeader } from '@/lib/store';
 import { carregarPerfil, observarSessao } from '@/lib/auth';
 import { iniciarSyncPeriodico, sincronizar } from '@/lib/sync';
 import { toast, Toaster } from './toast';
@@ -27,7 +28,7 @@ export function App() {
   const [aberto, setAbertoLocal] = useState(gavetaAberta.get());
   useEffect(() => gavetaAberta.subscribe(setAbertoLocal), []);
   const [contato, setContato] = useState<ContatoAtivo | null>(null);
-  const [settings, setSettings] = useState<Settings>({ webhookUrl: '', triggerChar: '/', tema: 'auto' });
+  const [settings, setSettings] = useState<Settings>({ webhookUrl: '', triggerChar: '/', tema: 'auto', tokenPropostas: '' });
   const [dlgSettings, setDlgSettings] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [pasta, setPasta] = useState<string | null>(pastaAtiva.get());
@@ -35,11 +36,13 @@ export function App() {
 
   const [anotacoes, setAnotacoes] = useState(modalAnotacoes.get());
   const [conta, setConta] = useState(modalConta.get());
+  const [proposta, setProposta] = useState(modalProposta.get());
 
   useEffect(() => pastaAtiva.subscribe(setPasta), []);
   useEffect(() => menuHeader.subscribe(setMenu), []);
   useEffect(() => modalAnotacoes.subscribe(setAnotacoes), []);
   useEffect(() => modalConta.subscribe(setConta), []);
+  useEffect(() => modalProposta.subscribe(setProposta), []);
 
   // Sessão: carrega o perfil ao abrir e acompanha login/logout/refresh.
   useEffect(() => {
@@ -240,6 +243,9 @@ export function App() {
       {/* Entrar / criar conta */}
       {conta && <ContaModal />}
 
+      {/* Gerar proposta (PDF vem da API do BuildClinic) */}
+      {proposta && <PropostaModal contato={contato} />}
+
       {/* Picker "/" */}
       {query !== null && (
         <QuickPicker itens={filtradas} ativo={ativo} pos={posPicker} onHover={setAtivo} onEscolher={(r) => {
@@ -278,9 +284,15 @@ function SettingsModal({
   const [webhookUrl, setWebhookUrl] = useState(settings.webhookUrl);
   const [triggerChar, setTriggerChar] = useState(settings.triggerChar);
   const [temaSel, setTemaSel] = useState(settings.tema ?? 'auto');
+  const [tokenPropostas, setTokenPropostas] = useState(settings.tokenPropostas ?? '');
 
   async function salvar() {
-    const s: Settings = { webhookUrl: webhookUrl.trim(), triggerChar: triggerChar.trim() || '/', tema: temaSel };
+    const s: Settings = {
+      webhookUrl: webhookUrl.trim(),
+      triggerChar: triggerChar.trim() || '/',
+      tema: temaSel,
+      tokenPropostas: tokenPropostas.trim(),
+    };
     await db.saveSettings(s);
     onSalvo(s);
   }
@@ -342,6 +354,22 @@ function SettingsModal({
               Automático segue o tema do WhatsApp; Gray é o grafite.
             </span>
           </div>
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-muted">
+              Token da API de propostas
+            </span>
+            <input
+              type="password"
+              value={tokenPropostas}
+              onChange={(e) => setTokenPropostas(e.target.value)}
+              placeholder="cole aqui o token do BuildClinic"
+              className="h-9 w-full rounded-md border border-border-strong bg-surface px-2.5 text-[13px] outline-none focus:border-brand"
+            />
+            <span className="mt-1 block text-[10px] text-muted">
+              Necessário para o botão “Gerar proposta” da guia Contato.
+            </span>
+          </label>
+
           <label className="block">
             <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-muted">
               Caractere de atalho no compose
