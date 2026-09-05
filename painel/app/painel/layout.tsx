@@ -22,6 +22,7 @@ export default function LayoutPainel({ children }: { children: React.ReactNode }
   const caminho = usePathname();
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [operador, setOperador] = useState(false);
 
   useEffect(() => {
     carregarPerfil().then((p) => {
@@ -29,6 +30,8 @@ export default function LayoutPainel({ children }: { children: React.ReactNode }
       else setPerfil(p);
       setCarregando(false);
     });
+    // Só o gestor do produto enxerga o atalho para a área do sistema.
+    supabase.rpc('sou_operador').then(({ data }) => setOperador(data === true));
   }, [router]);
 
   if (carregando) {
@@ -63,6 +66,14 @@ export default function LayoutPainel({ children }: { children: React.ReactNode }
         </nav>
 
         <div className="mt-auto flex flex-col gap-3">
+          {operador && (
+            <Link
+              href="/sistema"
+              className="rounded-controle border border-white/15 px-3 py-2 text-center text-[12.5px] font-medium text-white/70 transition hover:border-white/40 hover:text-white"
+            >
+              Gestão do sistema
+            </Link>
+          )}
           <div className="rounded-cartao border border-white/10 bg-white/[0.06] p-3">
             <div className="mb-1 text-[12px] text-white/60">Assinatura</div>
             <div className="text-[14px] font-extrabold text-white">{lic.titulo}</div>

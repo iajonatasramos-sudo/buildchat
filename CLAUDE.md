@@ -174,6 +174,22 @@ credenciais. Ordem obrigatória — `auth.users` primeiro (o `usuarios.id` tem F
 depois a linha em `usuarios`. O **limite de assentos é garantido por trigger no banco**
 (`0005_assentos.sql`), valendo para criação e para reativação; a interface só antecipa o aviso.
 
+## Painel do gestor do sistema (`/sistema`)
+
+Área do **dono do produto**, separada do painel das clínicas.
+
+- Quem é gestor: tabela `sistema_operadores` (por `auth.users.id`). Cadastrar/remover:
+  `DATABASE_URL=… node server/scripts/definir-operador.mjs email@dominio "Nome"`.
+- **Não abre a RLS dos inquilinos.** O acesso passa por funções SECURITY DEFINER que só
+  devolvem dados administrativos: `sistema_empresas()`, `sistema_resumo()`,
+  `sistema_atualizar_empresa(...)` e `sou_operador()`. Mensagens, contatos, anotações e
+  conversas das clínicas continuam fechados até para o gestor — e há teste provando isso.
+- **Cobrança é do gestor**: `revoke update on empresas` + `grant update (nome)` para
+  `authenticated`. Sem isso o admin da clínica se daria assentos sem pagar (foi um furo
+  real, pego por teste).
+- Páginas: `/sistema` (métricas do negócio) e `/sistema/empresas` (situação, assentos, uso
+  e as ações comerciais). O atalho na barra lateral só aparece para operadores.
+
 ## Servidor (`server/`) — Fase 0 concluída
 
 ```
