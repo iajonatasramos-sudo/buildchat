@@ -36,7 +36,7 @@ const K = {
   integracoes: 'bc2_integracoes',
 } as const;
 
-const DEFAULT_SETTINGS: Settings = { webhookUrl: '', triggerChar: '/', tema: 'auto', tokenPropostas: '' };
+const DEFAULT_SETTINGS: Settings = { webhookUrl: '', triggerChar: '/', tema: 'auto' };
 
 function get<T>(key: string, fallback: T): Promise<T> {
   return new Promise((resolve) => {

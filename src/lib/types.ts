@@ -89,9 +89,8 @@ export type TemaEscolha = 'auto' | 'claro' | 'gray' | 'escuro';
 
 export type Settings = {
   webhookUrl: string;
+  /** Caractere que abre o seletor de mensagens rápidas no compose. */
   triggerChar: string;
-  /** Token da API de propostas do BuildClinic. */
-  tokenPropostas: string;
   /** 'auto' segue o tema do WhatsApp; 'gray' é o grafite (dim). */
   tema: TemaEscolha;
 };

@@ -113,8 +113,8 @@ para `POST https://app.buildclinic.com.br/api/propostas/gerar?token=…` e receb
 
 - **Endereço e token vêm da integração `propostas`**, cadastrada pelo gestor em
   `/sistema/api` (tabela `integracoes`) e trazida pelo sync (`minhas_integracoes()`).
-  A configuração da empresa vence a global. O campo em ⚙ Configurações virou **reserva**
-  para quem usa a extensão sem conta (o sync mescla as preferências para não apagá-lo).
+  A configuração da empresa vence a global. **Não há token local na extensão** — sem a
+  integração cadastrada, o botão avisa para pedir ao gestor.
 - Trocar o endereço para outro domínio exige liberá-lo em `host_permissions`.
 - Tipos: `EXEC_SP | INT_SP | EXEC_BR | INT_BR | VIGILANCIA`. Interiores troca metragem por
   nº/quais ambientes; Vigilância parcela 50/30/20 e tem os 3 checkboxes de formas a exibir.

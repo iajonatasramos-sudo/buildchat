@@ -4,7 +4,7 @@
 // BuildClinic e recebe o arquivo pronto. Endereço e token vêm da integração
 // "propostas", cadastrada pelo gestor em /sistema/api e trazida pelo sync.
 
-import { getSettings, obterIntegracao } from './db';
+import { obterIntegracao } from './db';
 
 export const API_PROPOSTAS = 'https://app.buildclinic.com.br/api/propostas/gerar';
 
@@ -92,16 +92,15 @@ export type DadosProposta = {
 };
 
 /**
- * Endereço e token da integração "propostas". Vêm do painel do gestor (via
- * sincronização); o token local só existe como reserva para quem usa a
- * extensão sem conta.
+ * Endereço e token da integração "propostas", cadastrada pelo gestor em
+ * /sistema/api e trazida pela sincronização.
  */
 async function credenciais(): Promise<{ url: string; token: string }> {
   const integracao = await obterIntegracao('propostas');
-  const token = integracao?.token?.trim() || (await getSettings()).tokenPropostas.trim();
+  const token = integracao?.token?.trim();
   if (!token) {
     throw new Error(
-      'A API de propostas ainda não foi configurada. Peça ao gestor do BuildChat para cadastrá-la.',
+      'A API de propostas ainda não foi configurada. Peça ao gestor do BuildChat para cadastrá-la em API.',
     );
   }
   return { url: integracao?.url?.trim() || API_PROPOSTAS, token };

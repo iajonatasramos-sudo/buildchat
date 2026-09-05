@@ -28,7 +28,7 @@ export function App() {
   const [aberto, setAbertoLocal] = useState(gavetaAberta.get());
   useEffect(() => gavetaAberta.subscribe(setAbertoLocal), []);
   const [contato, setContato] = useState<ContatoAtivo | null>(null);
-  const [settings, setSettings] = useState<Settings>({ webhookUrl: '', triggerChar: '/', tema: 'auto', tokenPropostas: '' });
+  const [settings, setSettings] = useState<Settings>({ webhookUrl: '', triggerChar: '/', tema: 'auto' });
   const [dlgSettings, setDlgSettings] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [pasta, setPasta] = useState<string | null>(pastaAtiva.get());
@@ -284,14 +284,12 @@ function SettingsModal({
   const [webhookUrl, setWebhookUrl] = useState(settings.webhookUrl);
   const [triggerChar, setTriggerChar] = useState(settings.triggerChar);
   const [temaSel, setTemaSel] = useState(settings.tema ?? 'auto');
-  const [tokenPropostas, setTokenPropostas] = useState(settings.tokenPropostas ?? '');
 
   async function salvar() {
     const s: Settings = {
       webhookUrl: webhookUrl.trim(),
       triggerChar: triggerChar.trim() || '/',
       tema: temaSel,
-      tokenPropostas: tokenPropostas.trim(),
     };
     await db.saveSettings(s);
     onSalvo(s);
@@ -356,29 +354,18 @@ function SettingsModal({
           </div>
           <label className="block">
             <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-muted">
-              Token da API de propostas (reserva)
-            </span>
-            <input
-              type="password"
-              value={tokenPropostas}
-              onChange={(e) => setTokenPropostas(e.target.value)}
-              placeholder="cole aqui o token do BuildClinic"
-              className="h-9 w-full rounded-md border border-border-strong bg-surface px-2.5 text-[13px] outline-none focus:border-brand"
-            />
-            <span className="mt-1 block text-[10px] text-muted">
-              Normalmente vem do painel do gestor. Preencha só se usar a extensão sem conta.
-            </span>
-          </label>
-
-          <label className="block">
-            <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-muted">
-              Caractere de atalho no compose
+              Atalho das mensagens rápidas
             </span>
             <input
               value={triggerChar}
               onChange={(e) => setTriggerChar(e.target.value.slice(0, 1))}
               className="h-9 w-16 rounded-md border border-border-strong bg-surface px-2.5 text-center text-[13px] outline-none focus:border-brand"
             />
+            <span className="mt-1 block text-[10px] leading-relaxed text-muted">
+              Digite este caractere no início da caixa de mensagem do WhatsApp para abrir a lista de
+              mensagens rápidas: filtra enquanto você escreve, <b>Enter</b> envia e <b>Tab</b> só insere
+              o texto. Troque se o “/” atrapalhar sua digitação.
+            </span>
           </label>
           <div className="flex justify-end gap-2 pt-1">
             <button type="button" onClick={onClose} className="rounded-md border border-border-strong px-3 py-1.5 text-[13px] font-medium text-text-2 hover:bg-surface-2">
