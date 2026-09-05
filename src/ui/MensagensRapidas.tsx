@@ -152,9 +152,12 @@ export function MensagensRapidasPanel({
     // Mensagem da empresa restrita a equipes/pessoas só aparece para quem é
     // destino. O admin vê tudo no painel, mas aqui recebe apenas o que é dele.
     const paraMim = (r: RespostaDC) => {
+      // Minhas mensagens (pessoais) aparecem sempre — inclusive as ainda não
+      // sincronizadas, que nem têm os campos de visibilidade.
+      if (!r.padrao) return true;
+      if (r.visivelTodos) return true;
       const eq = r.visivelEquipes ?? [];
       const us = r.visivelUsuarios ?? [];
-      if (eq.length === 0 && us.length === 0) return true;
       if (perfil && us.includes(perfil.id)) return true;
       return eq.some((id) => equipes.includes(id));
     };

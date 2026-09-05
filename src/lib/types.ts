@@ -39,7 +39,8 @@ export type AcaoDC = {
 
 export type RespostaDC = {
   id: string;
-  /** Restrição da mensagem da empresa: vazio = todos. Preenchido, só estes. */
+  /** Visível para toda a empresa? Falso = só equipes/pessoas marcadas. */
+  visivelTodos?: boolean;
   visivelEquipes?: string[];
   visivelUsuarios?: string[];
   categoriaId: string | null;

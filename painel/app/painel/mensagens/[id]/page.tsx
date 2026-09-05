@@ -61,6 +61,7 @@ export default function Editor({ params }: { params: Promise<{ id: string }> }) 
   const [pessoas, setPessoas] = useState<{ id: string; nome: string }[]>([]);
   const [visivelEquipes, setVisivelEquipes] = useState<string[]>([]);
   const [visivelUsuarios, setVisivelUsuarios] = useState<string[]>([]);
+  const [visivelTodos, setVisivelTodos] = useState(false); // mensagem nova: ninguém
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -81,12 +82,13 @@ export default function Editor({ params }: { params: Promise<{ id: string }> }) 
     if (!nova) {
       const { data } = await supabase
         .from('respostas')
-        .select('titulo, atalho, categoria_id, pasta_id, visivel_equipes, visivel_usuarios, resposta_acoes(ordem, tipo, texto, midia_path, midia_mime, midia_nome, delay_segundos)')
+        .select('titulo, atalho, categoria_id, pasta_id, visivel_todos, visivel_equipes, visivel_usuarios, resposta_acoes(ordem, tipo, texto, midia_path, midia_mime, midia_nome, delay_segundos)')
         .eq('id', id)
         .maybeSingle();
       if (data) {
         const r = data as never as {
           titulo: string; atalho: string; categoria_id: string | null; pasta_id: string | null;
+          visivel_todos: boolean | null;
           visivel_equipes: string[] | null; visivel_usuarios: string[] | null;
           resposta_acoes: (Acao & { ordem: number })[];
         };
@@ -94,6 +96,7 @@ export default function Editor({ params }: { params: Promise<{ id: string }> }) 
         setAtalho(r.atalho ?? '');
         setCategoriaId(r.categoria_id ?? '');
         setPastaId(r.pasta_id ?? '');
+        setVisivelTodos(r.visivel_todos ?? false);
         setVisivelEquipes(r.visivel_equipes ?? []);
         setVisivelUsuarios(r.visivel_usuarios ?? []);
         setAcoes(
@@ -144,6 +147,7 @@ export default function Editor({ params }: { params: Promise<{ id: string }> }) 
       escopo: perfil!.papel === 'admin' ? 'empresa' : 'pessoal',
       owner_id: perfil!.papel === 'admin' ? null : perfil!.id,
       // Vazio = todos da empresa. Preenchido, só as equipes/pessoas marcadas.
+      visivel_todos: perfil!.papel === 'admin' ? visivelTodos : false,
       visivel_equipes: perfil!.papel === 'admin' ? visivelEquipes : [],
       visivel_usuarios: perfil!.papel === 'admin' ? visivelUsuarios : [],
       deleted_at: null,
@@ -397,11 +401,36 @@ export default function Editor({ params }: { params: Promise<{ id: string }> }) 
           {perfil?.papel === 'admin' && (
             <Cartao className="px-[18px] py-4">
               <div className="rotulo mb-1">QUEM VÊ ESTA MENSAGEM</div>
-              <p className="mb-3 text-[12.5px] leading-relaxed text-tinta-3">
-                {visivelEquipes.length + visivelUsuarios.length === 0
-                  ? 'Todos os usuários da clínica.'
-                  : 'Apenas quem estiver marcado abaixo.'}
-              </p>
+              {visivelTodos ? (
+                <p className="mb-3 text-[12.5px] leading-relaxed text-tinta-3">
+                  Todos os usuários da clínica.
+                </p>
+              ) : visivelEquipes.length + visivelUsuarios.length === 0 ? (
+                <p className="mb-3 rounded-controle border border-alerta-borda bg-alerta-fundo px-3 py-2 text-[12.5px] leading-relaxed text-alerta">
+                  Ninguém ainda — marque equipes, pessoas ou “Todos da clínica”.
+                </p>
+              ) : (
+                <p className="mb-3 text-[12.5px] leading-relaxed text-tinta-3">
+                  Apenas quem estiver marcado abaixo.
+                </p>
+              )}
+
+              <button
+                onClick={() => {
+                  setVisivelTodos((v) => !v);
+                  if (!visivelTodos) {
+                    setVisivelEquipes([]);
+                    setVisivelUsuarios([]);
+                  }
+                }}
+                className={`mb-3 w-full rounded-controle border px-3 py-2 text-[13px] font-medium transition ${
+                  visivelTodos
+                    ? 'border-transparent bg-marca text-white'
+                    : 'border-borda bg-white text-tinta-3 hover:border-marca hover:text-marca'
+                }`}
+              >
+                Todos da clínica
+              </button>
 
               {equipes.length > 0 && (
                 <>
@@ -412,11 +441,12 @@ export default function Editor({ params }: { params: Promise<{ id: string }> }) 
                       return (
                         <button
                           key={e.id}
-                          onClick={() =>
+                          onClick={() => {
+                            setVisivelTodos(false);
                             setVisivelEquipes((v) =>
                               marcada ? v.filter((x) => x !== e.id) : [...v, e.id],
-                            )
-                          }
+                            );
+                          }}
                           className={`rounded-chip border px-2.5 py-1 text-[12.5px] font-medium transition ${
                             marcada ? 'border-transparent text-white' : 'border-borda bg-white text-tinta-3 hover:border-marca'
                           }`}
@@ -437,9 +467,10 @@ export default function Editor({ params }: { params: Promise<{ id: string }> }) 
                   return (
                     <button
                       key={u.id}
-                      onClick={() =>
-                        setVisivelUsuarios((v) => (marcada ? v.filter((x) => x !== u.id) : [...v, u.id]))
-                      }
+                      onClick={() => {
+                        setVisivelTodos(false);
+                        setVisivelUsuarios((v) => (marcada ? v.filter((x) => x !== u.id) : [...v, u.id]));
+                      }}
                       className={`rounded-chip border px-2.5 py-1 text-[12.5px] font-medium transition ${
                         marcada
                           ? 'border-transparent bg-marca text-white'
@@ -452,15 +483,16 @@ export default function Editor({ params }: { params: Promise<{ id: string }> }) 
                 })}
               </div>
 
-              {visivelEquipes.length + visivelUsuarios.length > 0 && (
+              {(visivelTodos || visivelEquipes.length + visivelUsuarios.length > 0) && (
                 <button
                   onClick={() => {
+                    setVisivelTodos(false);
                     setVisivelEquipes([]);
                     setVisivelUsuarios([]);
                   }}
-                  className="mt-3 text-[12.5px] font-medium text-marca"
+                  className="mt-3 text-[12.5px] font-medium text-tinta-3 hover:text-perigo"
                 >
-                  Liberar para todos
+                  Limpar seleção
                 </button>
               )}
             </Cartao>

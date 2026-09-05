@@ -129,8 +129,10 @@ exclusão lógica por `deleted_at`, e vínculo pasta↔conversa por **número co
 ## Equipes, visibilidade e ficha do contato
 
 - **Equipes** (`equipes` + `equipe_usuarios`): agrupam usuários. Só admin cria e move gente.
-- **Visibilidade**: `respostas.visivel_equipes` / `visivel_usuarios` (arrays). **Vazio =
-  todos da empresa.** O admin **enxerga tudo** na RLS (precisa administrar no painel) —
+- **Visibilidade** (só de `respostas`): `visivel_todos` (booleano) + `visivel_equipes` /
+  `visivel_usuarios`. **Mensagem nova nasce visível para NINGUÉM** — é escolha explícita do
+  admin. Pastas **não** têm restrição: o vínculo conversa↔pasta é compartilhado, esconder a
+  pasta deixaria a conversa etiquetada num lugar invisível para o colega. O admin **enxerga tudo** na RLS (precisa administrar no painel) —
   quem filtra o que aparece nas mensagens rápidas dele é a **extensão**
   (`MensagensRapidas.carregar`, usando `minhasEquipes()` do sync).
 - **Escopo na extensão**: tudo que a pessoa cria ali nasce **pessoal**, mesmo sendo admin

@@ -51,9 +51,17 @@ describe('equipes', () => {
 });
 
 describe('visibilidade das mensagens padrão', () => {
-  test('sem restrição, todos da empresa veem', async () => {
+  test('mensagem nova nasce visível para NINGUÉM', async () => {
     await h.como(A.admin,
-      `insert into respostas (empresa_id, titulo) values ($1, 'Para todos')`, [A.id]);
+      `insert into respostas (empresa_id, titulo) values ($1, 'Recém-criada')`, [A.id]);
+    const r = await h.como(A.usuario,
+      `select count(*)::int as n from respostas where titulo = 'Recém-criada'`);
+    assert.equal(r.rows[0].n, 0, 'sem escolha explícita, ninguém recebe');
+  });
+
+  test('marcada como "todos", a empresa inteira vê', async () => {
+    await h.como(A.admin,
+      `insert into respostas (empresa_id, titulo, visivel_todos) values ($1, 'Para todos', true)`, [A.id]);
     const r = await h.como(A.usuario, `select count(*)::int as n from respostas where titulo = 'Para todos'`);
     assert.equal(r.rows[0].n, 1);
   });

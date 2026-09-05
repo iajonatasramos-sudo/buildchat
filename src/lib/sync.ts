@@ -131,6 +131,9 @@ async function enviarFila(perfil: Perfil): Promise<void> {
         const { error } = await sb.from('pastas').upsert({
           id: op.id,
           empresa_id: perfil.empresa.id,
+          // Pasta é organização compartilhada: nasce da empresa, não pessoal.
+          escopo: 'empresa',
+          owner_id: null,
           nome: op.nome,
           cor: op.cor,
           ordem: op.ordem,
@@ -394,7 +397,7 @@ async function puxar(perfil: Perfil, desde: string | null): Promise<string> {
   // Respostas com a sequência de ações
   let qr = sb
     .from('respostas')
-    .select('id, categoria_id, titulo, atalho, pasta_id, usos, ordem, escopo, visivel_equipes, visivel_usuarios, deleted_at, resposta_acoes(ordem, tipo, texto, midia_path, midia_mime, midia_nome, delay_segundos)');
+    .select('id, categoria_id, titulo, atalho, pasta_id, usos, ordem, escopo, visivel_todos, visivel_equipes, visivel_usuarios, deleted_at, resposta_acoes(ordem, tipo, texto, midia_path, midia_mime, midia_nome, delay_segundos)');
   if (desde) qr = qr.gt('atualizado_em', desde);
   const { data: resps, error: erroResps } = await qr;
   if (erroResps) throw erroResps;
@@ -416,6 +419,7 @@ async function puxar(perfil: Perfil, desde: string | null): Promise<string> {
         usos: r.usos ?? 0,
         ordem: r.ordem ?? 0,
         padrao: r.escopo === 'empresa',
+        visivelTodos: r.visivel_todos ?? false,
         visivelEquipes: r.visivel_equipes ?? [],
         visivelUsuarios: r.visivel_usuarios ?? [],
         tagId: r.pasta_id,
