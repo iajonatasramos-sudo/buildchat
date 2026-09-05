@@ -233,12 +233,20 @@ escondidos na interface — esconder botão não impede chamada direta à API.
   A clínica **lê** as próprias faturas (RLS), mas só o gestor cria e dá baixa
   (`sistema_lancar_fatura`, `sistema_baixar_fatura`, `sistema_definir_comercial`).
   Dar baixa reativa a assinatura e adia a próxima cobrança um ciclo.
-  `sistema_vendas()` calcula MRR (anual diluído em 12), recebido no mês, em aberto e vencidas.
+  `sistema_vendas()` calcula MRR, recebido no mês, em aberto e vencidas.
+- **Tipos de assinatura** (`0012_cadastro_empresa.sql`): `mensal`, `trimestral`, `anual` e
+  `vitalicio`. O valor guardado é o do ciclo inteiro; o MRR divide por 3 (trimestral) ou 12
+  (anual). **Vitalício é pagamento único**: fica fora do MRR e do ticket médio, e nunca tem
+  `proxima_cobranca` — nem ao criar, nem ao dar baixa, nem ao trocar o ciclo.
+- **Cadastrar clínica** (`sistema_criar_empresa`): o painel cria a conta no Auth (`signUp`,
+  restaurando a sessão do gestor logo depois — o mesmo truque de `/painel/usuarios`) e passa
+  o `id` para a RPC, que abre a empresa, o admin dela e o `config_usuario` numa transação só.
+  Dá para nascer em teste grátis (com o prazo em dias) ou já ativa, no plano e no ciclo
+  escolhidos, com valor de tabela ou negociado.
 - Páginas: `/sistema` (métricas), `/sistema/vendas` (receita e faturas), `/sistema/api`
   (integrações: chave, endereço, token com botão de revelar/copiar, escopo global ou por
-  clínica) e
-  `/sistema/empresas` (situação, assentos, uso
-  e as ações comerciais). O atalho na barra lateral só aparece para operadores.
+  clínica) e `/sistema/empresas` (cadastro de clínica, situação, assentos, uso e as ações
+  comerciais). O atalho na barra lateral só aparece para operadores.
 
 ## Servidor (`server/`) — Fase 0 concluída
 
@@ -246,7 +254,7 @@ escondidos na interface — esconder botão não impede chamada direta à API.
 server/sql/0001_schema.sql        tabelas multiempresa (escopo empresa × pessoal)
 server/sql/0002_rls.sql           RLS + funções app.* + grants para `authenticated`
 server/sql/0003_supabase_auth.sql FK com auth.users + criar_empresa_e_admin + aceitar_convite
-server/tests/                     19 testes rodando em Postgres real (PGlite/WASM)
+server/tests/                     79 testes rodando em Postgres real (PGlite/WASM)
 ```
 
 `cd server && npm test` — sobe um Postgres 16 em WASM, aplica as migrações e executa como
