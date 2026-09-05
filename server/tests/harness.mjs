@@ -3,7 +3,7 @@
 // o shim abaixo NÃO faz parte das migrações.
 
 import { PGlite } from '@electric-sql/pglite';
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -38,10 +38,15 @@ const SHIM = `
 export async function criarBanco() {
   const db = new PGlite();
   await db.exec(SHIM);
-  await db.exec(await readFile(join(raiz, 'sql/0001_schema.sql'), 'utf8'));
-  await db.exec(await readFile(join(raiz, 'sql/0002_rls.sql'), 'utf8'));
-  await db.exec(await readFile(join(raiz, 'sql/0003_supabase_auth.sql'), 'utf8'));
-  await db.exec(await readFile(join(raiz, 'sql/0005_assentos.sql'), 'utf8'));
+  // Aplica TODAS as migrações em ordem — assim um arquivo novo entra nos
+  // testes sem ninguém precisar lembrar de registrá-lo aqui.
+  // (0004 é do Storage: depende de tabelas que só existem no Supabase.)
+  const arquivos = (await readdir(join(raiz, 'sql')))
+    .filter((f) => f.endsWith('.sql') && !f.startsWith('0004'))
+    .sort();
+  for (const f of arquivos) {
+    await db.exec(await readFile(join(raiz, 'sql', f), 'utf8'));
+  }
 
   return {
     db,

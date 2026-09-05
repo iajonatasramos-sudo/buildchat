@@ -11,6 +11,7 @@
 import { uid } from './utils';
 import type {
   CategoriaDC,
+  FichaContato,
   CorCategoria,
   MensagensRapidasData,
   NotaContato,
@@ -31,6 +32,7 @@ const K = {
   seeded: 'bc2_seeded',
   msgCache: 'bc2_msg_cache',
   apagadas: 'bc2_apagadas',
+  contatos: 'bc2_contatos',
 } as const;
 
 const DEFAULT_SETTINGS: Settings = { webhookUrl: '', triggerChar: '/', tema: 'auto' };
@@ -285,6 +287,43 @@ export async function migrarChavesWa(
   }
   if (convertidas > 0) await set(K.contactTags, mapa);
   return convertidas;
+}
+
+// ───────────────────────── Ficha do contato ─────────────────────────
+// Uma entrada por conversa. O `nome` daqui tem prioridade sobre o nome do
+// WhatsApp nas variáveis das mensagens rápidas.
+
+const FICHA_VAZIA: FichaContato = { nome: null, nomeWhatsapp: null, interesses: null, ultimoContato: null };
+
+export async function mapaFichas(): Promise<Record<string, FichaContato>> {
+  return get<Record<string, FichaContato>>(K.contatos, {});
+}
+
+export async function obterFicha(chatId: string): Promise<FichaContato> {
+  const mapa = await get<Record<string, FichaContato>>(K.contatos, {});
+  return { ...FICHA_VAZIA, ...(mapa[chatId] ?? {}) };
+}
+
+export async function salvarFicha(chatId: string, patch: Partial<FichaContato>): Promise<FichaContato> {
+  const mapa = await get<Record<string, FichaContato>>(K.contatos, {});
+  const nova = { ...FICHA_VAZIA, ...(mapa[chatId] ?? {}), ...patch };
+  mapa[chatId] = nova;
+  await set(K.contatos, mapa);
+  const { enfileirar } = await import('./sync');
+  await enfileirar({ op: 'contato.upsert', remoteJid: chatId });
+  return nova;
+}
+
+/** Grava o mapa completo (usado pela sincronização). */
+export async function salvarMapaFichas(mapa: Record<string, FichaContato>): Promise<void> {
+  await set(K.contatos, mapa);
+}
+
+/** Marca o momento do último envio — alimenta o CRM do painel. */
+export async function registrarUltimoContato(chatId: string, nomeWhatsapp?: string | null): Promise<void> {
+  const patch: Partial<FichaContato> = { ultimoContato: new Date().toISOString() };
+  if (nomeWhatsapp) patch.nomeWhatsapp = nomeWhatsapp;
+  await salvarFicha(chatId, patch);
 }
 
 // ───────────────────────── Notas por contato ─────────────────────────

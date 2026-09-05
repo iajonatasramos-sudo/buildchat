@@ -57,34 +57,45 @@ export default function Editor({ params }: { params: Promise<{ id: string }> }) 
   const [categoriaId, setCategoriaId] = useState<string>('');
   const [pastaId, setPastaId] = useState<string>('');
   const [acoes, setAcoes] = useState<Acao[]>([acaoVazia()]);
+  const [equipes, setEquipes] = useState<{ id: string; nome: string; cor: string }[]>([]);
+  const [pessoas, setPessoas] = useState<{ id: string; nome: string }[]>([]);
+  const [visivelEquipes, setVisivelEquipes] = useState<string[]>([]);
+  const [visivelUsuarios, setVisivelUsuarios] = useState<string[]>([]);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
   const carregar = useCallback(async () => {
     const p = await carregarPerfil();
     setPerfil(p);
-    const [c, f] = await Promise.all([
+    const [c, f, eq, us] = await Promise.all([
       supabase.from('categorias').select('id, nome, cor').is('deleted_at', null).order('ordem'),
       supabase.from('pastas').select('id, nome, cor').is('deleted_at', null).order('ordem'),
+      supabase.from('equipes').select('id, nome, cor').is('deleted_at', null).order('nome'),
+      supabase.from('usuarios').select('id, nome').eq('ativo', true).order('nome'),
     ]);
     setCategorias((c.data as Categoria[]) ?? []);
     setPastas((f.data as Pasta[]) ?? []);
+    setEquipes((eq.data as { id: string; nome: string; cor: string }[]) ?? []);
+    setPessoas((us.data as { id: string; nome: string }[]) ?? []);
 
     if (!nova) {
       const { data } = await supabase
         .from('respostas')
-        .select('titulo, atalho, categoria_id, pasta_id, resposta_acoes(ordem, tipo, texto, midia_path, midia_mime, midia_nome, delay_segundos)')
+        .select('titulo, atalho, categoria_id, pasta_id, visivel_equipes, visivel_usuarios, resposta_acoes(ordem, tipo, texto, midia_path, midia_mime, midia_nome, delay_segundos)')
         .eq('id', id)
         .maybeSingle();
       if (data) {
         const r = data as never as {
           titulo: string; atalho: string; categoria_id: string | null; pasta_id: string | null;
+          visivel_equipes: string[] | null; visivel_usuarios: string[] | null;
           resposta_acoes: (Acao & { ordem: number })[];
         };
         setTitulo(r.titulo);
         setAtalho(r.atalho ?? '');
         setCategoriaId(r.categoria_id ?? '');
         setPastaId(r.pasta_id ?? '');
+        setVisivelEquipes(r.visivel_equipes ?? []);
+        setVisivelUsuarios(r.visivel_usuarios ?? []);
         setAcoes(
           r.resposta_acoes.length
             ? [...r.resposta_acoes].sort((a, b) => a.ordem - b.ordem).map(({ ordem: _o, ...a }) => a)
@@ -132,6 +143,9 @@ export default function Editor({ params }: { params: Promise<{ id: string }> }) 
       pasta_id: pastaId || null,
       escopo: perfil!.papel === 'admin' ? 'empresa' : 'pessoal',
       owner_id: perfil!.papel === 'admin' ? null : perfil!.id,
+      // Vazio = todos da empresa. Preenchido, só as equipes/pessoas marcadas.
+      visivel_equipes: perfil!.papel === 'admin' ? visivelEquipes : [],
+      visivel_usuarios: perfil!.papel === 'admin' ? visivelUsuarios : [],
       deleted_at: null,
     };
 
@@ -379,6 +393,78 @@ export default function Editor({ params }: { params: Promise<{ id: string }> }) 
               </label>
             </div>
           </Cartao>
+
+          {perfil?.papel === 'admin' && (
+            <Cartao className="px-[18px] py-4">
+              <div className="rotulo mb-1">QUEM VÊ ESTA MENSAGEM</div>
+              <p className="mb-3 text-[12.5px] leading-relaxed text-tinta-3">
+                {visivelEquipes.length + visivelUsuarios.length === 0
+                  ? 'Todos os usuários da clínica.'
+                  : 'Apenas quem estiver marcado abaixo.'}
+              </p>
+
+              {equipes.length > 0 && (
+                <>
+                  <div className="mb-1.5 text-[12.5px] font-medium text-tinta-3">Equipes</div>
+                  <div className="mb-3 flex flex-wrap gap-1.5">
+                    {equipes.map((e) => {
+                      const marcada = visivelEquipes.includes(e.id);
+                      return (
+                        <button
+                          key={e.id}
+                          onClick={() =>
+                            setVisivelEquipes((v) =>
+                              marcada ? v.filter((x) => x !== e.id) : [...v, e.id],
+                            )
+                          }
+                          className={`rounded-chip border px-2.5 py-1 text-[12.5px] font-medium transition ${
+                            marcada ? 'border-transparent text-white' : 'border-borda bg-white text-tinta-3 hover:border-marca'
+                          }`}
+                          style={marcada ? { background: e.cor } : undefined}
+                        >
+                          {e.nome}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              <div className="mb-1.5 text-[12.5px] font-medium text-tinta-3">Pessoas</div>
+              <div className="flex flex-wrap gap-1.5">
+                {pessoas.map((u) => {
+                  const marcada = visivelUsuarios.includes(u.id);
+                  return (
+                    <button
+                      key={u.id}
+                      onClick={() =>
+                        setVisivelUsuarios((v) => (marcada ? v.filter((x) => x !== u.id) : [...v, u.id]))
+                      }
+                      className={`rounded-chip border px-2.5 py-1 text-[12.5px] font-medium transition ${
+                        marcada
+                          ? 'border-transparent bg-marca text-white'
+                          : 'border-borda bg-white text-tinta-3 hover:border-marca'
+                      }`}
+                    >
+                      {u.nome}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {visivelEquipes.length + visivelUsuarios.length > 0 && (
+                <button
+                  onClick={() => {
+                    setVisivelEquipes([]);
+                    setVisivelUsuarios([]);
+                  }}
+                  className="mt-3 text-[12.5px] font-medium text-marca"
+                >
+                  Liberar para todos
+                </button>
+              )}
+            </Cartao>
+          )}
 
           <Cartao className="px-[18px] py-4">
             <div className="rotulo mb-3">VARIÁVEIS DISPONÍVEIS</div>

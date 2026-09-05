@@ -24,7 +24,8 @@ type Op =
   | { op: 'resposta.delete'; id: string }
   | { op: 'anotacao.upsert'; id: string; remoteJid: string }
   | { op: 'anotacao.delete'; id: string }
-  | { op: 'config.upsert' };
+  | { op: 'config.upsert' }
+  | { op: 'contato.upsert'; remoteJid: string };
 
 type Estado = {
   /** ISO do último pull bem-sucedido. */
@@ -37,6 +38,7 @@ type Estado = {
 
 const K_OUTBOX = 'bc2_outbox';
 const K_ESTADO = 'bc2_sync_estado';
+const K_EQUIPES = 'bc2_minhas_equipes';
 const ESTADO_INICIAL: Estado = { ultimoSync: null, adotado: false, empresaId: null };
 
 const ler = <T>(k: string, padrao: T) =>
@@ -182,6 +184,23 @@ async function enviarFila(perfil: Perfil): Promise<void> {
           });
           if (error) throw error;
         }
+      } else if (op.op === 'contato.upsert') {
+        if (!wa) { restantes.push(op); continue; }
+        const ficha = await db.obterFicha(op.remoteJid);
+        const { error } = await sb.from('contatos').upsert(
+          {
+            empresa_id: perfil.empresa.id,
+            wa_number: wa,
+            remote_jid: op.remoteJid,
+            nome: ficha.nome,
+            nome_whatsapp: ficha.nomeWhatsapp,
+            interesses: ficha.interesses,
+            ultimo_contato: ficha.ultimoContato,
+            deleted_at: null,
+          },
+          { onConflict: 'empresa_id,wa_number,remote_jid' },
+        );
+        if (error) throw error;
       } else if (op.op === 'anotacao.delete') {
         const { error } = await sb.from('anotacoes')
           .update({ deleted_at: new Date().toISOString() }).eq('id', op.id);
@@ -226,10 +245,12 @@ async function enviarFila(perfil: Perfil): Promise<void> {
 }
 
 /** Registros novos nascem da empresa quando quem cria é admin; senão, pessoais. */
+/**
+ * Na extensão, o que a pessoa cria é dela — inclusive se for admin. Mensagens
+ * da empresa nascem no painel, onde dá para definir equipes e visibilidade.
+ */
 function escopoDe(perfil: Perfil) {
-  return perfil.papel === 'admin'
-    ? { escopo: 'empresa', owner_id: null }
-    : { escopo: 'pessoal', owner_id: perfil.id };
+  return { escopo: 'pessoal' as const, owner_id: perfil.id };
 }
 
 /**
@@ -373,7 +394,7 @@ async function puxar(perfil: Perfil, desde: string | null): Promise<string> {
   // Respostas com a sequência de ações
   let qr = sb
     .from('respostas')
-    .select('id, categoria_id, titulo, atalho, pasta_id, usos, ordem, escopo, deleted_at, resposta_acoes(ordem, tipo, texto, midia_path, midia_mime, midia_nome, delay_segundos)');
+    .select('id, categoria_id, titulo, atalho, pasta_id, usos, ordem, escopo, visivel_equipes, visivel_usuarios, deleted_at, resposta_acoes(ordem, tipo, texto, midia_path, midia_mime, midia_nome, delay_segundos)');
   if (desde) qr = qr.gt('atualizado_em', desde);
   const { data: resps, error: erroResps } = await qr;
   if (erroResps) throw erroResps;
@@ -395,6 +416,8 @@ async function puxar(perfil: Perfil, desde: string | null): Promise<string> {
         usos: r.usos ?? 0,
         ordem: r.ordem ?? 0,
         padrao: r.escopo === 'empresa',
+        visivelEquipes: r.visivel_equipes ?? [],
+        visivelUsuarios: r.visivel_usuarios ?? [],
         tagId: r.pasta_id,
         tagNome: tag?.nome ?? null,
         tagCor: tag?.cor ?? null,
@@ -452,6 +475,36 @@ async function puxar(perfil: Perfil, desde: string | null): Promise<string> {
       );
     }
   }
+
+  // Ficha dos contatos do número conectado
+  if (wa) {
+    let qc = sb
+      .from('contatos')
+      .select('remote_jid, nome, nome_whatsapp, interesses, ultimo_contato, deleted_at')
+      .eq('wa_number', wa);
+    if (desde) qc = qc.gt('atualizado_em', desde);
+    const { data: fichas, error: erroFichas } = await qc;
+    if (erroFichas) throw erroFichas;
+
+    if (fichas?.length) {
+      const mapa = await db.mapaFichas();
+      for (const f of fichas as any[]) {
+        if (f.deleted_at) delete mapa[f.remote_jid];
+        else
+          mapa[f.remote_jid] = {
+            nome: f.nome,
+            nomeWhatsapp: f.nome_whatsapp,
+            interesses: f.interesses,
+            ultimoContato: f.ultimo_contato,
+          };
+      }
+      await db.salvarMapaFichas(mapa);
+    }
+  }
+
+  // Equipes de que faço parte — a extensão filtra o acervo por elas.
+  const { data: minhas } = await sb.from('equipe_usuarios').select('equipe_id').eq('usuario_id', perfil.id);
+  await gravar(K_EQUIPES, (minhas ?? []).map((e: any) => e.equipe_id));
 
   return agora;
 }
@@ -583,3 +636,8 @@ export function iniciarSyncPeriodico(): () => void {
 }
 
 export type { TagOpt };
+
+/** Equipes de que o usuário faz parte (preenchido pela sincronização). */
+export async function minhasEquipes(): Promise<string[]> {
+  return ler<string[]>(K_EQUIPES, []);
+}

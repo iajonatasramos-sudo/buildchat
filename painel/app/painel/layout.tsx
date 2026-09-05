@@ -10,8 +10,10 @@ import { avaliarLicenca, carregarPerfil, iniciais, supabase, type Perfil } from 
 const MENU = [
   { href: '/painel', rotulo: 'Visão geral' },
   { href: '/painel/usuarios', rotulo: 'Usuários' },
+  { href: '/painel/equipes', rotulo: 'Equipes' },
   { href: '/painel/mensagens', rotulo: 'Mensagens padrão' },
   { href: '/painel/pastas', rotulo: 'Pastas' },
+  { href: '/painel/contatos', rotulo: 'Contatos' },
   { href: '/painel/assinatura', rotulo: 'Assinatura' },
 ];
 

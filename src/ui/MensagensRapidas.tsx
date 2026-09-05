@@ -4,6 +4,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Check,
   ChevronDown,
   ChevronUp,
   FileText,
@@ -22,6 +23,7 @@ import {
   Send,
   Shapes,
   Smartphone,
+  Sparkles,
   Tag,
   Trash2,
   User,
@@ -49,6 +51,8 @@ import { cn } from '@/lib/utils';
 import { toast } from './toast';
 import * as db from '@/lib/db';
 import { getInfoConta } from '@/lib/wa';
+import { minhasEquipes } from '@/lib/sync';
+import { carregarPerfil } from '@/lib/auth';
 import {
   CORES_CATEGORIA,
   TIPOS_RESPOSTA,
@@ -58,6 +62,7 @@ import {
   type CategoriaDC,
   type ContatoAtivo,
   type CorCategoria,
+  type FichaContato,
   type MensagensRapidasData,
   type NotaContato,
   type RespostaDC,
@@ -130,7 +135,21 @@ export function MensagensRapidasPanel({
   const sensores = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const carregar = useCallback(async () => {
-    setData(await db.carregarMensagensRapidas());
+    const [dados, equipes, perfil] = await Promise.all([
+      db.carregarMensagensRapidas(),
+      minhasEquipes(),
+      carregarPerfil(),
+    ]);
+    // Mensagem da empresa restrita a equipes/pessoas só aparece para quem é
+    // destino. O admin vê tudo no painel, mas aqui recebe apenas o que é dele.
+    const paraMim = (r: RespostaDC) => {
+      const eq = r.visivelEquipes ?? [];
+      const us = r.visivelUsuarios ?? [];
+      if (eq.length === 0 && us.length === 0) return true;
+      if (perfil && us.includes(perfil.id)) return true;
+      return eq.some((id) => equipes.includes(id));
+    };
+    setData({ ...dados, respostas: dados.respostas.filter(paraMim) });
     setCarregando(false);
   }, []);
 
@@ -1026,18 +1045,32 @@ function ContatoGuia({ contato, tags }: { contato: ContatoAtivo | null; tags: Ta
   const [tagsContato, setTagsContato] = useState<string[]>([]);
   const [notas, setNotas] = useState<NotaContato[]>([]);
   const [novaNota, setNovaNota] = useState('');
+  const [ficha, setFicha] = useState<FichaContato | null>(null);
+  const [editandoNome, setEditandoNome] = useState(false);
+  const [nomeRascunho, setNomeRascunho] = useState('');
+  const [interesses, setInteresses] = useState('');
+  const [addEtiqueta, setAddEtiqueta] = useState(false);
 
   useEffect(() => {
     if (!contato) {
       setTagsContato([]);
       setNotas([]);
+      setFicha(null);
       return;
     }
     let vivo = true;
-    Promise.all([db.tagsDoContato(contato.chatId), db.listarNotas(contato.chatId)]).then(([t, n]) => {
+    Promise.all([
+      db.tagsDoContato(contato.chatId),
+      db.listarNotas(contato.chatId),
+      db.obterFicha(contato.chatId),
+    ]).then(([t, n, f]) => {
       if (!vivo) return;
       setTagsContato(t);
       setNotas(n);
+      setFicha(f);
+      setInteresses(f.interesses ?? '');
+      setEditandoNome(false);
+      setAddEtiqueta(false);
     });
     return () => {
       vivo = false;
@@ -1064,6 +1097,22 @@ function ContatoGuia({ contato, tags }: { contato: ContatoAtivo | null; tags: Ta
     setNovaNota('');
   }
 
+  async function salvarNome() {
+    const nome = nomeRascunho.trim();
+    setFicha(await db.salvarFicha(contato!.chatId, { nome: nome || null }));
+    setEditandoNome(false);
+    toast.success('Nome atualizado.');
+  }
+
+  async function salvarInteresses() {
+    const texto = interesses.trim();
+    if ((ficha?.interesses ?? '') === texto) return;
+    setFicha(await db.salvarFicha(contato!.chatId, { interesses: texto || null }));
+  }
+
+  /** Nome usado nas mensagens: o cadastrado tem prioridade sobre o do WhatsApp. */
+  const nomeExibido = ficha?.nome?.trim() || contato.nome;
+
   return (
     <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
       <div className="flex items-center gap-3 rounded-lg border border-border bg-surface-2 p-3">
@@ -1071,7 +1120,42 @@ function ContatoGuia({ contato, tags }: { contato: ContatoAtivo | null; tags: Ta
           <User size={18} />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[14px] font-bold">{contato.nome}</div>
+          {editandoNome ? (
+            <div className="flex items-center gap-1.5">
+              <input
+                autoFocus
+                value={nomeRascunho}
+                onChange={(e) => setNomeRascunho(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') salvarNome();
+                  if (e.key === 'Escape') setEditandoNome(false);
+                }}
+                placeholder={contato.nome}
+                className="h-7 min-w-0 flex-1 rounded-md border border-border-strong bg-surface px-2 text-[13px] outline-none focus:border-brand"
+              />
+              <button
+                type="button"
+                onClick={salvarNome}
+                className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-md bg-brand text-white"
+                title="Salvar nome"
+              >
+                <Check size={13} />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setNomeRascunho(ficha?.nome ?? '');
+                setEditandoNome(true);
+              }}
+              className="group flex w-full items-center gap-1.5 text-left"
+              title="Editar o nome usado nas mensagens"
+            >
+              <span className="truncate text-[14px] font-bold">{nomeExibido}</span>
+              <Pencil size={11} className="flex-shrink-0 text-muted opacity-0 transition group-hover:opacity-100" />
+            </button>
+          )}
           <div className="flex items-center gap-1 text-[11px] text-muted">
             <Phone size={11} />
             {contato.telefone ?? (contato.ehGrupo ? 'Grupo' : '—')}
@@ -1079,29 +1163,87 @@ function ContatoGuia({ contato, tags }: { contato: ContatoAtivo | null; tags: Ta
         </div>
       </div>
 
+      {/* O nome acima é o que entra em {{nome}} nas mensagens rápidas. */}
+      {ficha?.nome && ficha.nome.trim() !== contato.nome && (
+        <p className="-mt-1 px-1 text-[10.5px] text-muted">
+          No WhatsApp aparece como “{contato.nome}”.
+        </p>
+      )}
+
       <GuiaSecao titulo="Etiquetas" Icon={Tag}>
-        {tags.length === 0 ? (
-          <span className="text-[12px] text-muted">Nenhuma etiqueta cadastrada.</span>
-        ) : (
-          <div className="flex flex-wrap gap-1.5">
-            {tags.map((t) => {
-              const ativa = tagsContato.includes(t.id);
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => alternarTag(t.id)}
-                  className={cn(
-                    'rounded-md border px-2.5 py-0.5 text-[11.5px] font-semibold transition',
-                    ativa ? 'text-white' : 'bg-surface text-text-2 hover:bg-surface-2',
-                  )}
-                  style={ativa ? { background: t.cor, borderColor: t.cor } : { borderColor: t.cor, color: t.cor }}
-                >
-                  {t.nome}
-                </button>
-              );
-            })}
+        {/* Mostra apenas as pastas em que o contato está; o + abre a lista. */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {tags
+            .filter((t) => tagsContato.includes(t.id))
+            .map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => alternarTag(t.id)}
+                title="Remover desta pasta"
+                className="group inline-flex items-center gap-1 rounded-md border px-2.5 py-0.5 text-[11.5px] font-semibold text-white transition"
+                style={{ background: t.cor, borderColor: t.cor }}
+              >
+                {t.nome}
+                <X size={11} className="opacity-0 transition group-hover:opacity-100" />
+              </button>
+            ))}
+
+          {tagsContato.length === 0 && !addEtiqueta && (
+            <span className="text-[12px] text-muted">Nenhuma etiqueta neste contato.</span>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setAddEtiqueta((v) => !v)}
+            title="Adicionar a uma pasta"
+            className={cn(
+              'grid h-6 w-6 place-items-center rounded-md border border-dashed border-border-strong text-muted transition hover:border-brand hover:text-brand',
+              addEtiqueta && 'border-brand text-brand',
+            )}
+          >
+            <Plus size={13} />
+          </button>
+        </div>
+
+        {addEtiqueta && (
+          <div className="mt-2 flex max-h-40 flex-wrap gap-1.5 overflow-y-auto border-t border-border pt-2">
+            {tags.filter((t) => !tagsContato.includes(t.id)).length === 0 ? (
+              <span className="text-[12px] text-muted">O contato já está em todas as pastas.</span>
+            ) : (
+              tags
+                .filter((t) => !tagsContato.includes(t.id))
+                .map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => alternarTag(t.id)}
+                    className="rounded-md border bg-surface px-2.5 py-0.5 text-[11.5px] font-semibold transition hover:text-white"
+                    style={{ borderColor: t.cor, color: t.cor }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = t.cor)}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = '')}
+                  >
+                    {t.nome}
+                  </button>
+                ))
+            )}
           </div>
+        )}
+      </GuiaSecao>
+
+      <GuiaSecao titulo="Interesses" Icon={Sparkles}>
+        <textarea
+          value={interesses}
+          onChange={(e) => setInteresses(e.target.value)}
+          onBlur={salvarInteresses}
+          rows={3}
+          placeholder="Ex.: lentes de contato, clareamento — orçamento enviado em 12/08"
+          className="w-full resize-none rounded-md border border-border-strong bg-surface px-2.5 py-1.5 text-[12px] outline-none focus:border-brand"
+        />
+        {ficha?.ultimoContato && (
+          <p className="mt-1 text-[10.5px] text-muted">
+            Último envio: {new Date(ficha.ultimoContato).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+          </p>
         )}
       </GuiaSecao>
 

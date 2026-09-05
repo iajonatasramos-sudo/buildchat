@@ -39,6 +39,9 @@ export type AcaoDC = {
 
 export type RespostaDC = {
   id: string;
+  /** Restrição da mensagem da empresa: vazio = todos. Preenchido, só estes. */
+  visivelEquipes?: string[];
+  visivelUsuarios?: string[];
   categoriaId: string | null;
   titulo: string;
   atalho: string;
@@ -63,6 +66,14 @@ export type NotaContato = {
   id: string;
   conteudo: string;
   criadoEm: string;
+};
+
+/** Ficha do contato — nome de tratamento, interesses e último envio. */
+export type FichaContato = {
+  nome: string | null;
+  nomeWhatsapp: string | null;
+  interesses: string | null;
+  ultimoContato: string | null;
 };
 
 export type ContatoAtivo = {

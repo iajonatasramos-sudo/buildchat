@@ -126,6 +126,20 @@ exclusão lógica por `deleted_at`, e vínculo pasta↔conversa por **número co
 - **PostgREST**: em inserção em lote, todos os objetos precisam ter exatamente as mesmas
   chaves — por isso o envio das ações sempre manda todos os campos, mesmo nulos.
 
+## Equipes, visibilidade e ficha do contato
+
+- **Equipes** (`equipes` + `equipe_usuarios`): agrupam usuários. Só admin cria e move gente.
+- **Visibilidade**: `respostas.visivel_equipes` / `visivel_usuarios` (arrays). **Vazio =
+  todos da empresa.** O admin **enxerga tudo** na RLS (precisa administrar no painel) —
+  quem filtra o que aparece nas mensagens rápidas dele é a **extensão**
+  (`MensagensRapidas.carregar`, usando `minhasEquipes()` do sync).
+- **Escopo na extensão**: tudo que a pessoa cria ali nasce **pessoal**, mesmo sendo admin
+  (`escopoDe` em `sync.ts`). Mensagem da empresa só nasce no painel.
+- **Ficha do contato** (`contatos`, chave `empresa+wa_number+remote_jid`): nome de
+  tratamento, interesses e `ultimo_contato`. O nome da ficha tem prioridade sobre o do
+  WhatsApp em `{{nome}}` (`executarResposta` e `inserirTextoNoCompose`).
+- `ultimo_contato` é gravado a cada envio pela extensão — é o que alimenta o CRM.
+
 ## Painel web (`painel/`) — Fase 5
 
 Next.js 15 + Tailwind v4, cliente do mesmo Supabase (RLS faz a segurança; nada de
@@ -142,7 +156,10 @@ painel/app/painel/           casca com barra lateral + faixa de assinatura venci
                              em seguida com setSession) e ativar/desativar
   mensagens/                 acervo agrupado por categoria
   mensagens/[id]/            editor da sequência de ações (upload vai para o Storage)
+  equipes/                   equipes e seus membros
   pastas/                    lista com ordem, cor e contagem de conversas
+  contatos/                  CRM: planilha de contatos, pastas, interesses e último
+                             contato, com busca, filtro por pasta e export CSV
   assinatura/                plano, assentos e situação
 ```
 

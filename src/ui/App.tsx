@@ -178,7 +178,7 @@ export function App() {
           e.stopPropagation();
           const r = filtradas[Math.min(ativo, filtradas.length - 1)];
           setQuery(null);
-          inserirTextoNoCompose(r, contato);
+          void inserirTextoNoCompose(r, contato);
         }
       } else if (e.key === 'Escape') {
         setQuery(null);

@@ -5,6 +5,8 @@ import { aguardar, uid } from './utils';
 import { aplicarVariaveis, type ContatoAtivo, type RespostaDC } from './types';
 import {
   aplicarTagContato,
+  obterFicha,
+  registrarUltimoContato,
   obterMediaDataUrl,
   registrarMensagemCache,
   registrarRevogada,
@@ -395,8 +397,12 @@ export type ResultadoExecucao = { ok: true } | { ok: false; erro: string };
  * aplica a etiqueta configurada e dispara o webhook.
  */
 export async function executarResposta(resposta: RespostaDC): Promise<ResultadoExecucao> {
-  const contato = await getContatoAtivo();
-  if (!contato) return { ok: false, erro: 'Abra uma conversa antes de enviar.' };
+  const contatoWa = await getContatoAtivo();
+  if (!contatoWa) return { ok: false, erro: 'Abra uma conversa antes de enviar.' };
+
+  // O nome cadastrado na ficha manda em {{nome}}; sem ele, vale o do WhatsApp.
+  const ficha = await obterFicha(contatoWa.chatId);
+  const contato = { ...contatoWa, nome: ficha.nome?.trim() || contatoWa.nome };
 
   try {
     for (const acao of resposta.acoes) {
@@ -419,6 +425,8 @@ export async function executarResposta(resposta: RespostaDC): Promise<ResultadoE
   }
 
   registrarUso(resposta.id).catch(() => {});
+  // Alimenta o CRM do painel: data do último envio para esta conversa.
+  registrarUltimoContato(contatoWa.chatId, contatoWa.nome).catch(() => {});
   if (resposta.tagId) aplicarTagContato(contato.chatId, resposta.tagId).catch(() => {});
   try {
     chrome.runtime.sendMessage({
@@ -440,8 +448,10 @@ export async function executarResposta(resposta: RespostaDC): Promise<ResultadoE
 }
 
 /** Só insere o texto no compose (sem enviar) — usado no picker "/" com Tab. */
-export function inserirTextoNoCompose(resposta: RespostaDC, contato: ContatoAtivo | null) {
+export async function inserirTextoNoCompose(resposta: RespostaDC, contato: ContatoAtivo | null) {
   const primeira = resposta.acoes.find((a) => a.texto.trim());
   if (!primeira) return;
-  DOM.setComposeText(aplicarVariaveis(primeira.texto, contato ?? {}));
+  const ficha = contato ? await obterFicha(contato.chatId) : null;
+  const ctx = contato ? { ...contato, nome: ficha?.nome?.trim() || contato.nome } : {};
+  await DOM.setComposeText(aplicarVariaveis(primeira.texto, ctx));
 }
