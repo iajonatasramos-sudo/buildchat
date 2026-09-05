@@ -26,7 +26,10 @@ type Empresa = {
   observacao: string | null;
   faturas_abertas: number;
   aberto_centavos: number;
+  plano_slug: 'start' | 'pro' | 'master';
 };
+
+type Plano = { slug: string; nome: string; preco_mensal_centavos: number; assentos_inclusos: number };
 
 const CORES: Record<Empresa['status'], string> = {
   ativa: 'bg-sucesso-fundo text-sucesso',
@@ -44,11 +47,16 @@ const ROTULOS: Record<Empresa['status'], string> = {
 export default function EmpresasSistema() {
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [editando, setEditando] = useState<Empresa | null>(null);
+  const [planos, setPlanos] = useState<Plano[]>([]);
   const [busca, setBusca] = useState('');
 
   const carregar = useCallback(async () => {
-    const { data } = await supabase.rpc('sistema_empresas');
+    const [{ data }, { data: pl }] = await Promise.all([
+      supabase.rpc('sistema_empresas'),
+      supabase.from('planos').select('slug, nome, preco_mensal_centavos, assentos_inclusos').eq('ativo', true).order('ordem'),
+    ]);
     setEmpresas((data as Empresa[]) ?? []);
+    setPlanos((pl as Plano[]) ?? []);
   }, []);
 
   useEffect(() => {
@@ -106,7 +114,11 @@ export default function EmpresasSistema() {
                             {dias > 0 ? `${dias} dia(s)` : 'expirado'}
                           </div>
                         )}
-                        <div className="mt-0.5 text-[12px] text-tinta-4">{e.plano}</div>
+                        <div className="mt-0.5">
+                          <span className="rounded-chip bg-linha px-2 py-[2px] text-[11.5px] font-bold uppercase tracking-wide text-tinta-2">
+                            {e.plano_slug}
+                          </span>
+                        </div>
                       </td>
                       <td className="border-b border-linha px-[18px] py-3.5">
                         <span className="font-medium">{e.usuarios_ativos}</span>
@@ -152,6 +164,7 @@ export default function EmpresasSistema() {
 
       {editando && (
         <GerenciarModal
+          planos={planos}
           empresa={editando}
           onFechar={() => setEditando(null)}
           onPronto={() => {
@@ -166,15 +179,18 @@ export default function EmpresasSistema() {
 
 function GerenciarModal({
   empresa,
+  planos,
   onFechar,
   onPronto,
 }: {
   empresa: Empresa;
+  planos: Plano[];
   onFechar: () => void;
   onPronto: () => void;
 }) {
   const [status, setStatus] = useState(empresa.status);
-  const [plano, setPlano] = useState(empresa.plano);
+  const [planoSlug, setPlanoSlug] = useState(empresa.plano_slug);
+  const [ajustarAssentos, setAjustarAssentos] = useState(false);
   const [assentos, setAssentos] = useState(String(empresa.assentos));
   const [valor, setValor] = useState(
     empresa.valor_mensal_centavos ? (empresa.valor_mensal_centavos / 100).toFixed(2).replace('.', ',') : '',
@@ -190,11 +206,23 @@ function GerenciarModal({
   async function salvar() {
     setSalvando(true);
     setErro(null);
+    if (planoSlug !== empresa.plano_slug || ajustarAssentos) {
+      const { error: erroPlano } = await supabase.rpc('sistema_definir_plano', {
+        p_empresa: empresa.id,
+        p_plano: planoSlug,
+        p_ajustar_assentos: ajustarAssentos,
+      });
+      if (erroPlano) {
+        setErro(erroPlano.message);
+        setSalvando(false);
+        return;
+      }
+    }
     const { error } = await supabase.rpc('sistema_atualizar_empresa', {
       p_empresa: empresa.id,
       p_status: status,
-      p_plano: plano.trim() || null,
-      p_assentos: Number(assentos) || null,
+      p_plano: null,
+      p_assentos: ajustarAssentos ? null : Number(assentos) || null,
       p_trial_ate: null,
     });
     const centavos = valor.trim()
@@ -233,13 +261,29 @@ function GerenciarModal({
         </label>
 
         <label className="flex flex-col gap-1.5 font-medium">
-          Plano
-          <input
-            value={plano}
-            onChange={(e) => setPlano(e.target.value)}
-            placeholder="Ex.: profissional"
+          Nível do cliente
+          <select
+            value={planoSlug}
+            onChange={(e) => {
+              setPlanoSlug(e.target.value as Empresa['plano_slug']);
+              setAjustarAssentos(true);
+            }}
             className="campo focus:campo-foco font-normal"
-          />
+          >
+            {planos.map((p) => (
+              <option key={p.slug} value={p.slug}>
+                {p.nome} — {moeda(p.preco_mensal_centavos)}/mês · {p.assentos_inclusos} assentos
+              </option>
+            ))}
+          </select>
+          <label className="flex items-center gap-2 text-[12.5px] font-normal text-tinta-3">
+            <input
+              type="checkbox"
+              checked={ajustarAssentos}
+              onChange={(e) => setAjustarAssentos(e.target.checked)}
+            />
+            Aplicar os assentos do plano
+          </label>
         </label>
 
         <label className="flex flex-col gap-1.5 font-medium">

@@ -22,7 +22,10 @@ $$;
 
 -- ──────────────────────────── Leitura agregada ────────────────────────────
 
-create or replace function public.sistema_empresas()
+-- `create or replace` não troca o tipo de retorno: derruba antes, para a
+-- migração poder ser reaplicada mesmo depois de a 0009 estender a função.
+drop function if exists public.sistema_empresas();
+create function public.sistema_empresas()
 returns table (
   id             uuid,
   nome           text,

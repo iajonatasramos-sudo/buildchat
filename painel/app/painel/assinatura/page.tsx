@@ -5,14 +5,38 @@
 // mostra a situação real da conta e orienta o contato.
 
 import { useEffect, useState } from 'react';
-import { avaliarLicenca, carregarPerfil, supabase, type Perfil } from '@/lib/supabase';
+import { avaliarLicenca, carregarPerfil, moeda, supabase, type Perfil } from '@/lib/supabase';
 import { Botao, Cabecalho, Cartao } from '@/componentes/ui';
 
 const PRECO_POR_ASSENTO = 49.8;
 
+type MeuPlano = {
+  slug: string;
+  nome: string;
+  assentos_inclusos: number;
+  max_mensagens: number | null;
+  mensagens_usadas: number;
+  permite_equipes: boolean;
+  permite_mensagens_empresa: boolean;
+  permite_exportar: boolean;
+};
+
 export default function Assinatura() {
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [ativos, setAtivos] = useState(0);
+
+  const [plano, setPlano] = useState<MeuPlano | null>(null);
+  const [planos, setPlanos] = useState<{ slug: string; nome: string; preco_mensal_centavos: number; assentos_inclusos: number; max_mensagens: number | null; permite_equipes: boolean; permite_exportar: boolean }[]>([]);
+
+  useEffect(() => {
+    supabase.rpc('meu_plano').then(({ data }) => setPlano(data as MeuPlano));
+    supabase
+      .from('planos')
+      .select('slug, nome, preco_mensal_centavos, assentos_inclusos, max_mensagens, permite_equipes, permite_exportar')
+      .eq('ativo', true)
+      .order('ordem')
+      .then(({ data }) => setPlanos((data as never[]) ?? []));
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -35,6 +59,78 @@ export default function Assinatura() {
   return (
     <div>
       <Cabecalho titulo="Assinatura" subtitulo={`Plano, cobrança e assentos de ${perfil.empresa.nome}.`} />
+
+      {plano && (
+        <Cartao className="mb-3.5 px-[18px] py-4">
+          <div className="mb-3 flex items-center gap-2.5">
+            <span className="rounded-chip bg-marca px-2.5 py-[3px] text-[12px] font-bold uppercase tracking-wide text-white">
+              {plano.nome}
+            </span>
+            <span className="text-[13px] text-tinta-3">é o seu nível hoje</span>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <Consumo
+              titulo="Mensagens rápidas"
+              usado={plano.mensagens_usadas}
+              teto={plano.max_mensagens}
+            />
+            <div>
+              <div className="rotulo mb-1.5">EQUIPES</div>
+              <div className={`text-[13.5px] font-medium ${plano.permite_equipes ? 'text-sucesso' : 'text-tinta-4'}`}>
+                {plano.permite_equipes ? 'Incluído' : 'A partir do Pro'}
+              </div>
+            </div>
+            <div>
+              <div className="rotulo mb-1.5">MENSAGENS DA EMPRESA</div>
+              <div
+                className={`text-[13.5px] font-medium ${plano.permite_mensagens_empresa ? 'text-sucesso' : 'text-tinta-4'}`}
+              >
+                {plano.permite_mensagens_empresa ? 'Incluído' : 'A partir do Pro'}
+              </div>
+            </div>
+          </div>
+        </Cartao>
+      )}
+
+      {planos.length > 0 && (
+        <Cartao className="mb-3.5 px-[18px] py-4">
+          <div className="rotulo mb-3">NÍVEIS DISPONÍVEIS</div>
+          <div className="grid grid-cols-3 gap-3">
+            {planos.map((p) => {
+              const atual = plano?.slug === p.slug;
+              return (
+                <div
+                  key={p.slug}
+                  className={`rounded-cartao border p-3.5 ${atual ? 'border-marca bg-marca-suave' : 'border-borda'}`}
+                >
+                  <div className="mb-1 flex items-center gap-2">
+                    <span className="text-[15px] font-extrabold">{p.nome}</span>
+                    {atual && <span className="text-[11.5px] font-bold uppercase text-marca">atual</span>}
+                  </div>
+                  <div className="mb-2.5 text-[18px] font-extrabold">
+                    {moeda(p.preco_mensal_centavos)}
+                    <span className="text-[12.5px] font-normal text-tinta-4">/mês</span>
+                  </div>
+                  <ul className="flex flex-col gap-1 text-[12.5px] text-tinta-3">
+                    <li>{p.assentos_inclusos} usuários</li>
+                    <li>{p.max_mensagens === null ? 'Mensagens ilimitadas' : `${p.max_mensagens} mensagens rápidas`}</li>
+                    <li className={p.permite_equipes ? '' : 'text-tinta-4'}>
+                      {p.permite_equipes ? 'Equipes e mensagens da empresa' : 'Sem equipes'}
+                    </li>
+                    <li className={p.permite_exportar ? '' : 'text-tinta-4'}>
+                      {p.permite_exportar ? 'Exportação do CRM' : 'Sem exportação'}
+                    </li>
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-3 text-[12.5px] text-tinta-4">
+            Para mudar de nível, fale com o suporte do BuildChat.
+          </p>
+        </Cartao>
+      )}
 
       <div className="grid grid-cols-[minmax(0,1fr)_300px] items-start gap-4">
         <div className="flex flex-col gap-4">
@@ -104,6 +200,28 @@ export default function Assinatura() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function Consumo({ titulo, usado, teto }: { titulo: string; usado: number; teto: number | null }) {
+  const pct = teto ? Math.min(100, Math.round((usado / teto) * 100)) : 0;
+  const cheio = teto !== null && usado >= teto;
+  return (
+    <div>
+      <div className="rotulo mb-1.5">{titulo}</div>
+      <div className="text-[13.5px] font-medium">
+        {usado}
+        {teto === null ? <span className="text-tinta-4"> · ilimitado</span> : ` de ${teto}`}
+      </div>
+      {teto !== null && (
+        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-linha">
+          <div
+            className={`h-full rounded-full ${cheio ? 'bg-perigo' : 'bg-marca'}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      )}
     </div>
   );
 }

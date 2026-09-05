@@ -174,6 +174,26 @@ credenciais. Ordem obrigatória — `auth.users` primeiro (o `usuarios.id` tem F
 depois a linha em `usuarios`. O **limite de assentos é garantido por trigger no banco**
 (`0005_assentos.sql`), valendo para criação e para reativação; a interface só antecipa o aviso.
 
+## Níveis de cliente: Start → Pro → Master
+
+Catálogo em `planos` (`0010_planos.sql`). Os limites são **fiscalizados no banco**, não só
+escondidos na interface — esconder botão não impede chamada direta à API.
+
+| | Start | Pro | Master |
+|---|---|---|---|
+| Assentos | 2 | 5 | 15 |
+| Mensagens rápidas | 30 | 200 | ilimitado |
+| Equipes e mensagens da empresa | — | ✓ | ✓ |
+| Exportar CRM | — | ✓ | ✓ |
+
+- `app.plano_vigente(empresa)`: em **trial** a clínica usa o **Pro** (o teste mostra o
+  produto completo); **inadimplente/cancelada** cai para o **Start** — sem apagar nada.
+- Fiscalização: policy de `equipes`, `app.pode_escrever` (mensagem da empresa) e o trigger
+  `checar_limite_mensagens` (teto por plano).
+- `meu_plano()` devolve recursos e consumo para a interface; `sistema_definir_plano()` é do
+  gestor e ajusta assentos/preço ao trocar de nível (preserva preço negociado).
+- Preços iniciais (97/197/397) são **sugestão** — mude em `planos`.
+
 ## Painel do gestor do sistema (`/sistema`)
 
 Área do **dono do produto**, separada do painel das clínicas.
