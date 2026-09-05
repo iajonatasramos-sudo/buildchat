@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase';
 const MENU = [
   { href: '/sistema', rotulo: 'Visão geral' },
   { href: '/sistema/empresas', rotulo: 'Empresas' },
+  { href: '/sistema/vendas', rotulo: 'Vendas' },
 ];
 
 export default function LayoutSistema({ children }: { children: React.ReactNode }) {

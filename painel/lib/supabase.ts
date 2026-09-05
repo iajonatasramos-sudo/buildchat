@@ -68,3 +68,15 @@ export function formatarData(iso: string | null): string {
     ? `hoje, ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
     : d.toLocaleDateString('pt-BR');
 }
+
+/** Centavos → "R$ 297,00". Dinheiro no banco é sempre integer em centavos. */
+export function moeda(centavos: number | null | undefined): string {
+  return ((centavos ?? 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+/** "2026-09-05" → "05/09/2026" (sem fuso: data pura não pode virar véspera). */
+export function formatarDia(iso: string | null): string {
+  if (!iso) return '—';
+  const [a, m, d] = iso.slice(0, 10).split('-');
+  return `${d}/${m}/${a}`;
+}

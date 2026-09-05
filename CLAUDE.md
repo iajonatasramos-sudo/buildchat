@@ -187,7 +187,14 @@ depois a linha em `usuarios`. O **limite de assentos é garantido por trigger no
 - **Cobrança é do gestor**: `revoke update on empresas` + `grant update (nome)` para
   `authenticated`. Sem isso o admin da clínica se daria assentos sem pagar (foi um furo
   real, pego por teste).
-- Páginas: `/sistema` (métricas do negócio) e `/sistema/empresas` (situação, assentos, uso
+- **Comercial** (`0009_vendas.sql`): `empresas.valor_mensal_centavos`, `ciclo`,
+  `proxima_cobranca`, `observacao` + tabela `faturas`. Dinheiro é **integer em centavos**.
+  A clínica **lê** as próprias faturas (RLS), mas só o gestor cria e dá baixa
+  (`sistema_lancar_fatura`, `sistema_baixar_fatura`, `sistema_definir_comercial`).
+  Dar baixa reativa a assinatura e adia a próxima cobrança um ciclo.
+  `sistema_vendas()` calcula MRR (anual diluído em 12), recebido no mês, em aberto e vencidas.
+- Páginas: `/sistema` (métricas do negócio), `/sistema/vendas` (receita e faturas) e
+  `/sistema/empresas` (situação, assentos, uso
   e as ações comerciais). O atalho na barra lateral só aparece para operadores.
 
 ## Servidor (`server/`) — Fase 0 concluída

@@ -3,7 +3,7 @@
 // Todas as clínicas: situação da assinatura, uso e as ações comerciais.
 
 import { useCallback, useEffect, useState } from 'react';
-import { formatarData, supabase } from '@/lib/supabase';
+import { formatarData, formatarDia, moeda, supabase } from '@/lib/supabase';
 import { Botao, Cabecalho, Cartao, Modal, Vazio } from '@/componentes/ui';
 
 type Empresa = {
@@ -20,6 +20,12 @@ type Empresa = {
   contatos: number;
   ultimo_acesso: string | null;
   criado_em: string;
+  valor_mensal_centavos: number;
+  ciclo: 'mensal' | 'anual';
+  proxima_cobranca: string | null;
+  observacao: string | null;
+  faturas_abertas: number;
+  aberto_centavos: number;
 };
 
 const CORES: Record<Empresa['status'], string> = {
@@ -73,7 +79,7 @@ export default function EmpresasSistema() {
             <table className="w-full border-collapse">
               <thead>
                 <tr className="bg-fundo text-left">
-                  {['CLÍNICA', 'SITUAÇÃO', 'ASSENTOS', 'ACERVO', 'ÚLTIMO USO', 'DESDE', ''].map((h) => (
+                  {['CLÍNICA', 'SITUAÇÃO', 'ASSENTOS', 'MENSALIDADE', 'COBRANÇA', 'ÚLTIMO USO', ''].map((h) => (
                     <th key={h} className="rotulo border-b border-borda px-[18px] py-3">
                       {h}
                     </th>
@@ -106,14 +112,29 @@ export default function EmpresasSistema() {
                         <span className="font-medium">{e.usuarios_ativos}</span>
                         <span className="text-tinta-4"> / {e.assentos}</span>
                       </td>
-                      <td className="border-b border-linha px-[18px] py-3.5 text-[12.5px] text-tinta-3">
-                        {e.mensagens} msg · {e.pastas} pastas · {e.contatos} contatos
+                      <td className="whitespace-nowrap border-b border-linha px-[18px] py-3.5">
+                        {e.valor_mensal_centavos > 0 ? (
+                          <>
+                            <span className="font-medium">{moeda(e.valor_mensal_centavos)}</span>
+                            <div className="text-[12px] text-tinta-4">{e.ciclo}</div>
+                          </>
+                        ) : (
+                          <span className="text-tinta-4">sem valor</span>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap border-b border-linha px-[18px] py-3.5 text-tinta-3">
+                        {formatarDia(e.proxima_cobranca)}
+                        {e.faturas_abertas > 0 && (
+                          <div className="text-[12px] font-medium text-alerta">
+                            {moeda(e.aberto_centavos)} em aberto
+                          </div>
+                        )}
                       </td>
                       <td className="whitespace-nowrap border-b border-linha px-[18px] py-3.5 text-tinta-3">
                         {e.ultimo_acesso ? formatarData(e.ultimo_acesso) : <span className="text-tinta-4">nunca</span>}
-                      </td>
-                      <td className="whitespace-nowrap border-b border-linha px-[18px] py-3.5 text-tinta-3">
-                        {formatarData(e.criado_em)}
+                        <div className="text-[12px] text-tinta-4">
+                          {e.mensagens} msg · {e.contatos} contatos
+                        </div>
                       </td>
                       <td className="border-b border-linha px-[18px] py-3.5 text-right">
                         <button onClick={() => setEditando(e)} className="font-medium text-marca">
@@ -155,6 +176,12 @@ function GerenciarModal({
   const [status, setStatus] = useState(empresa.status);
   const [plano, setPlano] = useState(empresa.plano);
   const [assentos, setAssentos] = useState(String(empresa.assentos));
+  const [valor, setValor] = useState(
+    empresa.valor_mensal_centavos ? (empresa.valor_mensal_centavos / 100).toFixed(2).replace('.', ',') : '',
+  );
+  const [ciclo, setCiclo] = useState(empresa.ciclo);
+  const [proxima, setProxima] = useState(empresa.proxima_cobranca ?? '');
+  const [observacao, setObservacao] = useState(empresa.observacao ?? '');
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -170,9 +197,19 @@ function GerenciarModal({
       p_assentos: Number(assentos) || null,
       p_trial_ate: null,
     });
+    const centavos = valor.trim()
+      ? Math.round(Number(valor.replace(/\./g, '').replace(',', '.')) * 100)
+      : null;
+    const { error: erroComercial } = await supabase.rpc('sistema_definir_comercial', {
+      p_empresa: empresa.id,
+      p_valor_centavos: centavos,
+      p_ciclo: ciclo,
+      p_proxima: proxima || null,
+      p_observacao: observacao.trim() || null,
+    });
     setSalvando(false);
-    if (error) {
-      setErro(error.message);
+    if (error || erroComercial) {
+      setErro((error ?? erroComercial)!.message);
       return;
     }
     onPronto();
@@ -217,6 +254,50 @@ function GerenciarModal({
           <span className="text-[12.5px] font-normal text-tinta-4">
             {empresa.usuarios_ativos} usuário(s) ativo(s) hoje.
           </span>
+        </label>
+
+        <div className="grid grid-cols-2 gap-3">
+          <label className="flex flex-col gap-1.5 font-medium">
+            Mensalidade (R$)
+            <input
+              value={valor}
+              onChange={(e) => setValor(e.target.value)}
+              placeholder="297,00"
+              className="campo focus:campo-foco font-normal"
+            />
+          </label>
+          <label className="flex flex-col gap-1.5 font-medium">
+            Ciclo
+            <select
+              value={ciclo}
+              onChange={(e) => setCiclo(e.target.value as 'mensal' | 'anual')}
+              className="campo focus:campo-foco font-normal"
+            >
+              <option value="mensal">Mensal</option>
+              <option value="anual">Anual</option>
+            </select>
+          </label>
+        </div>
+
+        <label className="flex flex-col gap-1.5 font-medium">
+          Próxima cobrança
+          <input
+            type="date"
+            value={proxima}
+            onChange={(e) => setProxima(e.target.value)}
+            className="campo focus:campo-foco font-normal"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1.5 font-medium">
+          Observação comercial
+          <textarea
+            value={observacao}
+            onChange={(e) => setObservacao(e.target.value)}
+            rows={2}
+            placeholder="Ex.: fechado com 10% de desconto, indicação da Dra. Kelly"
+            className="campo focus:campo-foco resize-none font-normal"
+          />
         </label>
 
         {menosQueUsados && (
