@@ -104,6 +104,15 @@ function tipoPrincipal(r: RespostaDC): TipoResposta {
   return r.acoes[0]?.tipo ?? 'texto';
 }
 
+/** Iniciais para o avatar do contato (ignora emojis e sobrenomes extras). */
+function iniciaisDe(nome: string): string {
+  const partes = nome
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+  return ((partes[0]?.[0] ?? '') + (partes[1]?.[0] ?? '')).toUpperCase() || '?';
+}
+
 function cmpOrdem(a: { ordem: number }, b: { ordem: number }) {
   return a.ordem - b.ordem;
 }
@@ -1031,14 +1040,50 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function GuiaSecao({ titulo, Icon, children }: { titulo: string; Icon: typeof Tag; children: React.ReactNode }) {
+/**
+ * Bloco da guia Contato. Cada seção tem faixa de cabeçalho com o ícone num chip
+ * colorido e contador — só o texto em cinza não dava para distinguir os blocos.
+ */
+function GuiaSecao({
+  titulo,
+  Icon,
+  cor,
+  contador,
+  children,
+}: {
+  titulo: string;
+  Icon: typeof Tag;
+  /** Cor de destaque da seção (token CSS). */
+  cor: string;
+  contador?: number;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="rounded-lg border border-border bg-surface p-3">
-      <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
-        <Icon size={13} /> {titulo}
-      </div>
-      {children}
-    </div>
+    <section className="overflow-hidden rounded-lg border border-border bg-surface">
+      <header
+        className="flex items-center gap-2 border-b border-border px-2.5 py-2"
+        style={{ background: `color-mix(in oklab, ${cor} 10%, var(--surface-2))` }}
+      >
+        <span
+          className="grid h-6 w-6 flex-shrink-0 place-items-center rounded-md"
+          style={{ background: `color-mix(in oklab, ${cor} 22%, transparent)`, color: cor }}
+        >
+          <Icon size={13} />
+        </span>
+        <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: cor }}>
+          {titulo}
+        </span>
+        {contador !== undefined && contador > 0 && (
+          <span
+            className="ml-auto grid h-[18px] min-w-[18px] place-items-center rounded-md px-1 text-[10.5px] font-bold text-white"
+            style={{ background: cor }}
+          >
+            {contador}
+          </span>
+        )}
+      </header>
+      <div className="p-2.5">{children}</div>
+    </section>
   );
 }
 
@@ -1154,9 +1199,9 @@ function ContatoGuia({
 
   return (
     <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
-      <div className="flex items-center gap-3 rounded-lg border border-border bg-surface-2 p-3">
-        <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full bg-brand/10 text-brand">
-          <User size={18} />
+      <div className="bc-elev flex items-center gap-3 rounded-lg border border-border bg-surface p-3">
+        <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-md bg-brand text-[14px] font-bold text-white">
+          {iniciaisDe(nomeExibido)}
         </span>
         <div className="min-w-0 flex-1">
           {editandoNome ? (
@@ -1209,7 +1254,7 @@ function ContatoGuia({
         </p>
       )}
 
-      <GuiaSecao titulo="Etiquetas" Icon={Tag}>
+      <GuiaSecao titulo="Etiquetas" Icon={Tag} cor="var(--brand)" contador={tagsContato.length}>
         {/* Mostra apenas as pastas em que o contato está; o + abre a lista. */}
         <div className="flex flex-wrap items-center gap-1.5">
           {tags
@@ -1308,7 +1353,7 @@ function ContatoGuia({
         )}
       </GuiaSecao>
 
-      <GuiaSecao titulo="Interesses" Icon={Sparkles}>
+      <GuiaSecao titulo="Interesses" Icon={Sparkles} cor="var(--amber)">
         <textarea
           value={interesses}
           onChange={(e) => setInteresses(e.target.value)}
@@ -1324,7 +1369,7 @@ function ContatoGuia({
         )}
       </GuiaSecao>
 
-      <GuiaSecao titulo="Notas" Icon={NotebookPen}>
+      <GuiaSecao titulo="Notas" Icon={NotebookPen} cor="var(--green)" contador={notas.length}>
         <div className="mb-2 flex gap-1.5">
           <input
             value={novaNota}
