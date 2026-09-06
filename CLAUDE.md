@@ -64,12 +64,21 @@ topo), `#buildchat2-headerbar` (barra no cabeçalho da conversa) e o ⚡ do comp
 6. **Temas**: `data-tema` no `.bc-root` (`light` implícito, `dim` = gray, `dark`). Cores só
    por token (`--surface`, `--text`…) e `color-mix` para tingir com a cor da pasta — nunca
    fixar cinza/branco literal, senão quebra em um dos três temas.
-7. **Utilitários visuais** (em `tokens.css`): `.bc-seg` (controle segmentado das abas e
+7. **`@property` não vale dentro do shadow DOM.** As utilities do Tailwind v4 leem
+   variáveis internas (`.border` é `border-style: var(--tw-border-style)`), e o valor
+   inicial delas vem de regras `@property` — que a spec manda **ignorar** dentro de uma
+   shadow tree, justamente onde o nosso CSS é carregado. Sem registro o `var()` não
+   resolve e a declaração cai: `border-style` volta a `none` (largura 1px, borda
+   invisível) e `box-shadow` some. O plugin `valoresIniciaisDoTailwind()` em
+   `vite.config.ts` lê os `@property` do CSS gerado e repete os valores iniciais em
+   `.bc-root, .bc-root *`. **Isso vale para toda variável `--tw-*` nova** — o plugin já
+   cobre sozinho, mas se aparecer utility sem efeito visual, suspeite disto primeiro.
+8. **Utilitários visuais** (em `tokens.css`): `.bc-seg` (controle segmentado das abas e
    filtros), `.bc-elev` / `.bc-elev-hover` (elevação e realce no hover) e `.bc-cat-*`
    (caixa translúcida da categoria). Use-os em vez de recriar sombras/pílulas na mão.
-8. **Nada do Dental Chat**: nenhum código, marca ou asset dele. O wa-js é open source; a UI
+9. **Nada do Dental Chat**: nenhum código, marca ou asset dele. O wa-js é open source; a UI
    vem do BuildClinic. Dados extraídos do storage local do usuário são **dele**.
-9. **Idioma**: código, comentários e UI em português (nomes de variáveis inclusive).
+10. **Idioma**: código, comentários e UI em português (nomes de variáveis inclusive).
 
 ## Chaves do chrome.storage
 
