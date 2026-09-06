@@ -332,6 +332,23 @@ export async function registrarContato(chatId: string, nomeWhatsapp?: string | n
   await salvarFicha(chatId, { nomeWhatsapp: nomeWhatsapp?.trim() || atual?.nomeWhatsapp || null });
 }
 
+/**
+ * Nome de tratamento de cada conversa que tem um. É a fonte única para TODA
+ * tela que mostra o nome de um contato (lista da pasta, anotações, apagadas,
+ * proposta, {{nome}}): mudou na ficha, muda em todas — o nome do WhatsApp
+ * fica só como reserva. A lista e o cabeçalho do próprio WhatsApp são dele;
+ * ali não dá para mexer.
+ */
+export async function nomesDasFichas(): Promise<Record<string, string>> {
+  const mapa = await get<Record<string, FichaContato>>(K.contatos, {});
+  const nomes: Record<string, string> = {};
+  for (const [chatId, f] of Object.entries(mapa)) {
+    const n = f.nome?.trim();
+    if (n) nomes[chatId] = n;
+  }
+  return nomes;
+}
+
 /** Grava o mapa completo (usado pela sincronização). */
 export async function salvarMapaFichas(mapa: Record<string, FichaContato>): Promise<void> {
   await set(K.contatos, mapa);

@@ -20,6 +20,7 @@ function dataHora(iso: string): string {
 }
 
 export function AnotacoesModal({ contato }: { contato: ContatoAtivo | null }) {
+  const [nomeContato, setNomeContato] = useState<string | null>(null);
   const [notas, setNotas] = useState<NotaContato[] | null>(null);
   const [editando, setEditando] = useState<string | null>(null);
   const [rascunho, setRascunho] = useState('');
@@ -30,6 +31,12 @@ export function AnotacoesModal({ contato }: { contato: ContatoAtivo | null }) {
 
   const carregar = useCallback(async () => {
     setNotas(contato ? await db.listarNotas(contato.chatId) : []);
+    if (contato) {
+      const f = await db.obterFicha(contato.chatId);
+      setNomeContato(f.nome?.trim() || contato.nome);
+    } else {
+      setNomeContato(null);
+    }
   }, [contato?.chatId]);
 
   useEffect(() => {
@@ -88,7 +95,10 @@ export function AnotacoesModal({ contato }: { contato: ContatoAtivo | null }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex flex-shrink-0 items-center justify-between border-b border-border px-4 py-3">
-          <h3 className="text-[15px] font-bold">Anotações</h3>
+          <h3 className="min-w-0 truncate text-[15px] font-bold">
+            Anotações
+            {nomeContato && <span className="ml-1.5 font-normal text-muted">· {nomeContato}</span>}
+          </h3>
           <button type="button" onClick={fechar} className="grid h-7 w-7 place-items-center rounded-md text-muted hover:bg-surface-2">
             <X size={16} />
           </button>

@@ -78,7 +78,10 @@ export function PastaPanel({ tagId }: { tagId: string }) {
         );
       };
       const filtrados = todos.filter(temTag).sort((a, b) => (b.ultimaTs ?? 0) - (a.ultimaTs ?? 0));
-      setChats(filtrados);
+      // O vínculo é casado pelo nome do WhatsApp (acima); a EXIBIÇÃO usa o nome
+      // de tratamento da ficha, quando existe.
+      const nomes = await db.nomesDasFichas();
+      setChats(filtrados.map((c) => ({ ...c, nome: nomes[c.chatId] ?? c.nome })));
     })();
     return () => {
       vivo = false;

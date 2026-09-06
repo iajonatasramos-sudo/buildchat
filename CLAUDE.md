@@ -222,8 +222,11 @@ exclusão lógica por `deleted_at`, e vínculo pasta↔conversa por **número co
 - **Escopo na extensão**: tudo que a pessoa cria ali nasce **pessoal**, mesmo sendo admin
   (`escopoDe` em `sync.ts`). Mensagem da empresa só nasce no painel.
 - **Ficha do contato** (`contatos`, chave `empresa+wa_number+remote_jid`): nome de
-  tratamento, interesses e `ultimo_contato`. O nome da ficha tem prioridade sobre o do
-  WhatsApp em `{{nome}}` (`executarResposta` e `inserirTextoNoCompose`).
+  tratamento, interesses e `ultimo_contato`. **O nome da ficha vale em toda tela nossa**:
+  `{{nome}}`, proposta, guia Contato, lista da pasta, cabeçalho das anotações e autor das
+  apagadas — via `db.nomesDasFichas()`/`obterFicha()`, com o nome do WhatsApp só de reserva.
+  Casar vínculo com conversa continua pelo nome do WhatsApp (é o que o WPP devolve). A
+  lista e o cabeçalho do próprio WhatsApp são dele: não dá para renomear por ali.
 - `ultimo_contato` é gravado a cada envio pela extensão — é o que alimenta o CRM.
 - **A ficha nasce na primeira interação**, não só no envio: `db.registrarContato(chatId,
   nomeWhatsapp)` é chamado ao etiquetar, anotar e gerar proposta (só enfileira se a ficha

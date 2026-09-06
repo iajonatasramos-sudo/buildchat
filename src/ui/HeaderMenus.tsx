@@ -212,6 +212,10 @@ function MenuFiltros({ onEscolher }: { onEscolher: () => void }) {
 
 /** Mensagens apagadas capturadas nesta conversa. */
 function MenuApagadas({ contato }: { contato: ContatoAtivo | null }) {
+  const [nomes, setNomes] = useState<Record<string, string>>({});
+  useEffect(() => {
+    db.nomesDasFichas().then(setNomes);
+  }, []);
   const [lista, setLista] = useState<MsgApagada[] | null>(null);
 
   useEffect(() => {
@@ -246,7 +250,9 @@ function MenuApagadas({ contato }: { contato: ContatoAtivo | null }) {
                 {m.texto?.trim() || <em className="text-muted">({m.tipo && m.tipo !== 'chat' ? `mídia: ${m.tipo}` : 'conteúdo não capturado'})</em>}
               </div>
               <div className="mt-1 flex items-center justify-between text-[10px] text-muted">
-                <span>{m.deMim ? 'Você' : (m.autor ?? '').split('@')[0] || 'Contato'}</span>
+                <span>
+                  {m.deMim ? 'Você' : nomes[m.autor ?? ''] ?? ((m.autor ?? '').split('@')[0] || 'Contato')}
+                </span>
                 <span>
                   apagada {new Date(m.apagadaEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                 </span>
