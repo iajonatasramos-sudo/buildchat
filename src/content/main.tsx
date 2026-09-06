@@ -91,12 +91,12 @@ function montarTopBar() {
       top: ${ALTURA_TOPBAR}px !important;
       height: calc(100vh - ${ALTURA_TOPBAR}px) !important;
     }
-    /* A barra lateral (LARGURA_TRILHO) está sempre lá; a gaveta soma quando aberta. */
+    /* Gaveta fechada: cede a barra lateral. Aberta: a gaveta toma o lugar da barra. */
     #app {
       width: calc(100vw - ${LARGURA_TRILHO}px) !important;
     }
     html.bc-gaveta #app {
-      width: calc(100vw - ${353 + LARGURA_TRILHO}px) !important;
+      width: calc(100vw - 353px) !important;
     }
   `;
   document.head.appendChild(estilo);

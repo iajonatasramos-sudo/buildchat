@@ -202,13 +202,14 @@ export function App() {
 
   return (
     <>
-      <TrilhoLateral aberto={aberto} />
+      {/* A barra só aparece com a gaveta fechada; aberta, a gaveta toma o lugar dela. */}
+      {!aberto && <TrilhoLateral />}
 
-      {/* Gaveta lateral, encostada na barra (o ⚡ do compose também a abre) */}
+      {/* Gaveta lateral (o ⚡ do compose também a abre) */}
       {aberto && (
         <div
-          className="bc-anim-slide pointer-events-auto fixed bottom-0 z-[55] flex w-[282px] flex-col gap-2 bg-transparent p-2"
-          style={{ top: emPx(ALTURA_TOPBAR), right: emPx(LARGURA_TRILHO) }}
+          className="bc-anim-slide pointer-events-auto fixed bottom-0 right-0 z-[55] flex w-[282px] flex-col gap-2 bg-transparent p-2"
+          style={{ top: emPx(ALTURA_TOPBAR) }}
         >
           <div className="min-h-0 flex-1">
             <MensagensRapidasPanel
@@ -383,21 +384,17 @@ function SettingsModal({
   );
 }
 
-// ── Barra lateral (como no BuildSales): sempre visível, abre a gaveta na guia ──
-function TrilhoLateral({ aberto }: { aberto: boolean }) {
+// ── Barra lateral (como no BuildSales): visível com a gaveta fechada, abre-a na guia ──
+function TrilhoLateral() {
   const [aba, setAba] = useState(abaGaveta.get());
   useEffect(() => abaGaveta.subscribe(setAba), []);
 
-  // Clicar na guia aberta fecha; em outra, troca; fechada, abre nela.
   const ir = (destino: 'cliente' | 'rapidas') => {
-    if (aberto && aba === destino) {
-      gavetaAberta.set(false);
-      return;
-    }
     abaGaveta.set(destino);
     gavetaAberta.set(true);
   };
 
+  // A última guia usada fica marcada, para a pessoa saber onde vai cair.
   const botao = (ativo: boolean) =>
     cn(
       'grid h-10 w-10 place-items-center rounded-lg border transition',
@@ -411,10 +408,10 @@ function TrilhoLateral({ aberto }: { aberto: boolean }) {
       className="pointer-events-auto fixed bottom-0 right-0 z-[56] flex flex-col items-center gap-2 border-l border-border bg-surface pt-3"
       style={{ top: emPx(ALTURA_TOPBAR), width: emPx(LARGURA_TRILHO) }}
     >
-      <button type="button" title="Contato" className={botao(aberto && aba === 'cliente')} onClick={() => ir('cliente')}>
+      <button type="button" title="Contato" className={botao(aba === 'cliente')} onClick={() => ir('cliente')}>
         <User size={17} />
       </button>
-      <button type="button" title="Mensagens rápidas" className={botao(aberto && aba === 'rapidas')} onClick={() => ir('rapidas')}>
+      <button type="button" title="Mensagens rápidas" className={botao(aba === 'rapidas')} onClick={() => ir('rapidas')}>
         <Zap size={17} />
       </button>
       <button
@@ -422,7 +419,7 @@ function TrilhoLateral({ aberto }: { aberto: boolean }) {
         title="Conta de WhatsApp em uso"
         className={botao(false)}
         onClick={() => {
-          if (!aberto) gavetaAberta.set(true); // o diálogo mora no painel
+          gavetaAberta.set(true); // o diálogo mora no painel
           pedirContaWhatsapp.set(pedirContaWhatsapp.get() + 1);
         }}
       >
