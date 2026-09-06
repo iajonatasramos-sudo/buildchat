@@ -135,6 +135,59 @@ function acharBolha(linha: HTMLElement): HTMLElement {
   );
 }
 
+const PADRAO_HORA = /^\d{1,2}:\d{2}(\s?[AP]M)?$/i;
+
+/**
+ * O rodapé da mensagem (horário + ticks). O WhatsApp o ancora num contêiner
+ * interno — a área do player, sem a coluna da foto — por isso ele não chega ao
+ * canto do quadro. Achamos pelo texto: entre as folhas com cara de hora, a mais
+ * à direita (a duração "0:29" fica à esquerda), e subimos até o contêiner
+ * compacto que a envolve, para levar os ticks junto.
+ */
+function acharRodape(bolha: HTMLElement, bloco: HTMLElement): HTMLElement | null {
+  let melhor: HTMLElement | null = null;
+  let direita = -Infinity;
+  const faixa = document.createRange();
+  for (const el of bolha.querySelectorAll<HTMLElement>('span, div')) {
+    if (el.children.length || bloco.contains(el)) continue;
+    if (!PADRAO_HORA.test((el.textContent ?? '').trim())) continue;
+    // Mede o TEXTO, não a caixa: a duração ("0:29") costuma ser um div de
+    // largura total com o texto à esquerda — pela caixa ela pareceria a mais
+    // à direita, e o horário de verdade perdia.
+    faixa.selectNodeContents(el);
+    const r = faixa.getBoundingClientRect();
+    if (r.width > 0 && r.right > direita) {
+      direita = r.right;
+      melhor = el;
+    }
+  }
+  if (!melhor) return null;
+  let alvo = melhor;
+  while (alvo.parentElement && alvo.parentElement !== bolha) {
+    const r = alvo.parentElement.getBoundingClientRect();
+    if (r.width > 140 || r.height > 32) break;
+    alvo = alvo.parentElement;
+  }
+  return alvo;
+}
+
+/**
+ * Leva o rodapé ao canto inferior direito do quadro, por dentro. Não movemos o
+ * nó (o React do WhatsApp brigaria por ele): medimos a distância até o canto e
+ * deslocamos com `transform`, que não mexe no layout de ninguém.
+ */
+function encostarRodape(bolha: HTMLElement, bloco: HTMLElement) {
+  const rodape = acharRodape(bolha, bloco);
+  if (!rodape) return;
+  rodape.style.transform = '';
+  const b = bolha.getBoundingClientRect();
+  const r = rodape.getBoundingClientRect();
+  const dx = b.right - 10 - r.right;
+  const dy = b.bottom - 6 - r.bottom;
+  if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+  rodape.style.transform = `translate(${dx}px, ${dy}px)`;
+}
+
 function montarBloco(linha: HTMLElement, msgId: string | null) {
   const bloco = document.createElement('div');
   bloco.className = 'bc-tr';
@@ -192,7 +245,23 @@ function montarBloco(linha: HTMLElement, msgId: string | null) {
     }
   });
 
-  acharBolha(linha).appendChild(bloco);
+  const bolha = acharBolha(linha);
+  bolha.appendChild(bloco);
+  // Reaplicado pelo observer (o WhatsApp remonta o rodapé) e no resize.
+  (bloco as any).__ajustar = () => encostarRodape(bolha, bloco);
+  requestAnimationFrame((bloco as any).__ajustar);
+}
+
+/** Reencosta o rodapé de todas as bolhas com botão — barato, são poucas na tela. */
+let ajusteAgendado = 0;
+function reajustarRodapes() {
+  if (ajusteAgendado) return;
+  ajusteAgendado = requestAnimationFrame(() => {
+    ajusteAgendado = 0;
+    for (const bloco of document.querySelectorAll<HTMLElement>('.bc-tr')) {
+      (bloco as any).__ajustar?.();
+    }
+  });
 }
 
 export function montarTranscricao() {
@@ -254,8 +323,12 @@ export function montarTranscricao() {
   };
 
   garantir();
-  const obs = new MutationObserver(() => garantir());
+  const obs = new MutationObserver(() => {
+    garantir();
+    reajustarRodapes();
+  });
   obs.observe(document.body, { childList: true, subtree: true });
+  window.addEventListener('resize', reajustarRodapes);
 
   // Diagnóstico: com o botão sumido ou com erro, isto diz de que lado está o
   // problema — sem precisar adivinhar pelo texto do erro na tela.
