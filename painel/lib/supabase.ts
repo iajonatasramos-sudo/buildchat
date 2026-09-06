@@ -115,3 +115,15 @@ export const TIPOS_PROPOSTA: Record<string, string> = {
   INT_BR: 'Interior BR',
   VIGILANCIA: 'Vigilância Sanitária',
 };
+
+export type MeuNumero = { wa_number: string; nome_whatsapp: string | null; ultimo_uso: string };
+
+/** Números de WhatsApp com que o usuário autenticado conectou a extensão. */
+export async function meusNumeros(): Promise<MeuNumero[]> {
+  const { data } = await supabase.rpc('meus_numeros');
+  return (data as MeuNumero[]) ?? [];
+}
+
+/** Rotas do painel que só o admin da clínica acessa. */
+export const SO_ADMIN = ['/painel/usuarios', '/painel/equipes', '/painel/mensagens', '/painel/assinatura'];
+export const ehAdmin = (p: Perfil | null) => p?.papel === 'admin';

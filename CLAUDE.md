@@ -277,6 +277,17 @@ painel/app/painel/           casca com barra lateral + faixa de assinatura venci
 
 `cd painel && npm run dev` (porta 3100). Credenciais em `painel/.env.local`.
 
+### Painel do atendente (usuário comum)
+
+O `papel` decide o painel. **Admin** vê a clínica inteira. **Usuário comum** não tem
+usuários, equipes, acervo da empresa nem assinatura (`SO_ADMIN` em `lib/supabase.ts`; o
+layout redireciona para `/painel`). A visão geral dele é sobre ele (`VisaoDoAtendente`), e
+**Meus contatos** lista só os contatos dos números de WhatsApp que ele conectou — relação
+guardada em `usuario_numeros` (`0017`): a extensão chama `registrar_numero` a cada sync
+(no máximo 1×/hora por número) e o painel lê `meus_numeros()`. RLS: o usuário vê os
+próprios números, o admin os da clínica; escrita só pela RPC. É filtro de **painel** — a RLS
+de `contatos` continua por empresa, porque a extensão precisa da ficha compartilhada.
+
 ### Acesso da equipe
 
 Não há convite por e-mail: **o admin cria o usuário com e-mail e senha** e entrega as

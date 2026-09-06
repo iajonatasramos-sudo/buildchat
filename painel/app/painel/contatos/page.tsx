@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { carregarPerfil, formatarData, supabase, telefoneDoContato } from '@/lib/supabase';
+import { carregarPerfil, ehAdmin, formatarData, meusNumeros, supabase, telefoneDoContato } from '@/lib/supabase';
 import { Cabecalho, Cartao, Vazio } from '@/componentes/ui';
 
 type Contato = {
@@ -31,22 +31,35 @@ export default function Contatos() {
   const [busca, setBusca] = useState('');
   const [filtroPasta, setFiltroPasta] = useState<string>('');
   const [carregando, setCarregando] = useState(true);
+  const [soMeus, setSoMeus] = useState(false); // usuário comum: só os números que ele conectou
+  const [semNumero, setSemNumero] = useState(false);
 
-  const buscarContatos = () =>
-    supabase
+  // O usuário comum vê só os contatos dos números que ELE conectou na extensão.
+  // O admin vê a clínica inteira.
+  const buscarContatos = async (perfilAtual: Awaited<ReturnType<typeof carregarPerfil>>) => {
+    let q = supabase
       .from('contatos')
       .select('id, wa_number, remote_jid, nome, nome_whatsapp, telefone, interesses, ultimo_contato')
       .is('deleted_at', null)
       .order('ultimo_contato', { ascending: false, nullsFirst: false });
+    if (!ehAdmin(perfilAtual)) {
+      const meus = (await meusNumeros()).map((n) => n.wa_number);
+      setSoMeus(true);
+      setSemNumero(meus.length === 0);
+      if (meus.length === 0) return { data: [] as Contato[] };
+      q = q.in('wa_number', meus);
+    }
+    return q;
+  };
 
   const carregar = useCallback(async () => {
-    const [ct, pa, vi, pr, an, perfil] = await Promise.all([
-      buscarContatos(),
+    const perfil = await carregarPerfil();
+    const [ct, pa, vi, pr, an] = await Promise.all([
+      buscarContatos(perfil),
       supabase.from('pastas').select('id, nome, cor').is('deleted_at', null).order('ordem'),
       supabase.from('pasta_conversas').select('pasta_id, remote_jid, wa_number').is('deleted_at', null),
       supabase.from('propostas').select('remote_jid, wa_number, enviada_em').is('deleted_at', null),
       supabase.from('anotacoes').select('remote_jid, wa_number').is('deleted_at', null),
-      carregarPerfil(),
     ]);
     let lista = (ct.data as Contato[]) ?? [];
 
@@ -54,7 +67,7 @@ export default function Contatos() {
     // tenha salvo a ficha ainda (a extensão só criava a ficha ao ENVIAR algo).
     // Materializa a ficha aqui para o CRM ficar completo; o nome do WhatsApp
     // chega quando a equipe interagir de novo pela extensão.
-    if (perfil) {
+    if (perfil && ehAdmin(perfil)) {
       const existentes = new Set(lista.map((c) => `${c.wa_number}|${c.remote_jid}`));
       const faltando = new Map<string, { wa_number: string; remote_jid: string }>();
       for (const r of [
@@ -72,7 +85,7 @@ export default function Contatos() {
           [...faltando.values()].map((f) => ({ empresa_id: perfil.empresa.id, ...f })),
           { onConflict: 'empresa_id,wa_number,remote_jid', ignoreDuplicates: true },
         );
-        lista = ((await buscarContatos()).data as Contato[]) ?? lista;
+        lista = ((await buscarContatos(perfil)).data as Contato[]) ?? lista;
       }
     }
     setContatos(lista);
@@ -157,8 +170,12 @@ export default function Contatos() {
   return (
     <div>
       <Cabecalho
-        titulo="Contatos"
-        subtitulo={`${contatos.length} contato(s) — alimentados pela extensão conforme a equipe atende.`}
+        titulo={soMeus ? 'Meus contatos' : 'Contatos'}
+        subtitulo={
+          soMeus
+            ? `${contatos.length} contato(s) dos números de WhatsApp que você conectou na extensão.`
+            : `${contatos.length} contato(s) — alimentados pela extensão conforme a equipe atende.`
+        }
         acao={
           contatos.length > 0 && (
             <button
@@ -171,7 +188,12 @@ export default function Contatos() {
         }
       />
 
-      {contatos.length === 0 ? (
+      {contatos.length === 0 && semNumero ? (
+        <Vazio
+          titulo="Nenhum número conectado ainda"
+          texto="Abra o WhatsApp Web com a extensão e entre com o seu usuário. O número conectado fica associado a você e os contatos dele aparecem aqui."
+        />
+      ) : contatos.length === 0 ? (
         <Vazio
           titulo="Nenhum contato ainda"
           texto="Assim que a equipe etiquetar uma conversa, anotar, gerar uma proposta ou enviar uma mensagem rápida pela extensão, o contato aparece aqui."

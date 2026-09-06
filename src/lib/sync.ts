@@ -57,6 +57,28 @@ export async function enfileirar(op: Op): Promise<void> {
   agendar();
 }
 
+/**
+ * Diz ao servidor por qual número este usuário está atendendo — é o que o
+ * painel do usuário comum usa para mostrar só os contatos dele. No máximo uma
+ * vez por hora por número; falhar aqui não pode derrubar a sincronização.
+ */
+const numeroRegistradoEm = new Map<string, number>();
+async function registrarNumeroConectado(): Promise<void> {
+  const sb = supabase();
+  if (!sb) return;
+  const info = await getInfoConta();
+  const wa = (info.numero ?? '').replace(/\D/g, '');
+  if (wa.length < 8) return;
+  const agora = Date.now();
+  if (agora - (numeroRegistradoEm.get(wa) ?? 0) < 3600_000) return;
+  numeroRegistradoEm.set(wa, agora);
+  const { error } = await sb.rpc('registrar_numero', { p_wa_number: wa, p_nome: info.nome });
+  if (error) {
+    numeroRegistradoEm.delete(wa); // tenta de novo na próxima
+    console.warn('[BuildChat] registrar número:', error.message);
+  }
+}
+
 /** Número do WhatsApp conectado, só dígitos — é a chave dos vínculos. */
 async function numeroConectado(): Promise<string | null> {
   const info = await getInfoConta();
@@ -111,6 +133,7 @@ export async function sincronizar(): Promise<void> {
       }
     }
 
+    await registrarNumeroConectado();
     await enviarFila(perfil);
     estado.ultimoSync = await puxar(perfil, estado.ultimoSync);
 

@@ -9,7 +9,9 @@ import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   carregarPerfil,
+  ehAdmin,
   formatarData,
+  meusNumeros,
   moeda,
   supabase,
   telefoneDoContato,
@@ -67,7 +69,15 @@ export default function FichaDoLead({ params }: { params: Promise<{ id: string }
       .select('id, wa_number, remote_jid, nome, nome_whatsapp, telefone, interesses, ultimo_contato, criado_em')
       .eq('id', id)
       .maybeSingle();
-    const ct = c as Contato | null;
+    let ct = c as Contato | null;
+    // Usuário comum: a ficha só abre se o contato for de um número que ele conectou.
+    if (ct) {
+      const p = await carregarPerfil();
+      if (!ehAdmin(p)) {
+        const meus = (await meusNumeros()).map((n) => n.wa_number);
+        if (!meus.includes(ct.wa_number)) ct = null;
+      }
+    }
     setContato(ct);
     if (!ct) {
       setCarregando(false);
@@ -122,7 +132,7 @@ export default function FichaDoLead({ params }: { params: Promise<{ id: string }
         <Link href="/painel/contatos" className="mb-2.5 inline-block font-medium text-marca">
           ← Contatos
         </Link>
-        <Cartao className="p-6 text-tinta-3">Este contato não existe mais.</Cartao>
+        <Cartao className="p-6 text-tinta-3">Este contato não existe mais — ou é de um número que você não atende.</Cartao>
       </div>
     );
   }

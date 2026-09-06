@@ -5,9 +5,12 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { avaliarLicenca, carregarPerfil, iniciais, supabase, type Perfil } from '@/lib/supabase';
+import { avaliarLicenca, carregarPerfil, ehAdmin, iniciais, SO_ADMIN, supabase, type Perfil } from '@/lib/supabase';
 
-const MENU = [
+// O usuário comum não administra a clínica: sem usuários, equipes, acervo da
+// empresa nem assinatura. Fica com o que é dele — visão geral, pastas e os
+// contatos dos números que conectou.
+const MENU_ADMIN = [
   { href: '/painel', rotulo: 'Visão geral' },
   { href: '/painel/usuarios', rotulo: 'Usuários' },
   { href: '/painel/equipes', rotulo: 'Equipes' },
@@ -15,6 +18,11 @@ const MENU = [
   { href: '/painel/pastas', rotulo: 'Pastas' },
   { href: '/painel/contatos', rotulo: 'Contatos' },
   { href: '/painel/assinatura', rotulo: 'Assinatura' },
+];
+const MENU_USUARIO = [
+  { href: '/painel', rotulo: 'Visão geral' },
+  { href: '/painel/pastas', rotulo: 'Pastas' },
+  { href: '/painel/contatos', rotulo: 'Meus contatos' },
 ];
 
 export default function LayoutPainel({ children }: { children: React.ReactNode }) {
@@ -32,12 +40,17 @@ export default function LayoutPainel({ children }: { children: React.ReactNode }
         router.replace(ehOperador === true ? '/sistema' : '/entrar');
         return;
       }
+      // Rota de admin com usuário comum: volta para a visão geral dele.
+      if (!ehAdmin(p) && SO_ADMIN.some((r) => caminho.startsWith(r))) {
+        router.replace('/painel');
+        return;
+      }
       setPerfil(p);
       setCarregando(false);
     });
     // Só o gestor do produto enxerga o atalho para a área do sistema.
     supabase.rpc('sou_operador').then(({ data }) => setOperador(data === true));
-  }, [router]);
+  }, [router, caminho]);
 
   if (carregando) {
     return <div className="grid min-h-screen place-items-center text-tinta-3">Carregando…</div>;
@@ -45,6 +58,8 @@ export default function LayoutPainel({ children }: { children: React.ReactNode }
   if (!perfil) return null;
 
   const lic = avaliarLicenca(perfil.empresa);
+  const admin = ehAdmin(perfil);
+  const MENU = admin ? MENU_ADMIN : MENU_USUARIO;
 
   return (
     <div className="flex min-h-screen">
@@ -79,11 +94,19 @@ export default function LayoutPainel({ children }: { children: React.ReactNode }
               Gestão do sistema
             </Link>
           )}
-          <div className="rounded-cartao border border-white/10 bg-white/[0.06] p-3">
-            <div className="mb-1 text-[12px] text-white/60">Assinatura</div>
-            <div className="text-[14px] font-extrabold text-white">{lic.titulo}</div>
-            {lic.dias !== null && <div className="mt-0.5 text-[12px] text-white/60">{lic.dias} dia(s) restantes</div>}
-          </div>
+          {admin ? (
+            <div className="rounded-cartao border border-white/10 bg-white/[0.06] p-3">
+              <div className="mb-1 text-[12px] text-white/60">Assinatura</div>
+              <div className="text-[14px] font-extrabold text-white">{lic.titulo}</div>
+              {lic.dias !== null && <div className="mt-0.5 text-[12px] text-white/60">{lic.dias} dia(s) restantes</div>}
+            </div>
+          ) : (
+            <div className="rounded-cartao border border-white/10 bg-white/[0.06] p-3">
+              <div className="mb-1 text-[12px] text-white/60">Clínica</div>
+              <div className="truncate text-[14px] font-extrabold text-white">{perfil.empresa.nome}</div>
+              <div className="mt-0.5 text-[12px] text-white/60">Atendente</div>
+            </div>
+          )}
 
           <div className="flex items-center gap-2.5 px-2 py-1.5">
             <div className="grid h-[30px] w-[30px] place-items-center rounded-controle bg-marca text-[12px] font-extrabold text-white">
@@ -108,13 +131,18 @@ export default function LayoutPainel({ children }: { children: React.ReactNode }
       <main className="flex min-w-0 flex-1 flex-col">
         {!lic.ativa && (
           <div className="flex items-center gap-4 bg-[#ef4444] px-8 py-3 font-medium text-white">
-            <span>{lic.titulo}. O painel está em modo restrito e a extensão parou de sincronizar.</span>
-            <Link
-              href="/painel/assinatura"
-              className="ml-auto rounded-controle bg-white px-3.5 py-1.5 text-[13px] font-medium text-perigo"
-            >
-              Regularizar pagamento
-            </Link>
+            <span>
+              {lic.titulo}. O painel está em modo restrito e a extensão parou de sincronizar
+              {admin ? '.' : ' — avise o administrador da clínica.'}
+            </span>
+            {admin && (
+              <Link
+                href="/painel/assinatura"
+                className="ml-auto rounded-controle bg-white px-3.5 py-1.5 text-[13px] font-medium text-perigo"
+              >
+                Regularizar pagamento
+              </Link>
+            )}
           </div>
         )}
         <div className="max-w-[1180px] px-10 pb-10 pt-9">{children}</div>
