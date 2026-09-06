@@ -12,7 +12,7 @@ import {
   formatarData,
   moeda,
   supabase,
-  telefoneDoJid,
+  telefoneDoContato,
   TIPOS_PROPOSTA,
   type Perfil,
 } from '@/lib/supabase';
@@ -24,6 +24,7 @@ type Contato = {
   remote_jid: string;
   nome: string | null;
   nome_whatsapp: string | null;
+  telefone: string | null;
   interesses: string | null;
   ultimo_contato: string | null;
   criado_em: string;
@@ -63,7 +64,7 @@ export default function FichaDoLead({ params }: { params: Promise<{ id: string }
   const carregar = useCallback(async () => {
     const { data: c } = await supabase
       .from('contatos')
-      .select('id, wa_number, remote_jid, nome, nome_whatsapp, interesses, ultimo_contato, criado_em')
+      .select('id, wa_number, remote_jid, nome, nome_whatsapp, telefone, interesses, ultimo_contato, criado_em')
       .eq('id', id)
       .maybeSingle();
     const ct = c as Contato | null;
@@ -126,7 +127,7 @@ export default function FichaDoLead({ params }: { params: Promise<{ id: string }
     );
   }
 
-  const titulo = contato.nome || contato.nome_whatsapp || telefoneDoJid(contato.remote_jid);
+  const titulo = contato.nome || contato.nome_whatsapp || telefoneDoContato(contato);
   const mudouFicha = nome !== (contato.nome ?? '') || interesses !== (contato.interesses ?? '');
 
   async function salvarFicha() {
@@ -220,7 +221,7 @@ export default function FichaDoLead({ params }: { params: Promise<{ id: string }
         titulo={titulo}
         subtitulo={
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="font-mono text-[13px]">{telefoneDoJid(contato.remote_jid)}</span>
+            <span className="font-mono text-[13px]">{telefoneDoContato(contato)}</span>
             {contato.nome_whatsapp && contato.nome_whatsapp !== contato.nome && (
               <span>no WhatsApp: {contato.nome_whatsapp}</span>
             )}

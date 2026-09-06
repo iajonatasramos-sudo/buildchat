@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { carregarPerfil, formatarData, supabase, telefoneDoJid } from '@/lib/supabase';
+import { carregarPerfil, formatarData, supabase, telefoneDoContato } from '@/lib/supabase';
 import { Cabecalho, Cartao, Vazio } from '@/componentes/ui';
 
 type Contato = {
@@ -15,6 +15,7 @@ type Contato = {
   remote_jid: string;
   nome: string | null;
   nome_whatsapp: string | null;
+  telefone: string | null;
   interesses: string | null;
   ultimo_contato: string | null;
 };
@@ -34,7 +35,7 @@ export default function Contatos() {
   const buscarContatos = () =>
     supabase
       .from('contatos')
-      .select('id, wa_number, remote_jid, nome, nome_whatsapp, interesses, ultimo_contato')
+      .select('id, wa_number, remote_jid, nome, nome_whatsapp, telefone, interesses, ultimo_contato')
       .is('deleted_at', null)
       .order('ultimo_contato', { ascending: false, nullsFirst: false });
 
@@ -134,7 +135,7 @@ export default function Contatos() {
         const suas = porJid.get(chave) ?? [];
         return [
           c.nome ?? c.nome_whatsapp ?? '',
-          telefoneDoJid(c.remote_jid),
+          telefoneDoContato(c),
           suas.map((p) => p.nome).join(' | '),
           String(propostasPorJid.get(chave)?.total ?? 0),
           (c.interesses ?? '').replace(/\n/g, ' '),
@@ -219,14 +220,14 @@ export default function Contatos() {
                     <tr key={c.id} className="transition hover:bg-fundo">
                       <td className="border-b border-linha px-[18px] py-3.5">
                         <Link href={`/painel/contatos/${c.id}`} className="font-medium text-marca hover:underline">
-                          {c.nome || c.nome_whatsapp || telefoneDoJid(c.remote_jid)}
+                          {c.nome || c.nome_whatsapp || telefoneDoContato(c)}
                         </Link>
                         {c.nome && c.nome_whatsapp && c.nome !== c.nome_whatsapp && (
                           <div className="text-[12px] text-tinta-4">no WhatsApp: {c.nome_whatsapp}</div>
                         )}
                       </td>
                       <td className="whitespace-nowrap border-b border-linha px-[18px] py-3.5 font-mono text-[12.5px] text-tinta-3">
-                        {telefoneDoJid(c.remote_jid)}
+                        {telefoneDoContato(c)}
                       </td>
                       <td className="border-b border-linha px-[18px] py-3.5">
                         <div className="flex flex-wrap gap-1.5">

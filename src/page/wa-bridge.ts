@@ -17,14 +17,63 @@ function responder(id: string, ok: boolean, data?: any, erro?: string) {
   window.postMessage({ __bc: 'res', id, ok, data, erro }, '*');
 }
 
+/**
+ * Telefone já resolvido de conversas @lid. O WhatsApp identifica algumas
+ * conversas por LID — um id interno de 15 dígitos que NÃO é telefone. Pegar
+ * `id.user` nesses casos mostrava o LID como se fosse celular.
+ */
+const telefonePorLid = new Map<string, string>();
+
+/** Só dígitos, com DDI — ou null quando o que temos é um LID sem número conhecido. */
+function telefoneDoChat(chat: any, id: string): string | null {
+  if (!chat || id.endsWith('@g.us')) return null;
+  if (id.endsWith('@c.us') && chat.id?.user) return String(chat.id.user);
+  if (id.endsWith('@lid')) {
+    return (
+      telefonePorLid.get(id) ??
+      chat.contact?.phoneNumber?.user ??
+      chat.phoneNumber?.user ??
+      null
+    );
+  }
+  return chat.id?.user ? String(chat.id.user) : null;
+}
+
+/** Pergunta ao WPP o número por trás de um LID (uma vez; fica em cache). */
+async function resolverTelefone(id: string): Promise<string | null> {
+  if (!id.endsWith('@lid')) return null;
+  const emCache = telefonePorLid.get(id);
+  if (emCache) return emCache;
+  try {
+    const entrada = await WPP.contact.getPnLidEntry(id);
+    const numero = entrada?.phoneNumber?.id ?? entrada?.phoneNumber?._serialized?.split('@')[0];
+    const digitos = String(numero ?? '').replace(/\D/g, '');
+    if (digitos.length >= 8) {
+      telefonePorLid.set(id, digitos);
+      return digitos;
+    }
+  } catch {
+    /* sem mapeamento — fica sem telefone, nunca com o LID no lugar */
+  }
+  return null;
+}
+
 function contatoDoChat(chat: any) {
   if (!chat) return null;
   const id = chat.id?._serialized ?? String(chat.id ?? '');
   const ehGrupo = !!chat.isGroup || id.endsWith('@g.us');
   const nome =
     chat.formattedTitle || chat.name || chat.contact?.formattedName || chat.contact?.pushname || id;
-  const telefone = !ehGrupo && chat.id?.user ? `+${chat.id.user}` : null;
-  return { chatId: id, nome, telefone, ehGrupo, fixada: !!chat.pin };
+  const digitos = ehGrupo ? null : telefoneDoChat(chat, id);
+  return { chatId: id, nome, telefone: digitos ? `+${digitos}` : null, ehGrupo, fixada: !!chat.pin };
+}
+
+/** contatoDoChat + resolução do telefone quando a conversa é @lid. */
+async function contatoCompleto(chat: any) {
+  const base = contatoDoChat(chat);
+  if (!base || base.telefone || base.ehGrupo) return base;
+  const digitos = await resolverTelefone(base.chatId);
+  return digitos ? { ...base, telefone: `+${digitos}` } : base;
 }
 
 /**
@@ -102,7 +151,7 @@ const comandos: Record<string, (payload: any) => Promise<any>> = {
   },
 
   async activeChat() {
-    return contatoDoChat(WPP.chat.getActiveChat());
+    return contatoCompleto(WPP.chat.getActiveChat());
   },
 
   async listChats() {
@@ -324,7 +373,15 @@ function marcarPronto() {
   emitir('ready');
   console.info('[BuildChat] WPP pronto.');
   try {
-    WPP.on('chat.active_chat', (chat: any) => emitir('active-chat', contatoDoChat(chat)));
+    WPP.on('chat.active_chat', (chat: any) => {
+      // Emite já (a interface não pode esperar) e de novo com o telefone
+      // resolvido, se a conversa for @lid.
+      const base = contatoDoChat(chat);
+      emitir('active-chat', base);
+      if (base && !base.telefone && !base.ehGrupo) {
+        contatoCompleto(chat).then((c) => c?.telefone && emitir('active-chat', c));
+      }
+    });
   } catch {
     /* evento indisponível nesta versão — o content script tem fallback por DOM */
   }

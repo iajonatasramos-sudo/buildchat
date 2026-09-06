@@ -228,6 +228,11 @@ exclusão lógica por `deleted_at`, e vínculo pasta↔conversa por **número co
   Casar vínculo com conversa continua pelo nome do WhatsApp (é o que o WPP devolve). A
   lista e o cabeçalho do próprio WhatsApp são dele: não dá para renomear por ali.
 - `ultimo_contato` é gravado a cada envio pela extensão — é o que alimenta o CRM.
+- **`@lid` não é telefone.** O WhatsApp identifica algumas conversas por LID (id interno de
+  15 dígitos, `…@lid`); derivar o número do `remote_jid` mostrava esse id como celular. A
+  ponte resolve o número real com `WPP.contact.getPnLidEntry` (`contatoCompleto`, com cache),
+  a ficha guarda em `telefone` (`0016`) e o painel usa `telefoneDoContato()` — do jid só
+  quando ele é `@c.us`; sem número conhecido mostra "—", nunca o LID.
 - **A ficha nasce na primeira interação**, não só no envio: `db.registrarContato(chatId,
   nomeWhatsapp)` é chamado ao etiquetar, anotar e gerar proposta (só enfileira se a ficha
   ainda não tem o nome do WhatsApp). O painel completa o resto: ao abrir `/painel/contatos`

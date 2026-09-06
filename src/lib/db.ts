@@ -297,7 +297,7 @@ export async function migrarChavesWa(
 // Uma entrada por conversa. O `nome` daqui tem prioridade sobre o nome do
 // WhatsApp nas variáveis das mensagens rápidas.
 
-const FICHA_VAZIA: FichaContato = { nome: null, nomeWhatsapp: null, interesses: null, ultimoContato: null };
+const FICHA_VAZIA: FichaContato = { nome: null, nomeWhatsapp: null, telefone: null, interesses: null, ultimoContato: null };
 
 export async function mapaFichas(): Promise<Record<string, FichaContato>> {
   return get<Record<string, FichaContato>>(K.contatos, {});
@@ -324,12 +324,35 @@ export async function salvarFicha(chatId: string, patch: Partial<FichaContato>):
  * nome do WhatsApp para a planilha ter como chamá-lo. Se a ficha já está
  * completa, não enfileira nada (a fila não precisa de ruído).
  */
-export async function registrarContato(chatId: string, nomeWhatsapp?: string | null): Promise<void> {
+export async function registrarContato(
+  chatId: string,
+  nomeWhatsapp?: string | null,
+  telefone?: string | null,
+): Promise<void> {
   if (!chatId || chatId.startsWith('wa:')) return; // fallback de DOM: sem jid confiável
   const mapa = await get<Record<string, FichaContato>>(K.contatos, {});
   const atual = mapa[chatId];
-  if (atual && (atual.nomeWhatsapp || !nomeWhatsapp)) return;
-  await salvarFicha(chatId, { nomeWhatsapp: nomeWhatsapp?.trim() || atual?.nomeWhatsapp || null });
+  const digitos = (telefone ?? '').replace(/\D/g, '') || null;
+  const faltaNome = !atual?.nomeWhatsapp && !!nomeWhatsapp;
+  const faltaTelefone = !atual?.telefone && !!digitos;
+  if (atual && !faltaNome && !faltaTelefone) return;
+  await salvarFicha(chatId, {
+    nomeWhatsapp: nomeWhatsapp?.trim() || atual?.nomeWhatsapp || null,
+    telefone: digitos ?? atual?.telefone ?? null,
+  });
+}
+
+/**
+ * A conversa aberta já é conhecida e agora temos o telefone dela: completa a
+ * ficha sem criar uma nova (quem só foi visto não vira contato).
+ */
+export async function completarTelefone(chatId: string, telefone: string | null): Promise<void> {
+  const digitos = (telefone ?? '').replace(/\D/g, '');
+  if (!digitos) return;
+  const mapa = await get<Record<string, FichaContato>>(K.contatos, {});
+  const atual = mapa[chatId];
+  if (!atual || atual.telefone === digitos) return;
+  await salvarFicha(chatId, { telefone: digitos });
 }
 
 /**
@@ -355,9 +378,15 @@ export async function salvarMapaFichas(mapa: Record<string, FichaContato>): Prom
 }
 
 /** Marca o momento do último envio — alimenta o CRM do painel. */
-export async function registrarUltimoContato(chatId: string, nomeWhatsapp?: string | null): Promise<void> {
+export async function registrarUltimoContato(
+  chatId: string,
+  nomeWhatsapp?: string | null,
+  telefone?: string | null,
+): Promise<void> {
   const patch: Partial<FichaContato> = { ultimoContato: new Date().toISOString() };
   if (nomeWhatsapp) patch.nomeWhatsapp = nomeWhatsapp;
+  const digitos = (telefone ?? '').replace(/\D/g, '');
+  if (digitos) patch.telefone = digitos;
   await salvarFicha(chatId, patch);
 }
 

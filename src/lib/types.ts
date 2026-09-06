@@ -73,6 +73,8 @@ export type NotaContato = {
 export type FichaContato = {
   nome: string | null;
   nomeWhatsapp: string | null;
+  /** Só dígitos com DDI, resolvido pelo WPP (conversas @lid não trazem no id). */
+  telefone: string | null;
   interesses: string | null;
   ultimoContato: string | null;
 };

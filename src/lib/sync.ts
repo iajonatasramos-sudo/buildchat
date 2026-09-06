@@ -206,6 +206,7 @@ async function enviarFila(perfil: Perfil): Promise<void> {
             remote_jid: op.remoteJid,
             nome: ficha.nome,
             nome_whatsapp: ficha.nomeWhatsapp,
+            telefone: ficha.telefone,
             interesses: ficha.interesses,
             ultimo_contato: ficha.ultimoContato,
             deleted_at: null,
@@ -534,7 +535,7 @@ async function puxar(perfil: Perfil, desde: string | null): Promise<string> {
   if (wa) {
     let qc = sb
       .from('contatos')
-      .select('remote_jid, nome, nome_whatsapp, interesses, ultimo_contato, deleted_at')
+      .select('remote_jid, nome, nome_whatsapp, telefone, interesses, ultimo_contato, deleted_at')
       .eq('wa_number', wa);
     if (desde) qc = qc.gt('atualizado_em', desde);
     const { data: fichas, error: erroFichas } = await qc;
@@ -548,6 +549,7 @@ async function puxar(perfil: Perfil, desde: string | null): Promise<string> {
           mapa[f.remote_jid] = {
             nome: f.nome,
             nomeWhatsapp: f.nome_whatsapp,
+            telefone: f.telefone ?? null,
             interesses: f.interesses,
             ultimoContato: f.ultimo_contato,
           };

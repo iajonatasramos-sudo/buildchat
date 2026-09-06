@@ -1197,6 +1197,11 @@ function ContatoGuia({
       setTagsContato(t);
       setNotas(n);
       setFicha(f);
+      // Conversa @lid: o telefone chega resolvido pelo WPP — guarda na ficha
+      // existente para o painel mostrar o número real, não o LID.
+      if (contato.telefone && f.telefone !== contato.telefone.replace(/\D/g, '')) {
+        db.completarTelefone(contato.chatId, contato.telefone).then(() => db.obterFicha(contato.chatId)).then((nf) => vivo && setFicha(nf));
+      }
       setInteresses(f.interesses ?? '');
       setEditandoNome(false);
       setAddEtiqueta(false);
@@ -1218,12 +1223,12 @@ function ContatoGuia({
   async function alternarTag(tagId: string) {
     const novo = await db.alternarTagContato(contato!.chatId, tagId);
     setTagsContato(novo);
-    db.registrarContato(contato!.chatId, contato!.nome).catch(() => {}); // aparece no CRM do painel
+    db.registrarContato(contato!.chatId, contato!.nome, contato!.telefone).catch(() => {}); // aparece no CRM do painel
   }
 
   async function addNota() {
     if (!novaNota.trim()) return;
-    db.registrarContato(contato!.chatId, contato!.nome).catch(() => {});
+    db.registrarContato(contato!.chatId, contato!.nome, contato!.telefone).catch(() => {});
     const nota = await db.criarNota(contato!.chatId, novaNota.trim());
     setNotas((arr) => [nota, ...arr]);
     setNovaNota('');
@@ -1316,7 +1321,7 @@ function ContatoGuia({
           )}
           <div className="flex items-center gap-1 text-[11px] text-muted">
             <Phone size={11} />
-            {contato.telefone ?? (contato.ehGrupo ? 'Grupo' : '—')}
+            {contato.telefone ?? (ficha?.telefone ? `+${ficha.telefone}` : contato.ehGrupo ? 'Grupo' : '—')}
           </div>
         </div>
       </div>
