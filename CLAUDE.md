@@ -113,8 +113,11 @@ para `POST https://app.buildclinic.com.br/api/propostas/gerar?token=…` e receb
 
 - **Endereço e token vêm da integração `propostas`**, cadastrada pelo gestor em
   `/sistema/api` (tabela `integracoes`) e trazida pelo sync (`minhas_integracoes()`).
-  A configuração da empresa vence a global. **Não há token local na extensão** — sem a
-  integração cadastrada, o botão avisa para pedir ao gestor.
+  A configuração da empresa vence a global. **Não há token local na extensão.**
+- **O botão só existe para quem tem a integração**: `db.integracaoDisponivel('propostas')`
+  decide se a seção "Propostas" aparece na guia Contato. Clínica sem vínculo não vê o botão
+  — nem desabilitado. Como `minhas_integracoes()` já filtra por empresa e por `ativo`,
+  desligar ou remover a integração faz o botão sumir no sync seguinte.
 - Trocar o endereço para outro domínio exige liberá-lo em `host_permissions`.
 - Tipos: `EXEC_SP | INT_SP | EXEC_BR | INT_BR | VIGILANCIA`. Interiores troca metragem por
   nº/quais ambientes; Vigilância parcela 50/30/20 e tem os 3 checkboxes de formas a exibir.
@@ -245,7 +248,8 @@ escondidos na interface — esconder botão não impede chamada direta à API.
   escolhidos, com valor de tabela ou negociado.
 - Páginas: `/sistema` (métricas), `/sistema/vendas` (receita e faturas), `/sistema/api`
   (integrações: chave, endereço, token com botão de revelar/copiar, escopo global ou por
-  clínica) e `/sistema/empresas` (cadastro de clínica, situação, assentos, uso e as ações
+  clínica — **editável**: `sistema_salvar_integracao(..., p_id)` move a linha de escopo
+  preservando o token, em vez de criar outra) e `/sistema/empresas` (cadastro de clínica, situação, assentos, uso e as ações
   comerciais). O atalho na barra lateral só aparece para operadores.
 
 ## Servidor (`server/`) — Fase 0 concluída
@@ -254,7 +258,7 @@ escondidos na interface — esconder botão não impede chamada direta à API.
 server/sql/0001_schema.sql        tabelas multiempresa (escopo empresa × pessoal)
 server/sql/0002_rls.sql           RLS + funções app.* + grants para `authenticated`
 server/sql/0003_supabase_auth.sql FK com auth.users + criar_empresa_e_admin + aceitar_convite
-server/tests/                     79 testes rodando em Postgres real (PGlite/WASM)
+server/tests/                     83 testes rodando em Postgres real (PGlite/WASM)
 ```
 
 `cd server && npm test` — sobe um Postgres 16 em WASM, aplica as migrações e executa como

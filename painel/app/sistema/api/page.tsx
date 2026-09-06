@@ -249,6 +249,7 @@ function IntegracaoModal({
       p_empresa: empresaId || null,
       p_ativo: ativo,
       p_observacao: observacao.trim() || null,
+      p_id: inicial.id ?? null, // com o id, mudar a clínica MOVE a integração
     });
     setSalvando(false);
     if (error) {
@@ -301,7 +302,6 @@ function IntegracaoModal({
             value={empresaId}
             onChange={(e) => setEmpresaId(e.target.value)}
             className="campo focus:campo-foco font-normal"
-            disabled={editandoExistente}
           >
             <option value="">Todas as clínicas (padrão)</option>
             {empresas.map((e) => (
@@ -310,11 +310,11 @@ function IntegracaoModal({
               </option>
             ))}
           </select>
-          {editandoExistente && (
-            <span className="text-[12.5px] font-normal text-tinta-4">
-              Para mudar o escopo, crie outra integração e apague esta.
-            </span>
-          )}
+          <span className="text-[12.5px] font-normal text-tinta-4">
+            {empresaId
+              ? 'Só esta clínica vê o recurso; para as outras o botão nem aparece na extensão.'
+              : 'Todas as clínicas passam a ver o recurso na extensão.'}
+          </span>
         </label>
 
         <label className="flex items-center gap-2 font-medium">

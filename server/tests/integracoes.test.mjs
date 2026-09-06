@@ -84,3 +84,61 @@ describe('o que cada clínica enxerga', () => {
     assert.equal(r.rows[0].token, 'token-global', 'volta para a global quando a específica é desligada');
   });
 });
+
+describe('trocar o escopo de uma integração', () => {
+  test('o gestor move a integração da clínica A para a B, mantendo o token', async () => {
+    const { rows: [i] } = await h.como(operador,
+      `select id from sistema_integracoes() where empresa_id = $1`, [A.id]);
+
+    await h.como(operador,
+      `select sistema_salvar_integracao('propostas', 'Propostas da Clínica B',
+              'https://api.clinica-b.com', '', $1, true, null, $2)`, [B.id, i.id]);
+
+    const { rows: [depois] } = await h.como(operador,
+      `select empresa, token from sistema_integracoes() where id = $1`, [i.id]);
+    assert.equal(depois.empresa, 'clinica-b');
+    assert.equal(depois.token, 'token-da-a', 'token preservado na mudança de escopo');
+
+    // Quem perdeu a integração volta para a global; quem ganhou passa a usá-la.
+    const daA = await h.como(A.admin, `select token from minhas_integracoes()`);
+    assert.equal(daA.rows[0].token, 'token-global');
+    const daB = await h.como(B.admin, `select token from minhas_integracoes()`);
+    assert.equal(daB.rows[0].token, 'token-da-a');
+  });
+
+  test('recusa duas integrações da mesma chave no mesmo escopo', async () => {
+    const { rows: [i] } = await h.como(operador,
+      `select id from sistema_integracoes() where empresa_id = $1`, [B.id]);
+    await assert.rejects(
+      h.como(operador,
+        `select sistema_salvar_integracao('propostas', 'Duplicada', null, '', null, true, null, $1)`,
+        [i.id]),
+      /já tem uma integração/i,
+    );
+  });
+
+  test('recusa clínica inexistente e integração inexistente', async () => {
+    await assert.rejects(
+      h.como(operador,
+        `select sistema_salvar_integracao('x', 'X', null, 't',
+                '00000000-0000-0000-0000-000000000001'::uuid, true, null, null)`),
+      /clínica inexistente/i,
+    );
+    await assert.rejects(
+      h.como(operador,
+        `select sistema_salvar_integracao('x', 'X', null, 't', null, true, null,
+                '00000000-0000-0000-0000-000000000002'::uuid)`),
+      /não encontrada/i,
+    );
+  });
+
+  test('a clínica continua sem poder mexer', async () => {
+    const { rows: [i] } = await h.como(operador, `select id from sistema_integracoes() limit 1`);
+    await assert.rejects(
+      h.como(A.admin,
+        `select sistema_salvar_integracao('propostas', 'Roubada', null, '', $1, true, null, $2)`,
+        [A.id, i.id]),
+      /acesso restrito/i,
+    );
+  });
+});

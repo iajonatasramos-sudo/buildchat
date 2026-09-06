@@ -1111,6 +1111,16 @@ function ContatoGuia({
   const [addEtiqueta, setAddEtiqueta] = useState(false);
   const [buscaEtiqueta, setBuscaEtiqueta] = useState('');
   const [criandoEtiqueta, setCriandoEtiqueta] = useState(false);
+  // Só quem tem a API de propostas liberada pelo gestor vê o botão.
+  const [temPropostas, setTemPropostas] = useState(false);
+
+  useEffect(() => {
+    let vivo = true;
+    db.integracaoDisponivel('propostas').then((tem) => vivo && setTemPropostas(tem));
+    return () => {
+      vivo = false;
+    };
+  }, [contato?.chatId]);
 
   useEffect(() => {
     if (!contato) {
@@ -1373,15 +1383,17 @@ function ContatoGuia({
         )}
       </GuiaSecao>
 
-      <GuiaSecao titulo="Propostas" Icon={FileText} cor="var(--brand)">
-        <button
-          type="button"
-          onClick={() => modalProposta.set(true)}
-          className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-border-strong bg-surface px-3 py-2 text-[12.5px] font-semibold transition hover:border-brand hover:text-brand"
-        >
-          <FileText size={13} /> Gerar proposta
-        </button>
-      </GuiaSecao>
+      {temPropostas && (
+        <GuiaSecao titulo="Propostas" Icon={FileText} cor="var(--brand)">
+          <button
+            type="button"
+            onClick={() => modalProposta.set(true)}
+            className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-border-strong bg-surface px-3 py-2 text-[12.5px] font-semibold transition hover:border-brand hover:text-brand"
+          >
+            <FileText size={13} /> Gerar proposta
+          </button>
+        </GuiaSecao>
+      )}
 
       <GuiaSecao titulo="Notas" Icon={NotebookPen} cor="var(--green)" contador={notas.length}>
         <div className="mb-2 flex gap-1.5">

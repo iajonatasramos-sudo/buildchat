@@ -374,6 +374,16 @@ export async function obterIntegracao(chave: string): Promise<Integracao | null>
   return lista.find((i) => i.chave === chave) ?? null;
 }
 
+/**
+ * A integração está pronta para uso? O sync só traz as ativas que valem para a
+ * empresa, então isto responde "esta clínica contratou o recurso" — a interface
+ * usa para NÃO mostrar o botão de quem não tem (ex.: "Gerar proposta").
+ */
+export async function integracaoDisponivel(chave: string): Promise<boolean> {
+  const i = await obterIntegracao(chave);
+  return !!i?.token?.trim();
+}
+
 // ───────────────────────── Apoio à sincronização ─────────────────────────
 
 export async function salvarCategorias(cats: CategoriaDC[]): Promise<void> {
