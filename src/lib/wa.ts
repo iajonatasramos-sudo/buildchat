@@ -353,6 +353,16 @@ async function enviarMidiaPorDom(dataUrl: string, mime: string | null, nome: str
   await aguardar(600);
 }
 
+/** Ids das mensagens de áudio da conversa aberta (vazio se a ponte não responder). */
+export async function idsDeAudioDoChat(): Promise<string[]> {
+  try {
+    const r = await chamar<{ ids: string[] }>('audiosDoChat', {}, 8000);
+    return r?.ids ?? [];
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Áudio de uma mensagem, como Blob.
  *

@@ -4,29 +4,31 @@
 // o bloco precisa nascer dentro da bolha da mensagem, junto do player. Por isso
 // o estilo vem de uma folha própria, com prefixo `bc-tr-`.
 //
-// O WhatsApp virtualiza a lista: a bolha some ao rolar e volta remontada. Duas
-// consequências tratadas aqui — o observer reinsere o botão, e o texto já
-// transcrito fica num cache por id de mensagem, para não pagar a API de novo.
+// COMO A MENSAGEM DE ÁUDIO É ENCONTRADA — a parte delicada:
+//   * o <audio> NÃO existe até a pessoa tocar o áudio, então procurá-lo não
+//     acha nada (foi o primeiro erro);
+//   * as classes e os `data-icon` da bolha mudam a cada versão do WhatsApp.
+// O que é estável é o `data-id` da linha. Então perguntamos ao WPP quais
+// mensagens da conversa são de voz/áudio e cruzamos com esse atributo. Os
+// sinais de DOM ficam como reforço, para o caso de a ponte estar fora do ar.
+//
+// A lista é virtualizada: a bolha some ao rolar e volta remontada. O observer
+// reinsere o botão e um cache por id devolve o texto já transcrito.
 
 import { tema } from '@/lib/store';
-import { obterAudioDaMensagem } from '@/lib/wa';
+import { idsDeAudioDoChat, obterAudioDaMensagem } from '@/lib/wa';
 import { transcrever, transcricaoDisponivel } from '@/lib/transcricao';
 
 const MARCA = 'bcTr'; // dataset.bcTr — evita duplicar o bloco na mesma mensagem
 const cache = new Map<string, string>(); // msgId -> texto já transcrito
-
-/** Seletores do WhatsApp para o player de áudio, do mais específico ao geral. */
-const SELETORES_AUDIO = [
-  '#main div[role="application"] audio',
-  '#main audio',
-];
+let idsAudio = new Set<string>(); // ids de áudio da conversa aberta, segundo o WPP
 
 function injetarEstilo() {
   if (document.getElementById('bc-tr-estilo')) return;
   const estilo = document.createElement('style');
   estilo.id = 'bc-tr-estilo';
   estilo.textContent = `
-    .bc-tr { margin: 4px 0 2px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+    .bc-tr { margin: 2px 0 6px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
     .bc-tr[data-saida="1"] { align-items: flex-end; }
     .bc-tr-btn {
       display: inline-flex; align-items: center; gap: 5px;
@@ -69,30 +71,39 @@ const ICONE_TEXTO =
 const ICONE_GIRO =
   '<svg class="bc-tr-girando" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg>';
 
-/** A linha da mensagem: é dela que saem o id e o lado (enviada/recebida). */
-function linhaDaMensagem(audio: HTMLAudioElement): HTMLElement | null {
-  return audio.closest<HTMLElement>('[data-id]') ?? audio.closest<HTMLElement>('[role="row"]');
-}
-
-function idDaMensagem(linha: HTMLElement): string | null {
-  return linha.getAttribute('data-id') || linha.querySelector('[data-id]')?.getAttribute('data-id') || null;
+/**
+ * Reforço para quando a ponte WPP não respondeu: sinais de que a bolha tem
+ * áudio. Propositalmente amplo — nome de ícone, rótulo de acessibilidade em
+ * português ou inglês, o testid antigo e o próprio <audio>, se já existir.
+ */
+function pareceAudio(linha: HTMLElement): boolean {
+  if (linha.querySelector('audio')) return true;
+  if (linha.querySelector('[data-testid*="audio" i], [data-testid*="ptt" i]')) return true;
+  for (const el of linha.querySelectorAll('[data-icon]')) {
+    const nome = el.getAttribute('data-icon')?.toLowerCase() ?? '';
+    if (nome.includes('audio') || nome.includes('ptt') || nome.includes('mic')) return true;
+  }
+  for (const el of linha.querySelectorAll('[aria-label]')) {
+    const rotulo = el.getAttribute('aria-label')?.toLowerCase() ?? '';
+    if (rotulo.includes('voice message') || rotulo.includes('mensagem de voz') || rotulo.includes('áudio')) return true;
+  }
+  return false;
 }
 
 /**
- * Onde encaixar o bloco: dentro da bolha, logo depois do player, para o texto
- * herdar a largura e o alinhamento dela. Sem a bolha reconhecida, o fim da
- * linha ainda é um lugar razoável.
+ * Onde encaixar o bloco: dentro da bolha, para o texto herdar a largura e o
+ * alinhamento dela. Sem a bolha reconhecida, o fim da linha ainda serve.
  */
-function alvoDoBloco(audio: HTMLAudioElement, linha: HTMLElement): HTMLElement {
-  const bolha =
-    audio.closest<HTMLElement>('.copyable-text') ??
-    audio.closest<HTMLElement>('[class*="message-in"], [class*="message-out"]');
-  return bolha ?? linha;
+function alvoDoBloco(linha: HTMLElement): HTMLElement {
+  return (
+    linha.querySelector<HTMLElement>('.copyable-text') ??
+    linha.querySelector<HTMLElement>('[class*="message-in"], [class*="message-out"]') ??
+    linha
+  );
 }
 
-function montarBloco(audio: HTMLAudioElement, linha: HTMLElement) {
-  const msgId = idDaMensagem(linha);
-  const saida = linha.className.includes('message-out');
+function montarBloco(linha: HTMLElement, msgId: string | null) {
+  const saida = linha.className.includes('message-out') || !!linha.querySelector('[class*="message-out"]');
 
   const bloco = document.createElement('div');
   bloco.className = 'bc-tr';
@@ -106,6 +117,7 @@ function montarBloco(audio: HTMLAudioElement, linha: HTMLElement) {
 
   const mostrarTexto = (texto: string) => {
     botao.remove();
+    bloco.querySelector('.bc-tr-erro')?.remove();
     const p = document.createElement('div');
     p.className = 'bc-tr-texto';
     p.textContent = `“${texto}”`;
@@ -139,8 +151,8 @@ function montarBloco(audio: HTMLAudioElement, linha: HTMLElement) {
     botao.disabled = true;
     botao.innerHTML = `${ICONE_GIRO}<span>Transcrevendo…</span>`;
     try {
-      const blob = await obterAudioDaMensagem(audio, msgId);
-      const texto = await transcrever(blob);
+      const audio = linha.querySelector('audio');
+      const texto = await transcrever(await obterAudioDaMensagem(audio, msgId));
       if (msgId) cache.set(msgId, texto);
       mostrarTexto(texto);
     } catch (erro) {
@@ -150,7 +162,7 @@ function montarBloco(audio: HTMLAudioElement, linha: HTMLElement) {
     }
   });
 
-  alvoDoBloco(audio, linha).appendChild(bloco);
+  alvoDoBloco(linha).appendChild(bloco);
 }
 
 export function montarTranscricao() {
@@ -158,34 +170,69 @@ export function montarTranscricao() {
   aplicarCores();
   tema.subscribe(aplicarCores);
 
-  // Sem a integração cadastrada, o recurso simplesmente não existe para a
-  // clínica — mesma regra do botão de proposta.
+  // Sem a integração cadastrada, o recurso não existe para a clínica — mesma
+  // regra do botão de proposta. O sync pode liberar (ou tirar) a qualquer hora.
   let liberado = false;
   const conferir = () =>
     transcricaoDisponivel().then((tem) => {
+      if (tem !== liberado) console.info(`[BuildChat] transcrição ${tem ? 'liberada' : 'indisponível (sem integração)'}.`);
       liberado = tem;
     });
-  conferir();
-  setInterval(conferir, 60000); // o sync pode liberar (ou tirar) a qualquer momento
+  setInterval(conferir, 60000);
+
+  // Quais mensagens da conversa são de áudio, segundo o WPP.
+  let consultando = false;
+  let ultimaConsulta = 0;
+  const atualizarIds = async () => {
+    if (!liberado || consultando) return;
+    consultando = true;
+    ultimaConsulta = Date.now();
+    try {
+      const ids = await idsDeAudioDoChat();
+      if (ids.length) {
+        idsAudio = new Set(ids);
+        garantir(); // os ids novos podem revelar bolhas que já estão na tela
+      }
+    } finally {
+      consultando = false;
+    }
+  };
+  // A checagem da licença é assíncrona: só depois dela a consulta faz sentido.
+  conferir().then(atualizarIds);
+  setInterval(atualizarIds, 8000);
 
   const garantir = () => {
     if (!liberado) return;
-    for (const seletor of SELETORES_AUDIO) {
-      for (const audio of document.querySelectorAll<HTMLAudioElement>(seletor)) {
-        const linha = linhaDaMensagem(audio);
-        if (!linha || linha.dataset[MARCA]) continue;
-        linha.dataset[MARCA] = '1';
-        try {
-          montarBloco(audio, linha);
-        } catch (e) {
-          console.warn('[BuildChat] transcrição: não consegui montar o botão', e);
-        }
+    let desconhecidas = false;
+    for (const linha of document.querySelectorAll<HTMLElement>('#main [data-id]')) {
+      if (linha.dataset[MARCA]) continue;
+      const msgId = linha.getAttribute('data-id');
+      if (!(msgId && idsAudio.has(msgId)) && !pareceAudio(linha)) {
+        desconhecidas = true; // pode ser áudio que a lista do WPP ainda não cobre
+        continue;
       }
-      if (document.querySelector(seletor)) break; // o primeiro seletor que casa basta
+      linha.dataset[MARCA] = '1';
+      try {
+        montarBloco(linha, msgId);
+      } catch (e) {
+        console.warn('[BuildChat] transcrição: não consegui montar o botão', e);
+      }
     }
+    // Trocou de conversa ou rolou para trás: pede a lista de novo, sem
+    // martelar a ponte (no máximo uma consulta por segundo e meio).
+    if (desconhecidas && Date.now() - ultimaConsulta > 1500) atualizarIds();
   };
 
   garantir();
   const obs = new MutationObserver(() => garantir());
   obs.observe(document.body, { childList: true, subtree: true });
+
+  // Diagnóstico: se o botão não aparecer, isto diz de que lado está o problema.
+  (window as any).__bcTranscricao = () => ({
+    liberado,
+    audiosSegundoWpp: idsAudio.size,
+    linhasComDataId: document.querySelectorAll('#main [data-id]').length,
+    botoesNaTela: document.querySelectorAll('.bc-tr-btn').length,
+    transcritos: cache.size,
+  });
 }

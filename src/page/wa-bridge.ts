@@ -92,6 +92,25 @@ const comandos: Record<string, (payload: any) => Promise<any>> = {
   },
 
   /**
+   * Ids das mensagens de voz/áudio já carregadas na conversa.
+   *
+   * É assim que sabemos onde pôr o botão "Transcrever": o WhatsApp só cria o
+   * <audio> quando a pessoa toca o áudio, e as classes da bolha mudam a cada
+   * versão. Perguntar ao WPP é estável — e o id casa com o `data-id` que a
+   * linha da mensagem carrega no DOM.
+   */
+  async audiosDoChat({ chatId, quantidade = 200 }: { chatId?: string; quantidade?: number }) {
+    const alvo = chatId || (await chatAtivoId());
+    if (!alvo) return { ids: [] as string[] };
+    const msgs: any[] = (await WPP.chat.getMessages(alvo, { count: quantidade })) ?? [];
+    const ids = msgs
+      .filter((m) => m?.type === 'ptt' || m?.type === 'audio')
+      .map((m) => m?.id?._serialized ?? (typeof m?.id === 'string' ? m.id : null))
+      .filter(Boolean) as string[];
+    return { ids };
+  },
+
+  /**
    * Baixa a mídia de uma mensagem e devolve como data URL.
    *
    * Plano B da transcrição: normalmente o áudio já está no <audio> da bolha

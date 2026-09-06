@@ -150,6 +150,14 @@ Botão **Transcrever** em cada mensagem de áudio. A transcrição é feita pela
 - **Fica no DOM do WhatsApp**, não em shadow root: o bloco precisa nascer dentro da bolha,
   junto do player. Por isso o estilo vem de uma folha própria (prefixo `bc-tr-`), com as
   cores seguindo o `tema`.
+- **Achar a bolha de áudio não pode depender do `<audio>`**: ele só existe depois que a
+  pessoa toca o áudio (foi o primeiro erro — nenhum botão aparecia). Também não dá para
+  confiar em classe ou `data-icon`, que mudam a cada versão. O que é estável é o `data-id`
+  da linha: o comando `audiosDoChat` da ponte pergunta ao WPP quais mensagens são
+  `ptt`/`audio` e cruzamos com esse atributo; `pareceAudio()` (ícone, `aria-label`,
+  `data-testid`) fica de reforço para quando a ponte não responder.
+- Diagnóstico no console: `__bcTranscricao()` mostra se o recurso está liberado, quantos
+  áudios o WPP reconheceu e quantos botões estão na tela.
 - **Pegar o áudio** (`obterAudioDaMensagem` em `wa.ts`): o `<audio>` da bolha guarda um blob
   URL do próprio documento — basta buscá-lo. Em conversa antiga o WhatsApp já descartou
   esse blob; aí o comando `downloadMedia` da ponte manda o WPP baixar e descriptografar de
