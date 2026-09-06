@@ -137,6 +137,13 @@ para `POST https://app.buildclinic.com.br/api/propostas/gerar?token=…` e receb
 - Anexar na conversa usa `enviarArquivo()` (WPP, com o fluxo de anexo do WhatsApp como
   reserva) e registra o último contato no CRM.
 - `host_permissions` precisa de `https://app.buildclinic.com.br/*`.
+- **Toda proposta gerada fica no servidor** (`propostas`, `0015_propostas.sql`; PDF no bucket
+  `midias` em `<empresa>/propostas/<id>.pdf`). Offline-first como o resto: `db.registrarProposta`
+  guarda os metadados em `bc2_propostas` e o PDF em `media:proposta:<id>`, e enfileira
+  `proposta.criar`; o sync sobe o arquivo, insere a linha e solta o PDF local
+  (`concluirEnvioProposta`). Anexar na conversa enfileira `proposta.enviada`. O pull traz as
+  propostas do número conectado e a guia Contato lista com **abrir** e **enviar na conversa**
+  — é o "reenviar" do SalesBuild. A aba do PDF é aberta ANTES do `await` (gesto do usuário).
 
 ## Transcrever áudio (`src/lib/transcricao.ts` + `src/content/transcrever.ts`)
 
@@ -237,8 +244,11 @@ painel/app/painel/           casca com barra lateral + faixa de assinatura venci
   mensagens/[id]/            editor da sequência de ações (upload vai para o Storage)
   equipes/                   equipes e seus membros
   pastas/                    lista com ordem, cor e contagem de conversas
-  contatos/                  CRM: planilha de contatos, pastas, interesses e último
-                             contato, com busca, filtro por pasta e export CSV
+  contatos/                  CRM: planilha de contatos, pastas, propostas, interesses e
+                             último contato, com busca, filtro por pasta e export CSV
+  contatos/[id]/             ficha do lead: nome/interesses editáveis, entrar/sair de
+                             pasta, propostas com "Abrir PDF" (URL assinada do Storage) e
+                             anotações — tudo chega à extensão no sync seguinte
   assinatura/                plano, assentos e situação
 ```
 
@@ -311,7 +321,7 @@ escondidos na interface — esconder botão não impede chamada direta à API.
 server/sql/0001_schema.sql        tabelas multiempresa (escopo empresa × pessoal)
 server/sql/0002_rls.sql           RLS + funções app.* + grants para `authenticated`
 server/sql/0003_supabase_auth.sql FK com auth.users + criar_empresa_e_admin + aceitar_convite
-server/tests/                     88 testes rodando em Postgres real (PGlite/WASM)
+server/tests/                     95 testes rodando em Postgres real (PGlite/WASM)
 ```
 
 `cd server && npm test` — sobe um Postgres 16 em WASM, aplica as migrações e executa como

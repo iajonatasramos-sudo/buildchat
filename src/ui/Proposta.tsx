@@ -20,7 +20,7 @@ import {
   type DadosProposta,
   type TipoProposta,
 } from '@/lib/propostas';
-import type { ContatoAtivo } from '@/lib/types';
+import type { ContatoAtivo, PropostaSalva } from '@/lib/types';
 import { toast } from './toast';
 
 /** Campos que o cálculo preenche — e para de mexer assim que o usuário edita. */
@@ -49,6 +49,7 @@ export function PropostaModal({ contato }: { contato: ContatoAtivo | null }) {
   const [pdf, setPdf] = useState<{ blob: Blob; url: string } | null>(null);
   const [anexando, setAnexando] = useState(false);
   const [bloqueada, setBloqueada] = useState(false);
+  const [salva, setSalva] = useState<PropostaSalva | null>(null);
 
   const fechar = () => modalProposta.set(false);
   const vigilancia = ehVigilancia(tipo);
@@ -123,6 +124,21 @@ export function PropostaModal({ contato }: { contato: ContatoAtivo | null }) {
       if (pdf) URL.revokeObjectURL(pdf.url);
       const url = URL.createObjectURL(blob);
       setPdf({ blob, url });
+      // Fica guardada para a equipe (sobe pelo sync); a lista da guia Contato
+      // é quem oferece reenviar depois.
+      if (contato) {
+        db.registrarProposta(
+          {
+            remoteJid: contato.chatId,
+            contatoNome: nome.trim() || null,
+            tipo,
+            valorCentavos: Math.round((parseValor(valor) ?? 0) * 100),
+          },
+          blob,
+        )
+          .then(setSalva)
+          .catch((e) => console.warn('[BuildChat] proposta não foi guardada:', e));
+      }
       // Depois do await o clique já não conta como gesto do usuário, então o
       // navegador pode bloquear a aba. Se bloquear, o botão abaixo resolve.
       const aba = window.open(url, '_blank');
@@ -142,6 +158,7 @@ export function PropostaModal({ contato }: { contato: ContatoAtivo | null }) {
     const res = await enviarArquivo(pdf.blob, arquivo);
     setAnexando(false);
     if (res.ok) {
+      if (salva) db.marcarPropostaEnviada(salva.id).catch(() => {});
       toast.success('Proposta enviada na conversa.');
       fechar();
     } else {

@@ -7,6 +7,7 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  ExternalLink,
   FileText,
   Film,
   GripVertical,
@@ -50,8 +51,10 @@ import { CSS } from '@dnd-kit/utilities';
 import { cn } from '@/lib/utils';
 import { toast } from './toast';
 import * as db from '@/lib/db';
-import { getInfoConta } from '@/lib/wa';
-import { modalProposta } from '@/lib/store';
+import { enviarArquivo, getInfoConta } from '@/lib/wa';
+import { modalProposta, propostasMudaram } from '@/lib/store';
+import { TIPOS, brl } from '@/lib/propostas';
+import type { PropostaSalva } from '@/lib/types';
 import { minhasEquipes } from '@/lib/sync';
 import { carregarPerfil } from '@/lib/auth';
 import {
@@ -1113,6 +1116,61 @@ function ContatoGuia({
   const [criandoEtiqueta, setCriandoEtiqueta] = useState(false);
   // Só quem tem a API de propostas liberada pelo gestor vê o botão.
   const [temPropostas, setTemPropostas] = useState(false);
+  const [propostas, setPropostas] = useState<PropostaSalva[]>([]);
+  const [ocupada, setOcupada] = useState<string | null>(null); // id em envio/abertura
+
+  // Lista de propostas do contato — recarrega quando uma é gerada/enviada.
+  useEffect(() => {
+    if (!contato) {
+      setPropostas([]);
+      return;
+    }
+    let vivo = true;
+    const carregarLista = () => db.listarPropostas(contato.chatId).then((l) => vivo && setPropostas(l));
+    carregarLista();
+    const parar = propostasMudaram.subscribe(carregarLista);
+    return () => {
+      vivo = false;
+      parar();
+    };
+  }, [contato?.chatId]);
+
+  async function abrirProposta(p: PropostaSalva) {
+    // A aba é aberta ANTES do await, enquanto o clique ainda vale como gesto.
+    const aba = window.open('', '_blank');
+    setOcupada(p.id);
+    const blob = await db.obterPropostaBlob(p);
+    setOcupada(null);
+    if (!blob) {
+      aba?.close();
+      toast.error('PDF indisponível agora — verifique a conexão.');
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    if (aba) aba.location.href = url;
+    else window.open(url, '_blank');
+  }
+
+  async function enviarProposta(p: PropostaSalva) {
+    setOcupada(p.id);
+    try {
+      const blob = await db.obterPropostaBlob(p);
+      if (!blob) {
+        toast.error('PDF indisponível agora — verifique a conexão.');
+        return;
+      }
+      const primeiroNome = (p.contatoNome ?? '').trim().split(/\s+/)[0]?.toLowerCase() || 'cliente';
+      const res = await enviarArquivo(blob, `proposta-${primeiroNome}.pdf`);
+      if (!res.ok) {
+        toast.error(res.erro);
+        return;
+      }
+      await db.marcarPropostaEnviada(p.id);
+      toast.success('Proposta enviada na conversa.');
+    } finally {
+      setOcupada(null);
+    }
+  }
 
   useEffect(() => {
     let vivo = true;
@@ -1383,15 +1441,63 @@ function ContatoGuia({
         )}
       </GuiaSecao>
 
-      {temPropostas && (
-        <GuiaSecao titulo="Propostas" Icon={FileText} cor="var(--brand)">
-          <button
-            type="button"
-            onClick={() => modalProposta.set(true)}
-            className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-border-strong bg-surface px-3 py-2 text-[12.5px] font-semibold transition hover:border-brand hover:text-brand"
-          >
-            <FileText size={13} /> Gerar proposta
-          </button>
+      {(temPropostas || propostas.length > 0) && (
+        <GuiaSecao titulo="Propostas" Icon={FileText} cor="var(--brand)" contador={propostas.length}>
+          {temPropostas && (
+            <button
+              type="button"
+              onClick={() => modalProposta.set(true)}
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-border-strong bg-surface px-3 py-2 text-[12.5px] font-semibold transition hover:border-brand hover:text-brand"
+            >
+              <FileText size={13} /> Gerar proposta
+            </button>
+          )}
+          {propostas.length > 0 && (
+            <ul className="mt-2 flex flex-col gap-1.5">
+              {propostas.map((p) => {
+                const rotulo = TIPOS.find((x) => x.valor === p.tipo)?.rotulo ?? p.tipo;
+                const quando = new Date(p.criadoEm).toLocaleString('pt-BR', {
+                  day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+                });
+                const emAndamento = ocupada === p.id;
+                return (
+                  <li
+                    key={p.id}
+                    className="flex items-center gap-2 rounded-md border border-border-strong bg-surface px-2.5 py-2"
+                  >
+                    <FileText size={14} className="flex-shrink-0 text-muted" />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[12.5px] font-semibold">
+                        {rotulo} · {brl(p.valorCentavos / 100)}
+                      </div>
+                      <div className="text-[10.5px] text-muted">
+                        {quando} · {p.enviadaEm ? 'Enviada' : 'Gerada'}
+                        {!p.arquivoPath && ' · aguardando sincronizar'}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      title="Abrir o PDF"
+                      disabled={emAndamento}
+                      onClick={() => abrirProposta(p)}
+                      className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-md text-muted transition hover:bg-surface-2 hover:text-brand disabled:opacity-50"
+                    >
+                      <ExternalLink size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      title="Enviar na conversa"
+                      disabled={emAndamento}
+                      onClick={() => enviarProposta(p)}
+                      className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-md text-brand transition hover:bg-brand-50 disabled:opacity-50"
+                    >
+                      {emAndamento ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </GuiaSecao>
       )}
 

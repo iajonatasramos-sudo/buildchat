@@ -25,7 +25,9 @@ type Op =
   | { op: 'anotacao.upsert'; id: string; remoteJid: string }
   | { op: 'anotacao.delete'; id: string }
   | { op: 'config.upsert' }
-  | { op: 'contato.upsert'; remoteJid: string };
+  | { op: 'contato.upsert'; remoteJid: string }
+  | { op: 'proposta.criar'; id: string }
+  | { op: 'proposta.enviada'; id: string };
 
 type Estado = {
   /** ISO do último pull bem-sucedido. */
@@ -210,6 +212,43 @@ async function enviarFila(perfil: Perfil): Promise<void> {
           },
           { onConflict: 'empresa_id,wa_number,remote_jid' },
         );
+        if (error) throw error;
+      } else if (op.op === 'proposta.criar') {
+        if (!wa) { restantes.push(op); continue; }
+        const p = await db.obterProposta(op.id);
+        if (!p) continue; // apagada localmente antes de subir
+        let caminho = p.arquivoPath?.replace(/^storage:/, '') ?? null;
+        if (!caminho) {
+          const pdf = await db.obterPdfPropostaLocal(p.id);
+          if (!pdf) continue; // sem arquivo não há o que subir
+          caminho = `${perfil.empresa.id}/propostas/${p.id}.pdf`;
+          // upsert: uma tentativa anterior pode ter subido o arquivo e falhado na linha.
+          const { error: erroUpload } = await sb.storage
+            .from('midias')
+            .upload(caminho, pdf, { contentType: 'application/pdf', upsert: true });
+          if (erroUpload) throw erroUpload;
+        }
+        const { error } = await sb.from('propostas').upsert({
+          id: p.id,
+          empresa_id: perfil.empresa.id,
+          wa_number: wa,
+          remote_jid: p.remoteJid,
+          contato_nome: p.contatoNome,
+          tipo: p.tipo,
+          valor_centavos: p.valorCentavos,
+          arquivo_path: caminho,
+          criado_por: perfil.id,
+          enviada_em: p.enviadaEm, // leva o estado mais recente, mesmo que o "enviada" ainda esteja na fila
+          criado_em: p.criadoEm,
+          deleted_at: null,
+        });
+        if (error) throw error;
+        await db.concluirEnvioProposta(p.id, `storage:${caminho}`);
+      } else if (op.op === 'proposta.enviada') {
+        const p = await db.obterProposta(op.id);
+        // Ainda não subiu? O `proposta.criar` da fila já carrega o enviada_em.
+        if (!p || !p.arquivoPath) continue;
+        const { error } = await sb.from('propostas').update({ enviada_em: p.enviadaEm }).eq('id', op.id);
         if (error) throw error;
       } else if (op.op === 'anotacao.delete') {
         const { error } = await sb.from('anotacoes')
@@ -514,6 +553,32 @@ async function puxar(perfil: Perfil, desde: string | null): Promise<string> {
           };
       }
       await db.salvarMapaFichas(mapa);
+    }
+  }
+
+  // Propostas geradas para os contatos deste número (a equipe reenvia pela guia)
+  if (wa) {
+    let qp = sb
+      .from('propostas')
+      .select('id, remote_jid, contato_nome, tipo, valor_centavos, arquivo_path, enviada_em, criado_em, deleted_at')
+      .eq('wa_number', wa);
+    if (desde) qp = qp.gt('atualizado_em', desde);
+    const { data: props, error: erroProps } = await qp;
+    if (erroProps) throw erroProps;
+    if (props?.length) {
+      await db.mesclarPropostasDoServidor(
+        (props as any[]).map((p) => ({
+          id: p.id,
+          remoteJid: p.remote_jid,
+          contatoNome: p.contato_nome,
+          tipo: p.tipo,
+          valorCentavos: p.valor_centavos ?? 0,
+          arquivoPath: p.arquivo_path ? `storage:${p.arquivo_path}` : null,
+          criadoEm: p.criado_em,
+          enviadaEm: p.enviada_em,
+          apagada: !!p.deleted_at,
+        })),
+      );
     }
   }
 

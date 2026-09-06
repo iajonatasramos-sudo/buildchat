@@ -21,6 +21,8 @@ import type {
   TipoResposta,
 } from './types';
 import { CORES_CATEGORIA } from './types';
+import type { PropostaSalva } from './types';
+import { propostasMudaram } from './store';
 
 const K = {
   categorias: 'bc2_categorias',
@@ -34,6 +36,7 @@ const K = {
   apagadas: 'bc2_apagadas',
   contatos: 'bc2_contatos',
   integracoes: 'bc2_integracoes',
+  propostas: 'bc2_propostas',
 } as const;
 
 const DEFAULT_SETTINGS: Settings = { webhookUrl: '', triggerChar: '/', tema: 'auto' };
@@ -382,6 +385,125 @@ export async function obterIntegracao(chave: string): Promise<Integracao | null>
 export async function integracaoDisponivel(chave: string): Promise<boolean> {
   const i = await obterIntegracao(chave);
   return !!i?.token?.trim();
+}
+
+
+// ───────────────────────── Propostas geradas ─────────────────────────
+// Metadados em bc2_propostas (mapa por id). O PDF recém-gerado fica em
+// media:proposta:<id> até o sync subir para o Storage; depois o registro passa
+// a apontar para `storage:<caminho>` e o local é solto (`obterMediaDataUrl`
+// baixa e guarda em cache como faz com as mídias das respostas).
+
+const chavePdf = (id: string) => `media:proposta:${id}`;
+
+function blobParaDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(String(fr.result));
+    fr.onerror = () => reject(fr.error);
+    fr.readAsDataURL(blob);
+  });
+}
+
+const dataUrlParaBlob = (dataUrl: string) => fetch(dataUrl).then((r) => r.blob());
+
+async function mapaPropostas(): Promise<Record<string, PropostaSalva>> {
+  return get<Record<string, PropostaSalva>>(K.propostas, {});
+}
+
+function avisarPropostas() {
+  propostasMudaram.set(propostasMudaram.get() + 1);
+}
+
+/** Propostas do contato, da mais recente para a mais antiga. */
+export async function listarPropostas(remoteJid: string): Promise<PropostaSalva[]> {
+  const mapa = await mapaPropostas();
+  return Object.values(mapa)
+    .filter((p) => p.remoteJid === remoteJid)
+    .sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
+}
+
+export async function obterProposta(id: string): Promise<PropostaSalva | null> {
+  return (await mapaPropostas())[id] ?? null;
+}
+
+/** Guarda a proposta recém-gerada (PDF local) e enfileira o envio ao servidor. */
+export async function registrarProposta(
+  dados: Pick<PropostaSalva, 'remoteJid' | 'contatoNome' | 'tipo' | 'valorCentavos'>,
+  pdf: Blob,
+): Promise<PropostaSalva> {
+  const id = crypto.randomUUID();
+  await set(chavePdf(id), { dataUrl: await blobParaDataUrl(pdf), mime: 'application/pdf', nome: `proposta-${id}.pdf` });
+  const proposta: PropostaSalva = {
+    ...dados,
+    id,
+    arquivoPath: null,
+    criadoEm: new Date().toISOString(),
+    enviadaEm: null,
+  };
+  const mapa = await mapaPropostas();
+  mapa[id] = proposta;
+  await set(K.propostas, mapa);
+  avisarPropostas();
+  const { enfileirar } = await import('./sync');
+  await enfileirar({ op: 'proposta.criar', id });
+  return proposta;
+}
+
+/** Anexada na conversa: registra localmente e avisa o servidor. */
+export async function marcarPropostaEnviada(id: string): Promise<void> {
+  const mapa = await mapaPropostas();
+  if (!mapa[id]) return;
+  mapa[id] = { ...mapa[id], enviadaEm: new Date().toISOString() };
+  await set(K.propostas, mapa);
+  avisarPropostas();
+  const { enfileirar } = await import('./sync');
+  await enfileirar({ op: 'proposta.enviada', id });
+}
+
+/** O PDF, venha do local (ainda não subiu) ou do Storage (com cache). */
+export async function obterPropostaBlob(p: PropostaSalva): Promise<Blob | null> {
+  const local = await get<MediaSalva | null>(chavePdf(p.id), null);
+  if (local) return dataUrlParaBlob(local.dataUrl);
+  if (p.arquivoPath) {
+    const dataUrl = await obterMediaDataUrl(p.arquivoPath, 'application/pdf');
+    if (dataUrl) return dataUrlParaBlob(dataUrl);
+  }
+  return null;
+}
+
+/** Sync: o PDF local que ainda precisa subir. */
+export async function obterPdfPropostaLocal(id: string): Promise<Blob | null> {
+  const local = await get<MediaSalva | null>(chavePdf(id), null);
+  return local ? dataUrlParaBlob(local.dataUrl) : null;
+}
+
+/** Sync: subiu — passa a apontar para o Storage e solta o PDF local. */
+export async function concluirEnvioProposta(id: string, arquivoPath: string): Promise<void> {
+  const mapa = await mapaPropostas();
+  if (!mapa[id]) return;
+  mapa[id] = { ...mapa[id], arquivoPath };
+  await set(K.propostas, mapa);
+  await new Promise<void>((r) => chrome.storage.local.remove(chavePdf(id), () => r()));
+}
+
+/** Sync: mescla o que veio do servidor. Apagadas saem; as pendentes locais ficam. */
+export async function mesclarPropostasDoServidor(
+  vindas: (PropostaSalva & { apagada: boolean })[],
+): Promise<void> {
+  const mapa = await mapaPropostas();
+  for (const v of vindas) {
+    if (v.apagada) {
+      delete mapa[v.id];
+      continue;
+    }
+    const local = mapa[v.id];
+    // Um envio marcado aqui e ainda não sincronizado não pode ser desfeito.
+    const enviadaEm = local?.enviadaEm && !v.enviadaEm ? local.enviadaEm : v.enviadaEm;
+    mapa[v.id] = { ...v, enviadaEm, arquivoPath: v.arquivoPath ?? local?.arquivoPath ?? null };
+  }
+  await set(K.propostas, mapa);
+  avisarPropostas();
 }
 
 // ───────────────────────── Apoio à sincronização ─────────────────────────

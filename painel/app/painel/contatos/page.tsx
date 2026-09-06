@@ -1,10 +1,12 @@
 'use client';
 
 // CRM: a planilha de contatos alimentada pela extensão — pastas em que cada um
-// está, interesses anotados pela equipe e a data do último envio.
+// está, propostas geradas, interesses anotados pela equipe e a data do último
+// envio. Cada linha abre a ficha completa do lead (/painel/contatos/[id]).
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { formatarData, supabase } from '@/lib/supabase';
+import Link from 'next/link';
+import { formatarData, supabase, telefoneDoJid } from '@/lib/supabase';
 import { Cabecalho, Cartao, Vazio } from '@/componentes/ui';
 
 type Contato = {
@@ -18,28 +20,19 @@ type Contato = {
 };
 type Pasta = { id: string; nome: string; cor: string };
 type Vinculo = { pasta_id: string; remote_jid: string; wa_number: string };
-
-/** 5511999998888@c.us → +55 11 99999-8888 */
-function telefoneDoJid(jid: string): string {
-  const d = jid.split('@')[0]?.replace(/\D/g, '') ?? '';
-  if (jid.endsWith('@g.us')) return 'Grupo';
-  if (d.length < 12) return d;
-  const ddd = d.slice(2, 4);
-  const resto = d.slice(4);
-  const meio = resto.length > 8 ? resto.slice(0, 5) : resto.slice(0, 4);
-  return `+${d.slice(0, 2)} ${ddd} ${meio}-${resto.slice(meio.length)}`;
-}
+type PropostaResumo = { remote_jid: string; wa_number: string; enviada_em: string | null };
 
 export default function Contatos() {
   const [contatos, setContatos] = useState<Contato[]>([]);
   const [pastas, setPastas] = useState<Pasta[]>([]);
   const [vinculos, setVinculos] = useState<Vinculo[]>([]);
+  const [propostas, setPropostas] = useState<PropostaResumo[]>([]);
   const [busca, setBusca] = useState('');
   const [filtroPasta, setFiltroPasta] = useState<string>('');
   const [carregando, setCarregando] = useState(true);
 
   const carregar = useCallback(async () => {
-    const [ct, pa, vi] = await Promise.all([
+    const [ct, pa, vi, pr] = await Promise.all([
       supabase
         .from('contatos')
         .select('id, wa_number, remote_jid, nome, nome_whatsapp, interesses, ultimo_contato')
@@ -47,10 +40,12 @@ export default function Contatos() {
         .order('ultimo_contato', { ascending: false, nullsFirst: false }),
       supabase.from('pastas').select('id, nome, cor').is('deleted_at', null).order('ordem'),
       supabase.from('pasta_conversas').select('pasta_id, remote_jid, wa_number').is('deleted_at', null),
+      supabase.from('propostas').select('remote_jid, wa_number, enviada_em').is('deleted_at', null),
     ]);
     setContatos((ct.data as Contato[]) ?? []);
     setPastas((pa.data as Pasta[]) ?? []);
     setVinculos((vi.data as Vinculo[]) ?? []);
+    setPropostas((pr.data as PropostaResumo[]) ?? []);
     setCarregando(false);
   }, []);
 
@@ -70,6 +65,19 @@ export default function Contatos() {
     return m;
   }, [vinculos, pastas]);
 
+  // Quantas propostas cada contato tem (e quantas já foram enviadas).
+  const propostasPorJid = useMemo(() => {
+    const m = new Map<string, { total: number; enviadas: number }>();
+    for (const p of propostas) {
+      const chave = `${p.wa_number}|${p.remote_jid}`;
+      const atual = m.get(chave) ?? { total: 0, enviadas: 0 };
+      atual.total++;
+      if (p.enviada_em) atual.enviadas++;
+      m.set(chave, atual);
+    }
+    return m;
+  }, [propostas]);
+
   const lista = useMemo(() => {
     const q = busca.trim().toLowerCase();
     return contatos.filter((c) => {
@@ -88,13 +96,15 @@ export default function Contatos() {
 
   function exportarCsv() {
     const linhas = [
-      ['Nome', 'Telefone', 'Pastas', 'Interesses', 'Último contato'],
+      ['Nome', 'Telefone', 'Pastas', 'Propostas', 'Interesses', 'Último contato'],
       ...lista.map((c) => {
-        const suas = porJid.get(`${c.wa_number}|${c.remote_jid}`) ?? [];
+        const chave = `${c.wa_number}|${c.remote_jid}`;
+        const suas = porJid.get(chave) ?? [];
         return [
           c.nome ?? c.nome_whatsapp ?? '',
           telefoneDoJid(c.remote_jid),
           suas.map((p) => p.nome).join(' | '),
+          String(propostasPorJid.get(chave)?.total ?? 0),
           (c.interesses ?? '').replace(/\n/g, ' '),
           c.ultimo_contato ? formatarData(c.ultimo_contato) : '',
         ];
@@ -161,7 +171,7 @@ export default function Contatos() {
             <table className="w-full border-collapse">
               <thead>
                 <tr className="bg-fundo text-left">
-                  {['CONTATO', 'TELEFONE', 'PASTAS', 'INTERESSES', 'ÚLTIMO CONTATO'].map((h) => (
+                  {['CONTATO', 'TELEFONE', 'PASTAS', 'PROPOSTAS', 'INTERESSES', 'ÚLTIMO CONTATO'].map((h) => (
                     <th key={h} className="rotulo border-b border-borda px-[18px] py-3">
                       {h}
                     </th>
@@ -170,11 +180,15 @@ export default function Contatos() {
               </thead>
               <tbody>
                 {lista.map((c) => {
-                  const suas = porJid.get(`${c.wa_number}|${c.remote_jid}`) ?? [];
+                  const chave = `${c.wa_number}|${c.remote_jid}`;
+                  const suas = porJid.get(chave) ?? [];
+                  const props = propostasPorJid.get(chave);
                   return (
-                    <tr key={c.id}>
+                    <tr key={c.id} className="transition hover:bg-fundo">
                       <td className="border-b border-linha px-[18px] py-3.5">
-                        <div className="font-medium">{c.nome || c.nome_whatsapp || '—'}</div>
+                        <Link href={`/painel/contatos/${c.id}`} className="font-medium text-marca hover:underline">
+                          {c.nome || c.nome_whatsapp || '—'}
+                        </Link>
                         {c.nome && c.nome_whatsapp && c.nome !== c.nome_whatsapp && (
                           <div className="text-[12px] text-tinta-4">no WhatsApp: {c.nome_whatsapp}</div>
                         )}
@@ -198,6 +212,18 @@ export default function Contatos() {
                             ))
                           )}
                         </div>
+                      </td>
+                      <td className="whitespace-nowrap border-b border-linha px-[18px] py-3.5">
+                        {props ? (
+                          <>
+                            <span className="font-medium">{props.total}</span>
+                            {props.enviadas > 0 && (
+                              <span className="text-[12px] text-tinta-4"> · {props.enviadas} enviada(s)</span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-tinta-4">—</span>
+                        )}
                       </td>
                       <td className="max-w-[320px] border-b border-linha px-[18px] py-3.5 text-tinta-3">
                         {c.interesses || <span className="text-tinta-4">—</span>}

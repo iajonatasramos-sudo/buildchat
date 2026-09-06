@@ -51,3 +51,5 @@ export const estadoSync = criarSinal<EstadoSync>('local');
 
 /** Modal "Gerar proposta" (usa o contato da conversa aberta). */
 export const modalProposta = criarSinal<boolean>(false);
+/** Incrementa quando uma proposta é criada/enviada — a guia Contato recarrega a lista. */
+export const propostasMudaram = criarSinal<number>(0);

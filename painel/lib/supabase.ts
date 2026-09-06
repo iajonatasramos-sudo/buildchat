@@ -80,3 +80,23 @@ export function formatarDia(iso: string | null): string {
   const [a, m, d] = iso.slice(0, 10).split('-');
   return `${d}/${m}/${a}`;
 }
+
+/** 5511999998888@c.us → +55 11 99999-8888 */
+export function telefoneDoJid(jid: string): string {
+  const d = jid.split('@')[0]?.replace(/\D/g, '') ?? '';
+  if (jid.endsWith('@g.us')) return 'Grupo';
+  if (d.length < 12) return d;
+  const ddd = d.slice(2, 4);
+  const resto = d.slice(4);
+  const meio = resto.length > 8 ? resto.slice(0, 5) : resto.slice(0, 4);
+  return `+${d.slice(0, 2)} ${ddd} ${meio}-${resto.slice(meio.length)}`;
+}
+
+/** Tipos de proposta do BuildClinic — o rótulo que a extensão mostra. */
+export const TIPOS_PROPOSTA: Record<string, string> = {
+  EXEC_SP: 'Executivo SP',
+  INT_SP: 'Interiores SP',
+  EXEC_BR: 'Executivo BR',
+  INT_BR: 'Interior BR',
+  VIGILANCIA: 'Vigilância Sanitária',
+};

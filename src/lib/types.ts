@@ -77,6 +77,19 @@ export type FichaContato = {
   ultimoContato: string | null;
 };
 
+/** Proposta gerada para um contato — fica no servidor para a equipe reenviar. */
+export type PropostaSalva = {
+  id: string;
+  remoteJid: string;
+  contatoNome: string | null;
+  tipo: string;
+  valorCentavos: number;
+  /** `storage:<caminho>` depois de subir; até lá o PDF fica em `media:proposta:<id>`. */
+  arquivoPath: string | null;
+  criadoEm: string;
+  enviadaEm: string | null;
+};
+
 export type ContatoAtivo = {
   /** id._serialized do WPP (ex.: 5511999999999@c.us) ou "wa:<título>" no fallback DOM. */
   chatId: string;
