@@ -101,6 +101,44 @@ export function Vazio({ titulo, texto, acao }: { titulo: string; texto: string; 
   );
 }
 
+/**
+ * Senha com o botão "Gerar" ao lado. O botão fica na MESMA linha do input
+ * (flex com stretch iguala as alturas) e a dica desce por baixo dos dois —
+ * pendurar o botão no CampoTexto o desalinhava, porque a dica entra no meio.
+ */
+export function CampoSenha({
+  valor,
+  onChange,
+  onGerar,
+  rotulo = 'Senha',
+  dica = 'Mínimo 6 caracteres.',
+}: {
+  valor: string;
+  onChange: (v: string) => void;
+  onGerar: () => void;
+  rotulo?: string;
+  dica?: string;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5 font-medium">
+      <label className="flex flex-col gap-1.5">
+        {rotulo}
+        <span className="flex gap-2">
+          <input
+            value={valor}
+            onChange={(e) => onChange(e.target.value)}
+            className="campo focus:campo-foco min-w-0 flex-1 font-normal"
+          />
+          <Botao variante="secundario" onClick={onGerar}>
+            Gerar
+          </Botao>
+        </span>
+      </label>
+      {dica && <span className="text-[12.5px] font-normal text-tinta-4">{dica}</span>}
+    </div>
+  );
+}
+
 export function CampoTexto({
   rotulo,
   valor,

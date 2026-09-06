@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { formatarData, formatarDia, moeda, supabase } from '@/lib/supabase';
-import { Botao, Cabecalho, CampoTexto, Cartao, Modal, Vazio } from '@/componentes/ui';
+import { Botao, Cabecalho, CampoSenha, CampoTexto, Cartao, Modal, Vazio } from '@/componentes/ui';
 
 type Ciclo = 'mensal' | 'trimestral' | 'anual' | 'vitalicio';
 type Status = 'trial' | 'ativa' | 'inadimplente' | 'cancelada';
@@ -423,14 +423,7 @@ function NovaEmpresaModal({
           placeholder="kelly@odontosorriso.com.br"
           dica="Será o login dele no painel e na extensão."
         />
-        <div className="flex items-end gap-2">
-          <div className="flex-1">
-            <CampoTexto rotulo="Senha" valor={senha} onChange={setSenha} dica="Mínimo 6 caracteres." />
-          </div>
-          <Botao variante="secundario" onClick={() => setSenha(senhaSugerida())}>
-            Gerar
-          </Botao>
-        </div>
+        <CampoSenha valor={senha} onChange={setSenha} onGerar={() => setSenha(senhaSugerida())} />
 
         {erro && (
           <p className="rounded-controle border border-perigo-borda bg-perigo-fundo px-3 py-2 text-[12.5px] text-perigo">

@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { carregarPerfil, formatarData, supabase, type Perfil } from '@/lib/supabase';
-import { Botao, Cabecalho, CampoTexto, Cartao, Modal } from '@/componentes/ui';
+import { Botao, Cabecalho, CampoSenha, CampoTexto, Cartao, Modal } from '@/componentes/ui';
 
 type Usuario = { id: string; nome: string; email: string; papel: string; ativo: boolean; ultimo_acesso: string | null };
 
@@ -236,14 +236,7 @@ function NovoUsuarioModal({
           placeholder="amanda@clinica.com.br"
           dica="Será o login dela na extensão."
         />
-        <div className="flex items-end gap-2">
-          <div className="flex-1">
-            <CampoTexto rotulo="Senha" valor={senha} onChange={setSenha} dica="Mínimo 6 caracteres." />
-          </div>
-          <Botao variante="secundario" onClick={() => setSenha(senhaSugerida())}>
-            Gerar
-          </Botao>
-        </div>
+        <CampoSenha valor={senha} onChange={setSenha} onGerar={() => setSenha(senhaSugerida())} />
         <label className="flex flex-col gap-1.5 font-medium">
           Papel
           <select
