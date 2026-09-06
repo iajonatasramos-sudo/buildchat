@@ -8,7 +8,7 @@ import { Loader2, MessageSquare, X } from 'lucide-react';
 import { cn, emPx } from '@/lib/utils';
 import * as db from '@/lib/db';
 import { pastaAtiva } from '@/lib/store';
-import { abrirChat, bridgeDisponivel, listarChats, type ChatResumo } from '@/lib/wa';
+import { abrirChat, bridgeDisponivel, fotosDosContatos, listarChats, type ChatResumo } from '@/lib/wa';
 import type { TagOpt } from '@/lib/types';
 
 function formatarHora(ts: number | null): string {
@@ -29,6 +29,7 @@ function iniciais(nome: string): string {
 export function PastaPanel({ tagId }: { tagId: string }) {
   const [tag, setTag] = useState<TagOpt | null>(null);
   const [chats, setChats] = useState<ChatResumo[] | null>(null);
+  const [fotos, setFotos] = useState<Record<string, string | null>>({});
   const [rect, setRect] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
 
   const medir = useCallback(() => {
@@ -82,6 +83,8 @@ export function PastaPanel({ tagId }: { tagId: string }) {
       // de tratamento da ficha, quando existe.
       const nomes = await db.nomesDasFichas();
       setChats(filtrados.map((c) => ({ ...c, nome: nomes[c.chatId] ?? c.nome })));
+      // Fotos só das conversas desta pasta — chegam depois, sem segurar a lista.
+      fotosDosContatos(filtrados.map((c) => c.chatId)).then((f) => vivo && setFotos((atual) => ({ ...atual, ...f })));
     })();
     return () => {
       vivo = false;
@@ -142,12 +145,22 @@ export function PastaPanel({ tagId }: { tagId: string }) {
               onClick={() => abrirChat(c.chatId)}
               className="flex w-full items-center gap-3 border-b border-border px-3 py-2.5 text-left transition last:border-b-0 hover:bg-surface-2"
             >
-              <span
-                className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full text-[13px] font-bold text-white"
-                style={{ background: tag?.cor ?? 'var(--brand)' }}
-              >
-                {iniciais(c.nome)}
-              </span>
+              {fotos[c.chatId] ? (
+                <img
+                  src={fotos[c.chatId]!}
+                  alt=""
+                  className="h-10 w-10 flex-shrink-0 rounded-full object-cover"
+                  // Foto expirou ou não carregou: volta às iniciais.
+                  onError={() => setFotos((f) => ({ ...f, [c.chatId]: null }))}
+                />
+              ) : (
+                <span
+                  className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full text-[13px] font-bold text-white"
+                  style={{ background: tag?.cor ?? 'var(--brand)' }}
+                >
+                  {iniciais(c.nome)}
+                </span>
+              )}
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[13.5px] font-semibold">{c.nome}</span>
                 <span className="block truncate text-[11px] text-muted">

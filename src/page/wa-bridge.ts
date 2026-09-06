@@ -87,6 +87,8 @@ async function contatoCompleto(chat: any) {
  * o wa-js não achava a mensagem pelo id cru do DOM.
  */
 const audiosConhecidos = new Map<string, any>();
+/** Foto de perfil já resolvida por id de contato (null = não tem). */
+const fotosPorId = new Map<string, string | null>();
 
 /** `false_5511@c.us_3EB0ABC[_participante]` → `3EB0ABC`. */
 function hashDoId(id: string): string {
@@ -167,6 +169,32 @@ const comandos: Record<string, (payload: any) => Promise<any>> = {
         };
       })
       .filter(Boolean);
+  },
+
+  /**
+   * Foto de perfil dos contatos pedidos (só os que estão na tela — pedir de
+   * todos os chats seria caro). Sem foto ou sem permissão vem null; a
+   * interface cai nas iniciais. Cache por id enquanto a página viver.
+   */
+  async fotos({ ids }: { ids: string[] }) {
+    const saida: Record<string, string | null> = {};
+    await Promise.all(
+      (ids ?? []).slice(0, 60).map(async (id) => {
+        if (fotosPorId.has(id)) {
+          saida[id] = fotosPorId.get(id) ?? null;
+          return;
+        }
+        let url: string | null = null;
+        try {
+          url = (await WPP.contact.getProfilePictureUrl(id)) ?? null;
+        } catch {
+          url = null;
+        }
+        fotosPorId.set(id, url);
+        saida[id] = url;
+      }),
+    );
+    return saida;
   },
 
   async openChat({ chatId }: { chatId: string }) {

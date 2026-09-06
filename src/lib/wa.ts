@@ -202,6 +202,16 @@ export function observarConversa(cb: (c: ContatoAtivo | null) => void): () => vo
 
 export type ChatResumo = ContatoAtivo & { naoLidas: number; ultimaTs: number | null };
 
+/** Fotos de perfil dos contatos informados (id → url ou null). */
+export async function fotosDosContatos(ids: string[]): Promise<Record<string, string | null>> {
+  if (!bridgePronta || ids.length === 0) return {};
+  try {
+    return await chamar<Record<string, string | null>>('fotos', { ids }, 15000);
+  } catch {
+    return {};
+  }
+}
+
 /** Lista todas as conversas via WPP (vazio se a ponte não estiver pronta). */
 export async function listarChats(): Promise<ChatResumo[]> {
   if (!bridgePronta) return [];
