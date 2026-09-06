@@ -344,6 +344,9 @@ escondidos na interface — esconder botão não impede chamada direta à API.
   o `id` para a RPC, que abre a empresa, o admin dela e o `config_usuario` numa transação só.
   Dá para nascer em teste grátis (com o prazo em dias) ou já ativa, no plano e no ciclo
   escolhidos, com valor de tabela ou negociado.
+- **Conta logada** na barra lateral (nome, e-mail, Meu perfil, Sair): `sistema_meu_perfil()`
+  lê a própria linha de `sistema_operadores` + e-mail do Auth; `sistema_renomear_me()` troca o
+  nome; a senha é `supabase.auth.updateUser` em `/sistema/perfil` (`0018`).
 - Páginas: `/sistema` (métricas), `/sistema/vendas` (receita e faturas), `/sistema/api`
   (integrações: chave, endereço, token com botão de revelar/copiar, escopo global ou por
   clínica — **editável**: `sistema_salvar_integracao(..., p_id)` move a linha de escopo

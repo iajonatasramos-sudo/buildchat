@@ -6,7 +6,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { iniciais, supabase } from '@/lib/supabase';
+
+type Eu = { nome: string; email: string };
 
 const MENU = [
   { href: '/sistema', rotulo: 'Visão geral' },
@@ -19,6 +21,7 @@ export default function LayoutSistema({ children }: { children: React.ReactNode 
   const router = useRouter();
   const caminho = usePathname();
   const [estado, setEstado] = useState<'verificando' | 'liberado' | 'negado'>('verificando');
+  const [eu, setEu] = useState<Eu | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -29,8 +32,17 @@ export default function LayoutSistema({ children }: { children: React.ReactNode 
       }
       const { data } = await supabase.rpc('sou_operador');
       setEstado(data === true ? 'liberado' : 'negado');
+      if (data === true) {
+        // Com que conta estou logado — nome do gestor e e-mail da sessão.
+        const { data: perfil } = await supabase.rpc('sistema_meu_perfil');
+        const linha = (perfil as Eu[] | null)?.[0];
+        setEu({
+          nome: linha?.nome ?? sessao.session.user.email ?? 'Gestor',
+          email: linha?.email ?? sessao.session.user.email ?? '',
+        });
+      }
     })();
-  }, [router]);
+  }, [router, caminho]);
 
   if (estado === 'verificando') {
     return <div className="grid min-h-screen place-items-center text-tinta-3">Carregando…</div>;
@@ -81,10 +93,46 @@ export default function LayoutSistema({ children }: { children: React.ReactNode 
           ))}
         </nav>
 
-        <div className="mt-auto flex flex-col gap-2">
+        <div className="mt-auto flex flex-col gap-3">
           <Link href="/painel" className="rounded-controle px-3 py-2.5 text-[13px] text-white/50 hover:text-white">
             ← Painel da minha clínica
           </Link>
+
+          {/* Conta logada: quem sou, meu perfil e sair. */}
+          <div className="rounded-cartao border border-white/10 bg-white/[0.06] p-3">
+            <div className="flex items-center gap-2.5">
+              <div className="grid h-[32px] w-[32px] flex-none place-items-center rounded-controle bg-marca text-[12px] font-extrabold text-white">
+                {iniciais(eu?.nome ?? 'G')}
+              </div>
+              <div className="min-w-0 leading-tight">
+                <div className="truncate text-[13px] font-semibold text-white">{eu?.nome ?? '…'}</div>
+                <div className="truncate text-[11.5px] text-white/50" title={eu?.email}>
+                  {eu?.email ?? ''}
+                </div>
+              </div>
+            </div>
+            <div className="mt-2.5 flex gap-1.5">
+              <Link
+                href="/sistema/perfil"
+                className={`flex-1 rounded-controle border px-2 py-1.5 text-center text-[12px] font-medium transition ${
+                  caminho === '/sistema/perfil'
+                    ? 'border-white/40 text-white'
+                    : 'border-white/15 text-white/70 hover:border-white/40 hover:text-white'
+                }`}
+              >
+                Meu perfil
+              </Link>
+              <button
+                onClick={async () => {
+                  await supabase.auth.signOut();
+                  router.replace('/entrar');
+                }}
+                className="flex-1 rounded-controle border border-white/15 px-2 py-1.5 text-[12px] font-medium text-white/70 transition hover:border-white/40 hover:text-white"
+              >
+                Sair
+              </button>
+            </div>
+          </div>
         </div>
       </aside>
 
