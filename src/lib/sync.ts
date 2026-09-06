@@ -97,9 +97,16 @@ export async function sincronizar(): Promise<void> {
     }
     estado.empresaId = perfil.empresa.id;
 
+    // A adoção sobe o acervo local na primeira vez. Se algo ali for recusado
+    // (permissão, limite do plano), NÃO pode cegar o resto: sem o pull a pessoa
+    // fica sem licença, sem acervo e sem as integrações. Tenta de novo depois.
     if (!estado.adotado) {
-      await adotarAcervoLocal(perfil);
-      estado.adotado = true;
+      try {
+        await adotarAcervoLocal(perfil);
+        estado.adotado = true;
+      } catch (e) {
+        console.warn('[BuildChat] adoção do acervo adiada:', e);
+      }
     }
 
     await enviarFila(perfil);

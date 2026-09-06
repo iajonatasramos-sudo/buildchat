@@ -140,6 +140,9 @@ exclusão lógica por `deleted_at`, e vínculo pasta↔conversa por **número co
 - **Adoção**: na primeira sincronização o acervo local é assumido pela conta — pastas casam
   por nome, as que faltam são criadas e os ids locais viram os uuid do servidor
   (`remapearTagIds`). Por isso `criarTag` já nasce com `crypto.randomUUID()`.
+  **A adoção falhar não derruba o ciclo**: fica para a próxima e o pull continua — senão
+  uma recusa ali (permissão, limite do plano) deixaria a pessoa sem licença, sem acervo e
+  sem as integrações, com a nuvem riscada. Foi exatamente esse o sintoma do furo das pastas.
 - Estado na barra do topo: nuvem verde (ok), girando (sincronizando), riscada (sem rede),
   escudo (assinatura pendente). Sem conta, o ícone não aparece.
 - Sincroniza: pastas, vínculos, categorias, respostas (com a sequência de ações),
@@ -156,7 +159,10 @@ exclusão lógica por `deleted_at`, e vínculo pasta↔conversa por **número co
 - **Visibilidade** (só de `respostas`): `visivel_todos` (booleano) + `visivel_equipes` /
   `visivel_usuarios`. **Mensagem nova nasce visível para NINGUÉM** — é escolha explícita do
   admin. Pastas **não** têm restrição: o vínculo conversa↔pasta é compartilhado, esconder a
-  pasta deixaria a conversa etiquetada num lugar invisível para o colega. O admin **enxerga tudo** na RLS (precisa administrar no painel) —
+  pasta deixaria a conversa etiquetada num lugar invisível para o colega. Desde
+  `0014_pastas_da_equipe.sql` a **escrita** em `pastas` também é livre: qualquer usuário
+  ativo cria/edita etiqueta, em qualquer plano (antes seguia `app.pode_escrever`, que exige
+  admin + recurso do plano — travava o atendente e, no Start, até o admin). O admin **enxerga tudo** na RLS (precisa administrar no painel) —
   quem filtra o que aparece nas mensagens rápidas dele é a **extensão**
   (`MensagensRapidas.carregar`, usando `minhasEquipes()` do sync).
 - **Escopo na extensão**: tudo que a pessoa cria ali nasce **pessoal**, mesmo sendo admin
@@ -258,7 +264,7 @@ escondidos na interface — esconder botão não impede chamada direta à API.
 server/sql/0001_schema.sql        tabelas multiempresa (escopo empresa × pessoal)
 server/sql/0002_rls.sql           RLS + funções app.* + grants para `authenticated`
 server/sql/0003_supabase_auth.sql FK com auth.users + criar_empresa_e_admin + aceitar_convite
-server/tests/                     83 testes rodando em Postgres real (PGlite/WASM)
+server/tests/                     88 testes rodando em Postgres real (PGlite/WASM)
 ```
 
 `cd server && npm test` — sobe um Postgres 16 em WASM, aplica as migrações e executa como

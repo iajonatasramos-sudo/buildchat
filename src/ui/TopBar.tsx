@@ -118,7 +118,7 @@ function SyncStatus({ estado }: { estado: EstadoSync }) {
   const mapa: Record<Exclude<EstadoSync, 'local'>, { Icone: typeof Cloud; cor: string; titulo: string }> = {
     sincronizando: { Icone: Loader2, cor: 'text-muted', titulo: 'Sincronizando…' },
     ok: { Icone: Cloud, cor: 'text-success', titulo: 'Tudo sincronizado' },
-    erro: { Icone: CloudOff, cor: 'text-warning', titulo: 'Sem conexão — as alterações sobem quando a rede voltar' },
+    erro: { Icone: CloudOff, cor: 'text-warning', titulo: 'Não consegui sincronizar agora — vou tentar de novo' },
     bloqueado: { Icone: ShieldAlert, cor: 'text-danger', titulo: 'Assinatura pendente — sincronização pausada' },
   };
   const { Icone, cor, titulo } = mapa[estado];
