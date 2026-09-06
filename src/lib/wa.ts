@@ -354,6 +354,29 @@ async function enviarMidiaPorDom(dataUrl: string, mime: string | null, nome: str
 }
 
 /**
+ * Áudio de uma mensagem, como Blob.
+ *
+ * Primeiro o caminho barato: o <audio> da bolha guarda um blob URL do próprio
+ * documento, então basta buscá-lo. Se o WhatsApp já descartou esse blob (é o
+ * que acontece em conversa antiga), o WPP baixa e descriptografa de novo.
+ */
+export async function obterAudioDaMensagem(audioEl: HTMLAudioElement | null, msgId: string | null): Promise<Blob> {
+  const src = audioEl?.getAttribute('src') || audioEl?.src || '';
+  if (src && !src.startsWith('data:')) {
+    try {
+      const blob = await (await fetch(src)).blob();
+      if (blob.size > 0) return blob;
+    } catch {
+      /* blob revogado — segue para o WPP */
+    }
+  }
+
+  if (!msgId) throw new Error('Não consegui identificar este áudio. Toque nele uma vez e tente de novo.');
+  const r = await chamar<{ dataUrl: string }>('downloadMedia', { msgId }, 60000);
+  return await (await fetch(r.dataUrl)).blob();
+}
+
+/**
  * Envia um arquivo pronto (ex.: o PDF da proposta) na conversa aberta.
  * Tenta o WPP e cai no fluxo de anexo do próprio WhatsApp se ele não estiver
  * disponível — mesma estratégia das mídias das mensagens rápidas.

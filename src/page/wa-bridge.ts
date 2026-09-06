@@ -91,6 +91,26 @@ const comandos: Record<string, (payload: any) => Promise<any>> = {
     }
   },
 
+  /**
+   * Baixa a mídia de uma mensagem e devolve como data URL.
+   *
+   * Plano B da transcrição: normalmente o áudio já está no <audio> da bolha
+   * como blob URL, mas o WhatsApp descarta o blob de conversas antigas. Aqui o
+   * WPP busca de novo e descriptografa. Vai como string porque a resposta
+   * atravessa o postMessage entre o mundo da página e o da extensão.
+   */
+  async downloadMedia({ msgId }: { msgId: string }) {
+    const blob: Blob = await WPP.chat.downloadMedia(msgId);
+    if (!blob) throw new Error('Mídia indisponível.');
+    const dataUrl: string = await new Promise((resolve, reject) => {
+      const leitor = new FileReader();
+      leitor.onload = () => resolve(String(leitor.result));
+      leitor.onerror = () => reject(new Error('Falha ao ler a mídia.'));
+      leitor.readAsDataURL(blob);
+    });
+    return { dataUrl, mime: blob.type || null, tamanho: blob.size };
+  },
+
   async sendText({ chatId, texto }: { chatId?: string; texto: string }) {
     const alvo = chatId || (await chatAtivoId());
     if (!alvo) throw new Error('Nenhuma conversa aberta.');

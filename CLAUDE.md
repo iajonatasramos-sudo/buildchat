@@ -138,6 +138,25 @@ para `POST https://app.buildclinic.com.br/api/propostas/gerar?token=…` e receb
   reserva) e registra o último contato no CRM.
 - `host_permissions` precisa de `https://app.buildclinic.com.br/*`.
 
+## Transcrever áudio (`src/lib/transcricao.ts` + `src/content/transcrever.ts`)
+
+Botão **Transcrever** em cada mensagem de áudio. A transcrição é feita pela API
+(`POST https://app.buildclinic.com.br/api/transcrever?token=…`, multipart com o campo
+`file`, teto de 25 MB); a extensão só entrega o áudio e mostra o texto.
+
+- **Token**: integração `transcricao`; sem ela, cai no token da `propostas` — é o mesmo da
+  API, então quem já configurou a proposta ganha a transcrição sem mexer em nada. Sem
+  nenhum dos dois, o botão não aparece (mesma regra da proposta).
+- **Fica no DOM do WhatsApp**, não em shadow root: o bloco precisa nascer dentro da bolha,
+  junto do player. Por isso o estilo vem de uma folha própria (prefixo `bc-tr-`), com as
+  cores seguindo o `tema`.
+- **Pegar o áudio** (`obterAudioDaMensagem` em `wa.ts`): o `<audio>` da bolha guarda um blob
+  URL do próprio documento — basta buscá-lo. Em conversa antiga o WhatsApp já descartou
+  esse blob; aí o comando `downloadMedia` da ponte manda o WPP baixar e descriptografar de
+  novo (vai como data URL, porque a resposta atravessa o `postMessage`).
+- **A lista é virtualizada**: a bolha some ao rolar e volta remontada. O observer reinsere o
+  botão e um cache por id de mensagem devolve o texto já transcrito, sem repagar a API.
+
 ## Sincronização (`src/lib/sync.ts`) — Fase 2
 
 Offline-first. Toda alteração é aplicada no `chrome.storage` na hora e enfileirada numa

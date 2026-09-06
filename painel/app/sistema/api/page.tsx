@@ -29,6 +29,13 @@ const CONHECIDAS = [
     url: 'https://app.buildclinic.com.br/api/propostas/gerar',
     descricao: 'Gera o PDF da proposta a partir da guia Contato da extensão.',
   },
+  {
+    chave: 'transcricao',
+    nome: 'Transcrição de áudio',
+    url: 'https://app.buildclinic.com.br/api/transcrever',
+    descricao:
+      'Botão "Transcrever" nos áudios do WhatsApp. Sem cadastro próprio, a extensão usa o token de Propostas — é o mesmo da API.',
+  },
 ];
 
 const mascarar = (t: string | null) => (t ? `${'•'.repeat(Math.min(24, t.length))}` : '—');
@@ -67,7 +74,14 @@ export default function Api() {
     carregar();
   }
 
-  const naoConfiguradas = CONHECIDAS.filter((c) => !itens.some((i) => i.chave === c.chave && !i.empresa_id));
+  // A transcrição funciona com o token de Propostas, então só cobramos cadastro
+  // próprio quando nem esse existe.
+  const temPropostas = itens.some((i) => i.chave === 'propostas');
+  const naoConfiguradas = CONHECIDAS.filter(
+    (c) =>
+      !itens.some((i) => i.chave === c.chave && !i.empresa_id) &&
+      !(c.chave === 'transcricao' && temPropostas),
+  );
 
   return (
     <div>
