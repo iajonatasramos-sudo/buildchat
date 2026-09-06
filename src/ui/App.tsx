@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BookUser, Loader2, Settings as SettingsIcon, Smartphone, User, X, Zap } from 'lucide-react';
 import { cn, emPx } from '@/lib/utils';
 import * as db from '@/lib/db';
+import type { Perfil } from '@/lib/auth';
+import { servidorConfigurado } from '@/lib/config';
 import { urlDoPainel } from '@/lib/auth';
 import { DOM, executarResposta, getContatoAtivo, observarConversa } from '@/lib/wa';
 import { inserirTextoNoCompose, reconciliarTagsContatos } from '@/lib/wa';
@@ -60,6 +62,24 @@ export function App() {
 
   // Ciclo periódico enquanto o WhatsApp Web estiver aberto.
   useEffect(() => iniciarSyncPeriodico(), []);
+
+  // Login obrigatório: sem conta, os recursos da extensão ficam fechados e
+  // qualquer tentativa de usá-los abre o login. O WhatsApp em si segue livre.
+  const [perfil, setPerfilLocal] = useState<Perfil | null>(perfilAtual.get());
+  useEffect(() => perfilAtual.subscribe(setPerfilLocal), []);
+  const [perfilResolvido, setPerfilResolvido] = useState(false);
+  useEffect(() => {
+    carregarPerfil().then(() => setPerfilResolvido(true));
+  }, []);
+  useEffect(() => {
+    if (!servidorConfigurado() || !perfilResolvido || perfil) return;
+    if (aberto) gavetaAberta.set(false);
+    if (menu !== null) menuHeader.set(null);
+    if (anotacoes) modalAnotacoes.set(false);
+    if (proposta) modalProposta.set(false);
+    modalConta.set(true);
+  }, [perfil, perfilResolvido, aberto, menu, anotacoes, proposta]);
+  const logado = !servidorConfigurado() || !!perfil;
 
   // Migra vínculos antigos de pastas (chaves "wa:") para os ids reais assim
   // que o WPP conecta — os contadores e o filtro passam a bater.
@@ -203,8 +223,9 @@ export function App() {
 
   return (
     <>
-      {/* A barra só aparece com a gaveta fechada; aberta, a gaveta toma o lugar dela. */}
-      {!aberto && <TrilhoLateral />}
+      {/* A barra só aparece com a gaveta fechada; aberta, a gaveta toma o lugar dela.
+          Sem login não há barra: o ⚡ do compose e a barra do topo levam ao login. */}
+      {logado && !aberto && <TrilhoLateral />}
 
       {/* Gaveta lateral (o ⚡ do compose também a abre) */}
       {aberto && (
@@ -299,6 +320,26 @@ function SettingsModal({
     onSalvo(s);
   }
 
+  const [exportando, setExportando] = useState(false);
+  async function exportarBackup() {
+    setExportando(true);
+    try {
+      const dados = await db.exportarBackup();
+      const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `buildchat-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      toast.success('Backup exportado.');
+    } catch (e) {
+      toast.error('Não consegui exportar: ' + (e instanceof Error ? e.message : String(e)));
+    } finally {
+      setExportando(false);
+    }
+  }
+
   const TEMAS: { valor: Settings['tema']; rotulo: string }[] = [
     { valor: 'auto', rotulo: 'Automático' },
     { valor: 'claro', rotulo: 'Claro' },
@@ -371,7 +412,22 @@ function SettingsModal({
               o texto. Troque se o “/” atrapalhar sua digitação.
             </span>
           </label>
-          <div className="flex justify-end gap-2 pt-1">
+          <div className="mt-1 rounded-md border border-border bg-surface-2 p-2.5">
+          <div className="mb-1 text-[12px] font-bold">Backup</div>
+          <p className="mb-2 text-[11px] leading-snug text-muted">
+            Pastas, mensagens rápidas (com a mídia), anotações, fichas e propostas num arquivo JSON.
+            Conversas e arquivos recebidos não entram — nunca saem do computador.
+          </p>
+          <button
+            type="button"
+            onClick={exportarBackup}
+            disabled={exportando}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border-strong bg-surface px-2.5 py-1.5 text-[12px] font-semibold transition hover:border-brand hover:text-brand disabled:opacity-60"
+          >
+            {exportando ? 'Exportando…' : 'Exportar backup (JSON)'}
+          </button>
+        </div>
+        <div className="flex justify-end gap-2 pt-1">
             <button type="button" onClick={onClose} className="rounded-md border border-border-strong px-3 py-1.5 text-[13px] font-medium text-text-2 hover:bg-surface-2">
               Cancelar
             </button>

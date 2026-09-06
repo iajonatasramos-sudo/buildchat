@@ -9,7 +9,8 @@ import { TopBar, ALTURA_TOPBAR } from '@/ui/TopBar';
 import { HeaderBar } from '@/ui/HeaderBar';
 import { injetarBridge } from '@/lib/wa';
 import { getSettings } from '@/lib/db';
-import { gavetaAberta, LARGURA_TRILHO, tema } from '@/lib/store';
+import { gavetaAberta, LARGURA_TRILHO, modalConta, perfilAtual, tema } from '@/lib/store';
+import { servidorConfigurado } from '@/lib/config';
 import '@/styles/tokens.css';
 
 declare global {
@@ -149,6 +150,11 @@ function montarBotaoCompose() {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      // Sem conta, o ⚡ leva ao login (os recursos exigem estar logado).
+      if (servidorConfigurado() && !perfilAtual.get()) {
+        modalConta.set(true);
+        return;
+      }
       gavetaAberta.set(!gavetaAberta.get());
     });
     mic.insertAdjacentElement('afterend', btn);

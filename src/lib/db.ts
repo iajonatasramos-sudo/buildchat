@@ -566,6 +566,63 @@ export async function mesclarPropostasDoServidor(
   avisarPropostas();
 }
 
+// ───────────────────────────── Backup em JSON ─────────────────────────────
+/**
+ * Tudo que a pessoa construiu, num arquivo: pastas, vínculos, categorias,
+ * mensagens rápidas (com a mídia local em base64), anotações, fichas,
+ * propostas (metadados) e preferências. Conversas e mídia recebida ficam de
+ * fora — nunca saem do computador, nem em backup.
+ */
+export async function exportarBackup(): Promise<Record<string, unknown>> {
+  const [tags, contactTags, categorias, respostas, notas, fichas, propostas, settings] = await Promise.all([
+    listarTags(),
+    get<Record<string, string[]>>(K.contactTags, {}),
+    listarCategorias(),
+    listarRespostas(),
+    get<Record<string, NotaContato[]>>(K.notes, {}),
+    get<Record<string, FichaContato>>(K.contatos, {}),
+    get<Record<string, PropostaSalva>>(K.propostas, {}),
+    getSettings(),
+  ]);
+  // Mídia das mensagens que ainda está só aqui (a do servidor tem caminho).
+  const midias: Record<string, MediaSalva> = {};
+  for (const r of respostas) {
+    for (const a of r.acoes) {
+      if (a.midiaPath?.startsWith('media:') && !midias[a.midiaPath]) {
+        const m = await get<MediaSalva | null>(a.midiaPath, null);
+        if (m) midias[a.midiaPath] = m;
+      }
+    }
+  }
+  return {
+    formato: 'buildchat-backup',
+    versao: 1,
+    exportadoEm: new Date().toISOString(),
+    pastas: tags,
+    vinculos: contactTags,
+    categorias,
+    respostas,
+    midias,
+    anotacoes: notas,
+    contatos: fichas,
+    propostas: Object.values(propostas),
+    configuracoes: settings,
+  };
+}
+
+/** Apaga uma proposta (aqui e, pela fila, o arquivo e a linha no servidor). */
+export async function apagarProposta(id: string): Promise<void> {
+  const mapa = await mapaPropostas();
+  const p = mapa[id];
+  if (!p) return;
+  delete mapa[id];
+  await set(K.propostas, mapa);
+  await new Promise<void>((r) => chrome.storage.local.remove(chavePdf(id), () => r()));
+  avisarPropostas();
+  const { enfileirar } = await import('./sync');
+  await enfileirar({ op: 'proposta.apagar', id, arquivoPath: p.arquivoPath });
+}
+
 // ───────────────────── Troca de empresa: zera o sincronizado ──────────────
 /**
  * Tudo que veio (ou iria) para o servidor da empresa ANTERIOR sai daqui:

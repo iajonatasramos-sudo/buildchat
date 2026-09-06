@@ -117,6 +117,25 @@ copiar/editar/deletar, três temas, webhook e importação dos dados do Dental C
 valores de exemplo, a extensão roda 100% local** e o botão "Entrar" nem aparece —
 `servidorConfigurado()` é o interruptor.
 
+**Com servidor configurado, o login é obrigatório para usar** (`App.tsx`): sem perfil não há
+barra lateral nem gaveta, e ⚡ do compose, menus do cabeçalho, anotações e proposta abrem o
+login em vez de funcionar. O WhatsApp em si segue livre (a tela do QR precisa funcionar).
+Criar a própria conta dá **7 dias de teste** com os recursos do Pro (`0019`); virar
+assinante muda só o `status` da mesma empresa — nada do teste é apagado (teste em
+`teste-gratis.test.mjs`).
+
+**Trocar de login zera o local**: outro usuário OU outra empresa → `sincronizar()` esvazia o
+acervo sincronizado e a fila e desce o do novo login; `sair()` faz o mesmo na hora. Só o que
+é do aparelho (conversas capturadas, mídia recebida, preferências) fica.
+
+**Backup**: Configurações → "Exportar backup (JSON)" (`db.exportarBackup`): pastas, vínculos,
+categorias, mensagens (com a mídia local em base64), anotações, fichas, propostas
+(metadados) e preferências. Conversas e mídia recebida nunca entram.
+
+**Apagar proposta**: lixeira na lista da guia Contato e "apagar" na ficha do painel — o
+arquivo sai do Storage (é o que ocupa espaço) e a linha vira `deleted_at`, para os colegas
+descerem a remoção (`proposta.apagar` na fila).
+
 - `src/lib/auth.ts` — cliente Supabase com a sessão em `chrome.storage` (nunca
   `localStorage`: o da página é do WhatsApp), login, cadastro (RPC
   `criar_empresa_e_admin`), convite, perfil e `avaliarLicenca()`.

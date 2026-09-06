@@ -209,6 +209,20 @@ export default function FichaDoLead({ params }: { params: Promise<{ id: string }
     carregar();
   }
 
+  /** Apaga a proposta: o arquivo sai do Storage (é o que ocupa espaço) e a linha vira exclusão lógica. */
+  async function apagarProposta(p: Proposta) {
+    if (!confirm('Apagar esta proposta? O PDF é removido do servidor.')) return;
+    setErro(null);
+    const { error: erroArq } = await supabase.storage.from('midias').remove([p.arquivo_path]);
+    if (erroArq) console.warn('arquivo da proposta não removido:', erroArq.message);
+    const { error } = await supabase.from('propostas').update({ deleted_at: new Date().toISOString() }).eq('id', p.id);
+    if (error) {
+      setErro(error.message);
+      return;
+    }
+    carregar();
+  }
+
   /** Abre o PDF numa aba: a aba nasce ANTES do await, enquanto o clique ainda vale como gesto. */
   async function abrirPdf(p: Proposta) {
     const aba = window.open('', '_blank');
@@ -348,6 +362,12 @@ export default function FichaDoLead({ params }: { params: Promise<{ id: string }
                       className="whitespace-nowrap rounded-controle border border-borda bg-white px-3 py-1.5 text-[13px] font-medium transition hover:border-marca hover:text-marca"
                     >
                       Abrir PDF
+                    </button>
+                    <button
+                      onClick={() => apagarProposta(p)}
+                      className="whitespace-nowrap text-[12.5px] font-medium text-tinta-4 hover:text-perigo"
+                    >
+                      apagar
                     </button>
                   </li>
                 ))}

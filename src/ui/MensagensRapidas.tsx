@@ -1495,6 +1495,18 @@ function ContatoGuia({
                     >
                       {emAndamento ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                     </button>
+                    <button
+                      type="button"
+                      title="Apagar esta proposta"
+                      disabled={emAndamento}
+                      onClick={() => {
+                        if (!window.confirm('Apagar esta proposta? O PDF sai do servidor também.')) return;
+                        db.apagarProposta(p.id).then(() => toast.success('Proposta apagada.'));
+                      }}
+                      className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-md text-muted transition hover:bg-red-bg hover:text-danger disabled:opacity-50"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </li>
                 );
               })}

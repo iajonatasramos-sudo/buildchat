@@ -27,7 +27,8 @@ type Op =
   | { op: 'config.upsert' }
   | { op: 'contato.upsert'; remoteJid: string }
   | { op: 'proposta.criar'; id: string }
-  | { op: 'proposta.enviada'; id: string };
+  | { op: 'proposta.enviada'; id: string }
+  | { op: 'proposta.apagar'; id: string; arquivoPath: string | null };
 
 type Estado = {
   /** ISO do último pull bem-sucedido. */
@@ -36,6 +37,8 @@ type Estado = {
   adotado: boolean;
   /** Empresa a que o cache local pertence (troca de conta limpa o estado). */
   empresaId: string | null;
+  /** Usuário dono do cache: outro login, mesmo na mesma empresa, também zera. */
+  usuarioId?: string | null;
 };
 
 const K_OUTBOX = 'bc2_outbox';
@@ -91,6 +94,13 @@ async function numeroConectado(): Promise<string | null> {
 let rodando = false;
 let agendado: number | null = null;
 
+/** Logout: o estado da sincronização e a fila não valem para o próximo login. */
+export async function zerarEstadoSync(): Promise<void> {
+  await gravar(K_ESTADO, ESTADO_INICIAL);
+  await gravar(K_OUTBOX, []);
+  await gravar(K_EQUIPES, []);
+}
+
 /** Agenda uma sincronização curta (junta várias alterações seguidas). */
 export function agendar(atrasoMs = 1500): void {
   if (agendado) window.clearTimeout(agendado);
@@ -118,14 +128,17 @@ export async function sincronizar(): Promise<void> {
     // Trocou de empresa? O acervo local é da empresa ANTERIOR: sai daqui e
     // NÃO é adotado pela nova (senão as pastas de uma clínica nascem na outra).
     // A fila também: o que estava pendente iria parar na empresa errada.
-    if (estado.empresaId && estado.empresaId !== perfil.empresa.id) {
-      console.info('[BuildChat] conta de outra empresa: zerando o acervo local para puxar o dela.');
+    const outraEmpresa = !!estado.empresaId && estado.empresaId !== perfil.empresa.id;
+    const outroUsuario = !!estado.usuarioId && estado.usuarioId !== perfil.id;
+    if (outraEmpresa || outroUsuario) {
+      console.info('[BuildChat] outro login: zerando o acervo local para puxar o dele.');
       await db.esvaziarAcervoSincronizado();
       await gravar(K_OUTBOX, []);
       await gravar(K_EQUIPES, []);
       estado = { ...ESTADO_INICIAL, adotado: true };
     }
     estado.empresaId = perfil.empresa.id;
+    estado.usuarioId = perfil.id;
 
     // A adoção sobe o acervo local na primeira vez. Se algo ali for recusado
     // (permissão, limite do plano), NÃO pode cegar o resto: sem o pull a pessoa
@@ -280,6 +293,16 @@ async function enviarFila(perfil: Perfil): Promise<void> {
         if (!p || !p.arquivoPath) continue;
         const { error } = await sb.from('propostas').update({ enviada_em: p.enviadaEm }).eq('id', op.id);
         if (error) throw error;
+      } else if (op.op === 'proposta.apagar') {
+        // Nunca subiu? Não há o que apagar lá. Subiu: some o arquivo (é o que
+        // ocupa espaço) e a linha vira exclusão lógica, para os colegas descerem.
+        if (op.arquivoPath) {
+          const caminho = op.arquivoPath.replace(/^storage:/, '');
+          const { error: erroArq } = await sb.storage.from('midias').remove([caminho]);
+          if (erroArq) console.warn('[BuildChat] arquivo da proposta não removido:', erroArq.message);
+          const { error } = await sb.from('propostas').update({ deleted_at: new Date().toISOString() }).eq('id', op.id);
+          if (error) throw error;
+        }
       } else if (op.op === 'anotacao.delete') {
         const { error } = await sb.from('anotacoes')
           .update({ deleted_at: new Date().toISOString() }).eq('id', op.id);

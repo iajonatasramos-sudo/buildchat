@@ -184,6 +184,11 @@ export async function entrarComConvite(
 export async function sair(): Promise<void> {
   await supabase()?.auth.signOut();
   await new Promise<void>((r) => chrome.storage.local.remove(CHAVE_PERFIL, () => r()));
+  // O acervo sincronizado e a fila eram deste login: saem junto. O próximo
+  // login desce o dele do servidor. (imports dinâmicos: db/sync importam auth)
+  const [db, sync] = await Promise.all([import('./db'), import('./sync')]);
+  await db.esvaziarAcervoSincronizado();
+  await sync.zerarEstadoSync();
 }
 
 // ───────────────────────────── Perfil e licença ─────────────────────────────
