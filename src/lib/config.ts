@@ -10,3 +10,6 @@ export const SUPABASE_ANON_KEY = 'sb_publishable_SAaQ6RvdOEU4UZMnbxkpcg_COzqkDAj
 export function servidorConfigurado(): boolean {
   return !SUPABASE_URL.includes('SEU-PROJETO') && !SUPABASE_ANON_KEY.startsWith('COLE_AQUI');
 }
+
+/** Painel web (Next.js) — os atalhos da extensão abrem páginas dele. */
+export const PAINEL_URL = 'https://chat.buildclinic.com.br';

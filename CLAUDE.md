@@ -40,7 +40,8 @@ src/
 ```
 
 **Barra lateral** (`TrilhoLateral` em `App.tsx`, como no BuildSales): fixa na borda direita
-**enquanto a gaveta está fechada**, com Contato / Mensagens rápidas / Conta do WhatsApp. Abre
+**enquanto a gaveta está fechada**, com Contato / Mensagens rápidas / Conta do WhatsApp e, abaixo
+de um separador, o atalho **Meus contatos** que abre `PAINEL_URL/painel/contatos` (config.ts). Abre
 a gaveta na guia certa (`abaGaveta` no store) e some — a gaveta toma o lugar dela; o X da
 gaveta traz a barra de volta. O `#app` cede `LARGURA_TRILHO` px fechada e 353 px aberta
 (estilo injetado em `montarTopBar()`).
