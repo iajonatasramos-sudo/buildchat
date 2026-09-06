@@ -566,6 +566,23 @@ export async function mesclarPropostasDoServidor(
   avisarPropostas();
 }
 
+// ───────────────────── Troca de empresa: zera o sincronizado ──────────────
+/**
+ * Tudo que veio (ou iria) para o servidor da empresa ANTERIOR sai daqui:
+ * pastas, vínculos, categorias, respostas, anotações, fichas, integrações e
+ * propostas. Sem isso, a "adoção" subia o acervo de uma clínica para a outra
+ * — foi assim que a BuildClinic amanheceu com as 23 pastas da MCA. O que é
+ * só do aparelho (conversas capturadas, mídia recebida, preferências) fica.
+ */
+export async function esvaziarAcervoSincronizado(): Promise<void> {
+  const propostas = await get<Record<string, PropostaSalva>>(K.propostas, {});
+  const chaves = [
+    K.tags, K.contactTags, K.categorias, K.respostas, K.notes, K.contatos, K.integracoes, K.propostas,
+    ...Object.keys(propostas).map(chavePdf),
+  ];
+  await new Promise<void>((r) => chrome.storage.local.remove(chaves, () => r()));
+}
+
 // ───────────────────────── Apoio à sincronização ─────────────────────────
 
 export async function salvarCategorias(cats: CategoriaDC[]): Promise<void> {

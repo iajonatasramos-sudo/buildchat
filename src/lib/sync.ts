@@ -115,9 +115,15 @@ export async function sincronizar(): Promise<void> {
   try {
     let estado = await ler<Estado>(K_ESTADO, ESTADO_INICIAL);
 
-    // Trocou de empresa? O cache local não vale mais.
+    // Trocou de empresa? O acervo local é da empresa ANTERIOR: sai daqui e
+    // NÃO é adotado pela nova (senão as pastas de uma clínica nascem na outra).
+    // A fila também: o que estava pendente iria parar na empresa errada.
     if (estado.empresaId && estado.empresaId !== perfil.empresa.id) {
-      estado = { ...ESTADO_INICIAL };
+      console.info('[BuildChat] conta de outra empresa: zerando o acervo local para puxar o dela.');
+      await db.esvaziarAcervoSincronizado();
+      await gravar(K_OUTBOX, []);
+      await gravar(K_EQUIPES, []);
+      estado = { ...ESTADO_INICIAL, adotado: true };
     }
     estado.empresaId = perfil.empresa.id;
 

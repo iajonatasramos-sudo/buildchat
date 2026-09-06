@@ -204,6 +204,11 @@ exclusão lógica por `deleted_at`, e vínculo pasta↔conversa por **número co
 - **Adoção**: na primeira sincronização o acervo local é assumido pela conta — pastas casam
   por nome, as que faltam são criadas e os ids locais viram os uuid do servidor
   (`remapearTagIds`). Por isso `criarTag` já nasce com `crypto.randomUUID()`.
+  **A adoção é só para o primeiro login do aparelho.** Ao entrar com conta de OUTRA
+  empresa, `sincronizar()` esvazia o acervo sincronizado e a fila
+  (`db.esvaziarAcervoSincronizado`) e marca `adotado: true` — nada do local sobe, só desce
+  o da nova empresa. Antes, a troca zerava o estado e re-adotava: foi assim que a
+  BuildClinic nasceu com as 23 pastas da MCA (mesmos nomes, mesmo segundo, 0 conversas).
   **A adoção falhar não derruba o ciclo**: fica para a próxima e o pull continua — senão
   uma recusa ali (permissão, limite do plano) deixaria a pessoa sem licença, sem acervo e
   sem as integrações, com a nuvem riscada. Foi exatamente esse o sintoma do furo das pastas.
