@@ -225,6 +225,11 @@ exclusão lógica por `deleted_at`, e vínculo pasta↔conversa por **número co
   tratamento, interesses e `ultimo_contato`. O nome da ficha tem prioridade sobre o do
   WhatsApp em `{{nome}}` (`executarResposta` e `inserirTextoNoCompose`).
 - `ultimo_contato` é gravado a cada envio pela extensão — é o que alimenta o CRM.
+- **A ficha nasce na primeira interação**, não só no envio: `db.registrarContato(chatId,
+  nomeWhatsapp)` é chamado ao etiquetar, anotar e gerar proposta (só enfileira se a ficha
+  ainda não tem o nome do WhatsApp). O painel completa o resto: ao abrir `/painel/contatos`
+  ele materializa a ficha de toda conversa que já tem pasta, proposta ou anotação sem ficha —
+  foi assim que os 208 vínculos antigos da MCA viraram contatos.
 
 ## Painel web (`painel/`) — Fase 5
 

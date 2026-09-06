@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { formatarData, supabase, telefoneDoJid } from '@/lib/supabase';
+import { carregarPerfil, formatarData, supabase, telefoneDoJid } from '@/lib/supabase';
 import { Cabecalho, Cartao, Vazio } from '@/componentes/ui';
 
 type Contato = {
@@ -31,18 +31,50 @@ export default function Contatos() {
   const [filtroPasta, setFiltroPasta] = useState<string>('');
   const [carregando, setCarregando] = useState(true);
 
+  const buscarContatos = () =>
+    supabase
+      .from('contatos')
+      .select('id, wa_number, remote_jid, nome, nome_whatsapp, interesses, ultimo_contato')
+      .is('deleted_at', null)
+      .order('ultimo_contato', { ascending: false, nullsFirst: false });
+
   const carregar = useCallback(async () => {
-    const [ct, pa, vi, pr] = await Promise.all([
-      supabase
-        .from('contatos')
-        .select('id, wa_number, remote_jid, nome, nome_whatsapp, interesses, ultimo_contato')
-        .is('deleted_at', null)
-        .order('ultimo_contato', { ascending: false, nullsFirst: false }),
+    const [ct, pa, vi, pr, an, perfil] = await Promise.all([
+      buscarContatos(),
       supabase.from('pastas').select('id, nome, cor').is('deleted_at', null).order('ordem'),
       supabase.from('pasta_conversas').select('pasta_id, remote_jid, wa_number').is('deleted_at', null),
       supabase.from('propostas').select('remote_jid, wa_number, enviada_em').is('deleted_at', null),
+      supabase.from('anotacoes').select('remote_jid, wa_number').is('deleted_at', null),
+      carregarPerfil(),
     ]);
-    setContatos((ct.data as Contato[]) ?? []);
+    let lista = (ct.data as Contato[]) ?? [];
+
+    // Conversa etiquetada, com proposta ou anotação é lead — mesmo que ninguém
+    // tenha salvo a ficha ainda (a extensão só criava a ficha ao ENVIAR algo).
+    // Materializa a ficha aqui para o CRM ficar completo; o nome do WhatsApp
+    // chega quando a equipe interagir de novo pela extensão.
+    if (perfil) {
+      const existentes = new Set(lista.map((c) => `${c.wa_number}|${c.remote_jid}`));
+      const faltando = new Map<string, { wa_number: string; remote_jid: string }>();
+      for (const r of [
+        ...((vi.data as { remote_jid: string; wa_number: string }[]) ?? []),
+        ...((pr.data as { remote_jid: string; wa_number: string }[]) ?? []),
+        ...((an.data as { remote_jid: string; wa_number: string }[]) ?? []),
+      ]) {
+        const chave = `${r.wa_number}|${r.remote_jid}`;
+        if (!existentes.has(chave) && !faltando.has(chave)) {
+          faltando.set(chave, { wa_number: r.wa_number, remote_jid: r.remote_jid });
+        }
+      }
+      if (faltando.size > 0) {
+        await supabase.from('contatos').upsert(
+          [...faltando.values()].map((f) => ({ empresa_id: perfil.empresa.id, ...f })),
+          { onConflict: 'empresa_id,wa_number,remote_jid', ignoreDuplicates: true },
+        );
+        lista = ((await buscarContatos()).data as Contato[]) ?? lista;
+      }
+    }
+    setContatos(lista);
     setPastas((pa.data as Pasta[]) ?? []);
     setVinculos((vi.data as Vinculo[]) ?? []);
     setPropostas((pr.data as PropostaResumo[]) ?? []);
@@ -141,7 +173,7 @@ export default function Contatos() {
       {contatos.length === 0 ? (
         <Vazio
           titulo="Nenhum contato ainda"
-          texto="Assim que a equipe etiquetar conversas ou enviar mensagens rápidas pela extensão, os contatos aparecem aqui."
+          texto="Assim que a equipe etiquetar uma conversa, anotar, gerar uma proposta ou enviar uma mensagem rápida pela extensão, o contato aparece aqui."
         />
       ) : (
         <>
@@ -187,7 +219,7 @@ export default function Contatos() {
                     <tr key={c.id} className="transition hover:bg-fundo">
                       <td className="border-b border-linha px-[18px] py-3.5">
                         <Link href={`/painel/contatos/${c.id}`} className="font-medium text-marca hover:underline">
-                          {c.nome || c.nome_whatsapp || '—'}
+                          {c.nome || c.nome_whatsapp || telefoneDoJid(c.remote_jid)}
                         </Link>
                         {c.nome && c.nome_whatsapp && c.nome !== c.nome_whatsapp && (
                           <div className="text-[12px] text-tinta-4">no WhatsApp: {c.nome_whatsapp}</div>

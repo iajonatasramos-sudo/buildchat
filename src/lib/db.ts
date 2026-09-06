@@ -318,6 +318,20 @@ export async function salvarFicha(chatId: string, patch: Partial<FichaContato>):
   return nova;
 }
 
+/**
+ * Garante que o contato exista no CRM (painel) assim que a equipe interage com
+ * ele — etiqueta, anota, gera proposta — e não só quando envia algo. Guarda o
+ * nome do WhatsApp para a planilha ter como chamá-lo. Se a ficha já está
+ * completa, não enfileira nada (a fila não precisa de ruído).
+ */
+export async function registrarContato(chatId: string, nomeWhatsapp?: string | null): Promise<void> {
+  if (!chatId || chatId.startsWith('wa:')) return; // fallback de DOM: sem jid confiável
+  const mapa = await get<Record<string, FichaContato>>(K.contatos, {});
+  const atual = mapa[chatId];
+  if (atual && (atual.nomeWhatsapp || !nomeWhatsapp)) return;
+  await salvarFicha(chatId, { nomeWhatsapp: nomeWhatsapp?.trim() || atual?.nomeWhatsapp || null });
+}
+
 /** Grava o mapa completo (usado pela sincronização). */
 export async function salvarMapaFichas(mapa: Record<string, FichaContato>): Promise<void> {
   await set(K.contatos, mapa);

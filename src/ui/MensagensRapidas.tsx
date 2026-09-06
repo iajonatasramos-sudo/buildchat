@@ -1218,10 +1218,12 @@ function ContatoGuia({
   async function alternarTag(tagId: string) {
     const novo = await db.alternarTagContato(contato!.chatId, tagId);
     setTagsContato(novo);
+    db.registrarContato(contato!.chatId, contato!.nome).catch(() => {}); // aparece no CRM do painel
   }
 
   async function addNota() {
     if (!novaNota.trim()) return;
+    db.registrarContato(contato!.chatId, contato!.nome).catch(() => {});
     const nota = await db.criarNota(contato!.chatId, novaNota.trim());
     setNotas((arr) => [nota, ...arr]);
     setNovaNota('');

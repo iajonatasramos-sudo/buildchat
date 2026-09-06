@@ -127,6 +127,7 @@ export function PropostaModal({ contato }: { contato: ContatoAtivo | null }) {
       // Fica guardada para a equipe (sobe pelo sync); a lista da guia Contato
       // é quem oferece reenviar depois.
       if (contato) {
+        db.registrarContato(contato.chatId, contato.nome).catch(() => {}); // o lead entra no CRM
         db.registrarProposta(
           {
             remoteJid: contato.chatId,
