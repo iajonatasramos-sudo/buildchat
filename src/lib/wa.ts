@@ -98,7 +98,11 @@ export const DOM = {
     const el =
       document.querySelector('#main header span[title]') ||
       document.querySelector("#main header span[dir='auto']");
-    return el ? (el.getAttribute('title') || el.textContent || '').trim() || null : null;
+    // `data-bc-original`: nomes.ts reescreve o texto do cabeçalho com o nome de
+    // tratamento e guarda ali o original — é o original que identifica a conversa.
+    return el
+      ? (el.getAttribute('title') || (el as HTMLElement).dataset.bcOriginal || el.textContent || '').trim() || null
+      : null;
   },
 
   /** Simula "colar" — funciona também no editor novo (Lexical) do WhatsApp. */

@@ -14,8 +14,29 @@ import * as db from '@/lib/db';
 /** nome no WhatsApp → nome de tratamento (só fichas que têm os dois). */
 let dePara = new Map<string, string>();
 
-/** Onde o WhatsApp escreve o nome: título das linhas da lista e do cabeçalho. */
-const ALVOS = ['#pane-side span[title]', '#main header span[title]'];
+/**
+ * Onde o WhatsApp escreve o nome: título das linhas da lista e do cabeçalho.
+ * No cabeçalho, em algumas versões, o span NÃO tem `title` — só o texto. Para
+ * esses, o nome original fica guardado em `data-bc-original` depois da
+ * primeira troca, senão não haveria como reconhecê-lo de novo.
+ */
+const ALVOS = ['#pane-side span[title]', '#main header span[title]', '#main header span[dir="auto"]'];
+
+/**
+ * O nome original deste elemento. Com `title` é direto. Sem `title`, vale o
+ * guardado — mas só se o texto atual ainda for ele ou a nossa troca: o React
+ * reaproveita o mesmo span ao mudar de conversa, e aí o guardado é de outra
+ * pessoa e precisa ser descartado (senão renomearíamos o contato errado).
+ */
+function nomeOriginal(el: HTMLElement): string | null {
+  const doTitle = el.getAttribute('title')?.trim();
+  if (doTitle) return doTitle;
+  const atual = el.textContent?.trim() ?? '';
+  const guardado = el.dataset.bcOriginal;
+  if (guardado && (atual === guardado || atual === dePara.get(guardado))) return guardado;
+  delete el.dataset.bcOriginal;
+  return atual || null;
+}
 
 async function recarregarMapa() {
   const fichas = await db.mapaFichas();
@@ -33,10 +54,12 @@ function aplicar() {
   if (dePara.size === 0) return;
   for (const seletor of ALVOS) {
     for (const el of document.querySelectorAll<HTMLElement>(seletor)) {
-      const original = el.getAttribute('title')?.trim();
+      const original = nomeOriginal(el);
       if (!original) continue;
       const nome = dePara.get(original);
-      if (nome && el.textContent !== nome) el.textContent = nome;
+      if (!nome) continue;
+      if (!el.getAttribute('title')) el.dataset.bcOriginal = original;
+      if (el.textContent !== nome) el.textContent = nome;
     }
   }
 }
