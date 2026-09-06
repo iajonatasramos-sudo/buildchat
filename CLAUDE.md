@@ -225,8 +225,12 @@ exclusão lógica por `deleted_at`, e vínculo pasta↔conversa por **número co
   tratamento, interesses e `ultimo_contato`. **O nome da ficha vale em toda tela nossa**:
   `{{nome}}`, proposta, guia Contato, lista da pasta, cabeçalho das anotações e autor das
   apagadas — via `db.nomesDasFichas()`/`obterFicha()`, com o nome do WhatsApp só de reserva.
-  Casar vínculo com conversa continua pelo nome do WhatsApp (é o que o WPP devolve). A
-  lista e o cabeçalho do próprio WhatsApp são dele: não dá para renomear por ali.
+  Casar vínculo com conversa continua pelo nome do WhatsApp (é o que o WPP devolve). Na
+  lista e no cabeçalho do próprio WhatsApp não dá para renomear o contato, mas
+  `src/content/nomes.ts` **reescreve o texto na tela** (`#pane-side span[title]` e
+  `#main header span[title]`), preservando o `title` — o React repõe o texto a cada
+  renderização e o observer reaplica; `chrome.storage.onChanged` em `bc2_contatos` refaz o
+  mapa quando a ficha muda.
 - `ultimo_contato` é gravado a cada envio pela extensão — é o que alimenta o CRM.
 - **`@lid` não é telefone.** O WhatsApp identifica algumas conversas por LID (id interno de
   15 dígitos, `…@lid`); derivar o número do `remote_jid` mostrava esse id como celular. A
