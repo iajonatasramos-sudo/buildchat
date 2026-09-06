@@ -39,6 +39,11 @@ src/
   styles/tokens.css       tokens do BuildClinic + temas + zoom + classes .bc-cat-*
 ```
 
+**Barra lateral** (`TrilhoLateral` em `App.tsx`, como no BuildSales): fixa na borda direita,
+sempre visível, com Contato / Mensagens rápidas / Conta do WhatsApp. Abre a gaveta na guia
+certa (`abaGaveta` no store; clicar na guia aberta fecha). O `#app` do WhatsApp sempre cede
+`LARGURA_TRILHO` px, e mais a gaveta quando aberta — tudo no estilo injetado em `montarTopBar()`.
+
 **Quatro raízes React**, cada uma em seu shadow root (CSS isolado do WhatsApp):
 `#buildchat2-root` (overlay: gaveta, menus, modais, picker), `#buildchat2-topbar` (barra do
 topo), `#buildchat2-headerbar` (barra no cabeçalho da conversa) e o ⚡ do compose, que é um

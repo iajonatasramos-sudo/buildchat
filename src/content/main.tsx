@@ -9,7 +9,7 @@ import { TopBar, ALTURA_TOPBAR } from '@/ui/TopBar';
 import { HeaderBar } from '@/ui/HeaderBar';
 import { injetarBridge } from '@/lib/wa';
 import { getSettings } from '@/lib/db';
-import { gavetaAberta, tema } from '@/lib/store';
+import { gavetaAberta, LARGURA_TRILHO, tema } from '@/lib/store';
 import '@/styles/tokens.css';
 
 declare global {
@@ -91,8 +91,12 @@ function montarTopBar() {
       top: ${ALTURA_TOPBAR}px !important;
       height: calc(100vh - ${ALTURA_TOPBAR}px) !important;
     }
+    /* A barra lateral (LARGURA_TRILHO) está sempre lá; a gaveta soma quando aberta. */
+    #app {
+      width: calc(100vw - ${LARGURA_TRILHO}px) !important;
+    }
     html.bc-gaveta #app {
-      width: calc(100vw - 353px) !important;
+      width: calc(100vw - ${353 + LARGURA_TRILHO}px) !important;
     }
   `;
   document.head.appendChild(estilo);

@@ -2,7 +2,7 @@
 // do Saleschat, picker "/" e configurações (webhook / caractere de atalho).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, Settings as SettingsIcon, X, Zap } from 'lucide-react';
+import { Loader2, Settings as SettingsIcon, Smartphone, User, X, Zap } from 'lucide-react';
 import { cn, emPx } from '@/lib/utils';
 import * as db from '@/lib/db';
 import { DOM, executarResposta, getContatoAtivo, observarConversa } from '@/lib/wa';
@@ -16,7 +16,7 @@ import { HeaderMenuOverlay } from './HeaderMenus';
 import { AnotacoesModal } from './Anotacoes';
 import { ContaModal } from './Conta';
 import { PropostaModal } from './Proposta';
-import { gavetaAberta, menuHeader, modalAnotacoes, modalConta, modalProposta, perfilAtual, pastaAtiva, type MenuHeader } from '@/lib/store';
+import { gavetaAberta, menuHeader, modalAnotacoes, modalConta, modalProposta, perfilAtual, pastaAtiva, type MenuHeader, abaGaveta, pedirContaWhatsapp, LARGURA_TRILHO } from '@/lib/store';
 import { carregarPerfil, observarSessao } from '@/lib/auth';
 import { iniciarSyncPeriodico, sincronizar } from '@/lib/sync';
 import { toast, Toaster } from './toast';
@@ -202,11 +202,13 @@ export function App() {
 
   return (
     <>
-      {/* Gaveta lateral (o botão ⚡ fica dentro do compose, inserido pelo content script) */}
+      <TrilhoLateral aberto={aberto} />
+
+      {/* Gaveta lateral, encostada na barra (o ⚡ do compose também a abre) */}
       {aberto && (
         <div
-          className="bc-anim-slide pointer-events-auto fixed bottom-0 right-0 z-[55] flex w-[282px] flex-col gap-2 bg-transparent p-2"
-          style={{ top: emPx(ALTURA_TOPBAR) }}
+          className="bc-anim-slide pointer-events-auto fixed bottom-0 z-[55] flex w-[282px] flex-col gap-2 bg-transparent p-2"
+          style={{ top: emPx(ALTURA_TOPBAR), right: emPx(LARGURA_TRILHO) }}
         >
           <div className="min-h-0 flex-1">
             <MensagensRapidasPanel
@@ -377,6 +379,55 @@ function SettingsModal({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Barra lateral (como no BuildSales): sempre visível, abre a gaveta na guia ──
+function TrilhoLateral({ aberto }: { aberto: boolean }) {
+  const [aba, setAba] = useState(abaGaveta.get());
+  useEffect(() => abaGaveta.subscribe(setAba), []);
+
+  // Clicar na guia aberta fecha; em outra, troca; fechada, abre nela.
+  const ir = (destino: 'cliente' | 'rapidas') => {
+    if (aberto && aba === destino) {
+      gavetaAberta.set(false);
+      return;
+    }
+    abaGaveta.set(destino);
+    gavetaAberta.set(true);
+  };
+
+  const botao = (ativo: boolean) =>
+    cn(
+      'grid h-10 w-10 place-items-center rounded-lg border transition',
+      ativo
+        ? 'border-brand bg-brand text-white shadow-sm'
+        : 'border-transparent bg-surface-2 text-muted hover:border-border-strong hover:text-text',
+    );
+
+  return (
+    <div
+      className="pointer-events-auto fixed bottom-0 right-0 z-[56] flex flex-col items-center gap-2 border-l border-border bg-surface pt-3"
+      style={{ top: emPx(ALTURA_TOPBAR), width: emPx(LARGURA_TRILHO) }}
+    >
+      <button type="button" title="Contato" className={botao(aberto && aba === 'cliente')} onClick={() => ir('cliente')}>
+        <User size={17} />
+      </button>
+      <button type="button" title="Mensagens rápidas" className={botao(aberto && aba === 'rapidas')} onClick={() => ir('rapidas')}>
+        <Zap size={17} />
+      </button>
+      <button
+        type="button"
+        title="Conta de WhatsApp em uso"
+        className={botao(false)}
+        onClick={() => {
+          if (!aberto) gavetaAberta.set(true); // o diálogo mora no painel
+          pedirContaWhatsapp.set(pedirContaWhatsapp.get() + 1);
+        }}
+      >
+        <Smartphone size={17} />
+      </button>
     </div>
   );
 }

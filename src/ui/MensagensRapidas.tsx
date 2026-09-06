@@ -52,7 +52,7 @@ import { cn, formatarTelefone } from '@/lib/utils';
 import { toast } from './toast';
 import * as db from '@/lib/db';
 import { enviarArquivo, getInfoConta } from '@/lib/wa';
-import { modalProposta, propostasMudaram } from '@/lib/store';
+import { abaGaveta, modalProposta, pedirContaWhatsapp, propostasMudaram } from '@/lib/store';
 import { TIPOS, brl } from '@/lib/propostas';
 import type { PropostaSalva } from '@/lib/types';
 import { minhasEquipes } from '@/lib/sync';
@@ -125,7 +125,18 @@ export function MensagensRapidasPanel({
   contato: ContatoAtivo | null;
   viewInicial?: 'rapidas' | 'cliente';
 }) {
-  const [view, setView] = useState<'rapidas' | 'cliente'>(viewInicial);
+  // A guia vive no store: a barra lateral abre a gaveta já na guia certa e a
+  // faixa de abas aqui dentro continua funcionando.
+  const [view, setViewLocal] = useState<'rapidas' | 'cliente'>(abaGaveta.get() ?? viewInicial);
+  const setView = (v: 'rapidas' | 'cliente') => abaGaveta.set(v);
+  useEffect(() => abaGaveta.subscribe(setViewLocal), []);
+  useEffect(() => {
+    let primeiro = true;
+    return pedirContaWhatsapp.subscribe(() => {
+      if (primeiro) { primeiro = false; return; } // valor atual na inscrição
+      setDlgConta(true);
+    });
+  }, []);
   const [data, setData] = useState<MensagensRapidasData | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [busca, setBusca] = useState('');

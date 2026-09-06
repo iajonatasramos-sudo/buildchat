@@ -30,6 +30,12 @@ export const tema = criarSinal<'light' | 'dark'>('light');
 
 /** Gaveta lateral (painel de mensagens rápidas) aberta? */
 export const gavetaAberta = criarSinal<boolean>(false);
+/** Qual guia a gaveta mostra — a barra lateral e a faixa de abas do painel escrevem aqui. */
+export const abaGaveta = criarSinal<'rapidas' | 'cliente'>('rapidas');
+/** Pedido para abrir o diálogo "Conta de WhatsApp em uso" (incrementa a cada clique). */
+export const pedirContaWhatsapp = criarSinal<number>(0);
+/** Largura VISUAL da barra lateral (px reais); dentro do .bc-root use emPx(). */
+export const LARGURA_TRILHO = 56;
 
 /** Menu aberto a partir da barra do cabeçalho da conversa. */
 export type MenuHeader = { tipo: 'etiquetas' | 'filtros' | 'apagadas'; x: number; y: number } | null;
