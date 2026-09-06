@@ -20,3 +20,14 @@ export function aguardar(ms: number): Promise<void> {
  */
 export const ZOOM = 1.25;
 export const emPx = (v: number) => v / ZOOM;
+
+/** Só dígitos com DDI → "+55 11 96478-8124" (fora do Brasil: "+1 2025550123"). */
+export function formatarTelefone(valor: string | null | undefined): string | null {
+  const d = (valor ?? '').replace(/\D/g, '');
+  if (!d) return null;
+  if (!d.startsWith('55') || d.length < 12) return `+${d}`;
+  const ddd = d.slice(2, 4);
+  const resto = d.slice(4);
+  const meio = resto.length > 8 ? resto.slice(0, 5) : resto.slice(0, 4);
+  return `+55 ${ddd} ${meio}-${resto.slice(meio.length)}`;
+}

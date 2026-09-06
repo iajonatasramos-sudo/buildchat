@@ -48,7 +48,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { cn } from '@/lib/utils';
+import { cn, formatarTelefone } from '@/lib/utils';
 import { toast } from './toast';
 import * as db from '@/lib/db';
 import { enviarArquivo, getInfoConta } from '@/lib/wa';
@@ -108,14 +108,6 @@ function tipoPrincipal(r: RespostaDC): TipoResposta {
   return r.acoes[0]?.tipo ?? 'texto';
 }
 
-/** Iniciais para o avatar do contato (ignora emojis e sobrenomes extras). */
-function iniciaisDe(nome: string): string {
-  const partes = nome
-    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
-    .split(/\s+/)
-    .filter(Boolean);
-  return ((partes[0]?.[0] ?? '') + (partes[1]?.[0] ?? '')).toUpperCase() || '?';
-}
 
 function cmpOrdem(a: { ordem: number }, b: { ordem: number }) {
   return a.ordem - b.ordem;
@@ -1279,9 +1271,6 @@ function ContatoGuia({
   return (
     <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
       <div className="bc-elev flex items-center gap-3 rounded-lg border border-border bg-surface p-3">
-        <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-md bg-brand text-[14px] font-bold text-white">
-          {iniciaisDe(nomeExibido)}
-        </span>
         <div className="min-w-0 flex-1">
           {editandoNome ? (
             <div className="flex items-center gap-1.5">
@@ -1321,17 +1310,12 @@ function ContatoGuia({
           )}
           <div className="flex items-center gap-1 text-[11px] text-muted">
             <Phone size={11} />
-            {contato.telefone ?? (ficha?.telefone ? `+${ficha.telefone}` : contato.ehGrupo ? 'Grupo' : '—')}
+            {formatarTelefone(contato.telefone ?? ficha?.telefone) ?? (contato.ehGrupo ? 'Grupo' : '—')}
           </div>
         </div>
       </div>
 
       {/* O nome acima é o que entra em {{nome}} nas mensagens rápidas. */}
-      {ficha?.nome && ficha.nome.trim() !== contato.nome && (
-        <p className="-mt-1 px-1 text-[10.5px] text-muted">
-          No WhatsApp aparece como “{contato.nome}”.
-        </p>
-      )}
 
       <GuiaSecao titulo="Etiquetas" Icon={Tag} cor="var(--brand)" contador={tagsContato.length}>
         {/* Mostra apenas as pastas em que o contato está; o + abre a lista. */}
