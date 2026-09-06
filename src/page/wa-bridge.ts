@@ -33,6 +33,32 @@ function contatoDoChat(chat: any) {
  */
 const audiosConhecidos = new Map<string, any>();
 
+/**
+ * Acha o modelo de uma mensagem pelo id: primeiro pela API do WPP e, se ela
+ * recusar o formato do id, varrendo as mensagens já carregadas da conversa.
+ */
+async function buscarMensagem(msgId: string): Promise<any | null> {
+  try {
+    const m = await WPP.chat.getMessageById(msgId);
+    if (m) {
+      audiosConhecidos.set(msgId, m);
+      return m;
+    }
+  } catch {
+    /* formato de id que o WPP não converte — segue para a varredura */
+  }
+  try {
+    const chat = await chatAtivoId();
+    if (!chat) return null;
+    const msgs: any[] = (await WPP.chat.getMessages(chat, { count: 200 })) ?? [];
+    const m = msgs.find((x) => x?.id?._serialized === msgId);
+    if (m) audiosConhecidos.set(msgId, m);
+    return m ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function chatAtivoId(): Promise<string | null> {
   const chat = WPP.chat.getActiveChat();
   return chat?.id?._serialized ?? null;
@@ -124,40 +150,66 @@ const comandos: Record<string, (payload: any) => Promise<any>> = {
    * Baixa a mídia de uma mensagem e devolve como data URL.
    *
    * Plano B da transcrição: normalmente o áudio já está no <audio> da bolha
-   * como blob URL, mas o WhatsApp descarta o blob de conversas antigas. Aqui o
-   * WPP busca de novo e descriptografa. Vai como string porque a resposta
-   * atravessa o postMessage entre o mundo da página e o da extensão.
+   * como blob URL, mas o WhatsApp descarta o blob de conversas antigas.
    *
-   * O id do DOM sozinho NÃO serve: o WPP tenta convertê-lo em MsgKey e estoura
-   * com "reading '_serialized'" quando o formato não bate. Por isso passamos o
-   * modelo da mensagem — o mesmo que `audiosDoChat` já tinha em mãos — e só
-   * caímos no id como último recurso.
+   * Por que uma cascata: o `downloadMedia` do wa-js resolve a mensagem no store
+   * antes de baixar, e quando não a encontra estoura lá dentro com
+   * "reading '_serialized'" — o id do DOM sozinho não basta. Tentamos, em
+   * ordem, o modelo que já temos em mãos, o próprio método do modelo, a busca
+   * pelo id e, por fim, a mensagem recarregada do chat. O erro que sobe carrega
+   * o motivo original, senão não há como diagnosticar de fora.
    */
   async downloadMedia({ msgId }: { msgId: string }) {
-    let alvo: any = audiosConhecidos.get(msgId);
-    if (!alvo) {
+    const modelo = audiosConhecidos.get(msgId) ?? (await buscarMensagem(msgId));
+
+    const tentativas: { nome: string; executar: () => Promise<Blob> }[] = [];
+    if (modelo) {
+      tentativas.push({ nome: 'modelo', executar: () => WPP.chat.downloadMedia(modelo) });
+      if (typeof modelo.downloadMedia === 'function') {
+        tentativas.push({ nome: 'modelo.downloadMedia', executar: () => modelo.downloadMedia() });
+      }
+    }
+    tentativas.push({ nome: 'id', executar: () => WPP.chat.downloadMedia(msgId) });
+
+    let blob: Blob | null = null;
+    const falhas: string[] = [];
+    for (const tentativa of tentativas) {
       try {
-        alvo = await WPP.chat.getMessageById(msgId);
-      } catch {
-        /* id em formato que o WPP não converte — tenta com a string mesmo */
+        blob = await tentativa.executar();
+        if (blob) break;
+        falhas.push(`${tentativa.nome}: vazio`);
+      } catch (e: any) {
+        falhas.push(`${tentativa.nome}: ${e?.message ?? e}`);
       }
     }
 
-    let blob: Blob | null = null;
-    try {
-      blob = await WPP.chat.downloadMedia(alvo ?? msgId);
-    } catch (e: any) {
-      console.warn('[BuildChat] downloadMedia falhou:', e);
-      throw new Error('Não consegui baixar este áudio. Toque nele uma vez e tente de novo.');
+    if (!blob) {
+      console.warn('[BuildChat] downloadMedia falhou —', falhas.join(' | '));
+      throw new Error(`Não consegui baixar este áudio (${falhas[0] ?? 'motivo desconhecido'}).`);
     }
-    if (!blob) throw new Error('Mídia indisponível.');
+
     const dataUrl: string = await new Promise((resolve, reject) => {
       const leitor = new FileReader();
       leitor.onload = () => resolve(String(leitor.result));
       leitor.onerror = () => reject(new Error('Falha ao ler a mídia.'));
-      leitor.readAsDataURL(blob);
+      leitor.readAsDataURL(blob!);
     });
     return { dataUrl, mime: blob.type || null, tamanho: blob.size };
+  },
+
+  /** Relatório de diagnóstico da transcrição — ver `__bcTranscricao()`. */
+  async diagAudio({ msgId }: { msgId: string }) {
+    const modelo = audiosConhecidos.get(msgId) ?? (await buscarMensagem(msgId));
+    return {
+      wppPronto: !!(WPP?.conn?.isMainReady?.() ?? pronto),
+      temDownloadMedia: typeof WPP?.chat?.downloadMedia,
+      temGetMessageById: typeof WPP?.chat?.getMessageById,
+      modeloEncontrado: !!modelo,
+      tipoDaMensagem: modelo?.type ?? null,
+      idDoModelo: modelo?.id?._serialized ?? null,
+      idPedido: msgId,
+      audiosEmCache: audiosConhecidos.size,
+    };
   },
 
   async sendText({ chatId, texto }: { chatId?: string; texto: string }) {

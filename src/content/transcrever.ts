@@ -16,7 +16,7 @@
 // reinsere o botão e um cache por id devolve o texto já transcrito.
 
 import { tema } from '@/lib/store';
-import { idsDeAudioDoChat, obterAudioDaMensagem } from '@/lib/wa';
+import { diagnosticarAudio, idsDeAudioDoChat, obterAudioDaMensagem } from '@/lib/wa';
 import { transcrever, transcricaoDisponivel } from '@/lib/transcricao';
 
 const MARCA = 'bcTr'; // dataset.bcTr — evita duplicar o bloco na mesma mensagem
@@ -244,12 +244,19 @@ export function montarTranscricao() {
   const obs = new MutationObserver(() => garantir());
   obs.observe(document.body, { childList: true, subtree: true });
 
-  // Diagnóstico: se o botão não aparecer, isto diz de que lado está o problema.
-  (window as any).__bcTranscricao = () => ({
-    liberado,
-    audiosSegundoWpp: idsAudio.size,
-    linhasComDataId: document.querySelectorAll('#main [data-id]').length,
-    botoesNaTela: document.querySelectorAll('.bc-tr-btn').length,
-    transcritos: cache.size,
-  });
+  // Diagnóstico: com o botão sumido ou com erro, isto diz de que lado está o
+  // problema — sem precisar adivinhar pelo texto do erro na tela.
+  (window as any).__bcTranscricao = async () => {
+    const primeiro = document.querySelector<HTMLElement>('.bc-tr-btn')?.closest('[data-id]');
+    const msgId = primeiro?.getAttribute('data-id') ?? null;
+    return {
+      liberado,
+      audiosSegundoWpp: idsAudio.size,
+      linhasComDataId: document.querySelectorAll('#main [data-id]').length,
+      botoesNaTela: document.querySelectorAll('.bc-tr-btn').length,
+      transcritos: cache.size,
+      primeiroAudio: msgId,
+      ponte: msgId ? await diagnosticarAudio(msgId) : 'nenhum áudio na tela',
+    };
+  };
 }

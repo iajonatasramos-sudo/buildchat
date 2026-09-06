@@ -363,6 +363,15 @@ export async function idsDeAudioDoChat(): Promise<string[]> {
   }
 }
 
+/** Relatório da ponte sobre um áudio — usado pelo diagnóstico do console. */
+export async function diagnosticarAudio(msgId: string): Promise<unknown> {
+  try {
+    return await chamar('diagAudio', { msgId }, 8000);
+  } catch (e) {
+    return { erroNaPonte: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 /**
  * Áudio de uma mensagem, como Blob.
  *
