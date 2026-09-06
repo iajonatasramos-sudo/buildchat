@@ -160,9 +160,13 @@ Botão **Transcrever** em cada mensagem de áudio. A transcrição é feita pela
   externo dentro da linha que tem fundo próprio e é mais estreito que ela. Procurar por
   classe não vale (mudam a cada versão) e ancorar na linha jogava a pílula para a borda
   esquerda. O botão é uma pílula rosa centralizada no balão, logo abaixo do player.
-- **`downloadMedia` precisa do MODELO da mensagem**, não do `data-id` cru: o WPP tenta
-  converter o id em `MsgKey` e estoura com `reading '_serialized'`. `audiosDoChat` guarda os
-  modelos que já viu e o download usa esse mapa (com `getMessageById` como alternativa).
+- **O `data-id` do DOM e o id do WPP NÃO são a mesma string.** Desde a migração do
+  WhatsApp para ids `@lid`, o mesmo áudio aparece como `false_123@lid_HASH` no DOM e
+  `false_5511…@c.us_HASH` no WPP. O que coincide é o **hash** (terceiro segmento) — a ponte
+  indexa os modelos por ele (`audiosConhecidos`), `audiosDoChat` devolve hashes e o content
+  cruza com `hashDoId(data-id)`. Passar o id cru do DOM ao `downloadMedia` do wa-js estoura
+  com `reading '_serialized'` (ele não acha a mensagem no store) — sem modelo, a ponte
+  responde com mensagem legível em vez de tentar.
 - Diagnóstico no console: `__bcTranscricao()` mostra se o recurso está liberado, quantos
   áudios o WPP reconheceu e quantos botões estão na tela.
 - **Pegar o áudio** (`obterAudioDaMensagem` em `wa.ts`): o `<audio>` da bolha guarda um blob

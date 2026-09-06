@@ -21,7 +21,16 @@ import { transcrever, transcricaoDisponivel } from '@/lib/transcricao';
 
 const MARCA = 'bcTr'; // dataset.bcTr — evita duplicar o bloco na mesma mensagem
 const cache = new Map<string, string>(); // msgId -> texto já transcrito
-let idsAudio = new Set<string>(); // ids de áudio da conversa aberta, segundo o WPP
+let idsAudio = new Set<string>(); // HASHES dos áudios da conversa aberta, segundo o WPP
+
+/**
+ * `false_5511@c.us_3EB0ABC` → `3EB0ABC`. O `data-id` do DOM e o id do WPP
+ * podem divergir no remetente (`@lid` × `@c.us`); o hash é o que coincide.
+ */
+const hashDoId = (id: string) => {
+  const partes = id.split('_');
+  return partes.length >= 3 ? partes[2] : id;
+};
 
 function injetarEstilo() {
   if (document.getElementById('bc-tr-estilo')) return;
@@ -224,7 +233,7 @@ export function montarTranscricao() {
     for (const linha of document.querySelectorAll<HTMLElement>('#main [data-id]')) {
       if (linha.dataset[MARCA]) continue;
       const msgId = linha.getAttribute('data-id');
-      if (!(msgId && idsAudio.has(msgId)) && !pareceAudio(linha)) {
+      if (!(msgId && idsAudio.has(hashDoId(msgId))) && !pareceAudio(linha)) {
         desconhecidas = true; // pode ser áudio que a lista do WPP ainda não cobre
         continue;
       }

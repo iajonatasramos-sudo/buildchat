@@ -28,31 +28,55 @@ function contatoDoChat(chat: any) {
 }
 
 /**
- * Modelos das mensagens de áudio já vistas, por id. O `downloadMedia` precisa
- * do modelo (e não do id cru do DOM) para não estourar na conversão de MsgKey.
+ * Modelos das mensagens de áudio já vistas, indexados pelo HASH da mensagem.
+ *
+ * O `data-id` do DOM e o `id._serialized` do WPP nem sempre são a mesma
+ * string: desde a migração do WhatsApp para ids `@lid`, o mesmo áudio pode
+ * aparecer como `false_123@lid_HASH` num lado e `false_5511…@c.us_HASH` no
+ * outro. O que coincide é o hash (terceiro segmento) — é por ele que casamos.
+ * Foi essa diferença que fazia o download estourar com "reading '_serialized'":
+ * o wa-js não achava a mensagem pelo id cru do DOM.
  */
 const audiosConhecidos = new Map<string, any>();
 
+/** `false_5511@c.us_3EB0ABC[_participante]` → `3EB0ABC`. */
+function hashDoId(id: string): string {
+  const partes = id.split('_');
+  return partes.length >= 3 ? partes[2] : id;
+}
+
+function hashDoModelo(m: any): string | null {
+  const curto = m?.id?.id;
+  if (typeof curto === 'string' && curto) return curto;
+  const serial = m?.id?._serialized ?? (typeof m?.id === 'string' ? m.id : null);
+  return serial ? hashDoId(serial) : null;
+}
+
 /**
- * Acha o modelo de uma mensagem pelo id: primeiro pela API do WPP e, se ela
- * recusar o formato do id, varrendo as mensagens já carregadas da conversa.
+ * Acha o modelo de uma mensagem a partir do id do DOM: cache por hash, depois
+ * a API do WPP com o id cru e, por fim, varredura das mensagens carregadas da
+ * conversa casando pelo hash.
  */
 async function buscarMensagem(msgId: string): Promise<any | null> {
+  const hash = hashDoId(msgId);
+  const emCache = audiosConhecidos.get(hash);
+  if (emCache) return emCache;
+
   try {
     const m = await WPP.chat.getMessageById(msgId);
-    if (m) {
-      audiosConhecidos.set(msgId, m);
+    if (m?.id) {
+      audiosConhecidos.set(hash, m);
       return m;
     }
   } catch {
-    /* formato de id que o WPP não converte — segue para a varredura */
+    /* id em formato que o WPP não converte — segue para a varredura */
   }
   try {
     const chat = await chatAtivoId();
     if (!chat) return null;
-    const msgs: any[] = (await WPP.chat.getMessages(chat, { count: 200 })) ?? [];
-    const m = msgs.find((x) => x?.id?._serialized === msgId);
-    if (m) audiosConhecidos.set(msgId, m);
+    const msgs: any[] = (await WPP.chat.getMessages(chat, { count: 500 })) ?? [];
+    const m = msgs.find((x) => hashDoModelo(x) === hash);
+    if (m) audiosConhecidos.set(hash, m);
     return m ?? null;
   } catch {
     return null;
@@ -135,13 +159,13 @@ const comandos: Record<string, (payload: any) => Promise<any>> = {
     const alvo = chatId || (await chatAtivoId());
     if (!alvo) return { ids: [] as string[] };
     const msgs: any[] = (await WPP.chat.getMessages(alvo, { count: quantidade })) ?? [];
-    const ids: string[] = [];
+    const ids: string[] = []; // hashes — ver `audiosConhecidos`
     for (const m of msgs) {
       if (m?.type !== 'ptt' && m?.type !== 'audio') continue;
-      const id = m?.id?._serialized ?? (typeof m?.id === 'string' ? m.id : null);
-      if (!id) continue;
-      ids.push(id);
-      audiosConhecidos.set(id, m); // guarda o MODELO — ver downloadMedia
+      const hash = hashDoModelo(m);
+      if (!hash) continue;
+      ids.push(hash);
+      audiosConhecidos.set(hash, m); // guarda o MODELO — ver downloadMedia
     }
     return { ids };
   },
@@ -160,16 +184,20 @@ const comandos: Record<string, (payload: any) => Promise<any>> = {
    * o motivo original, senão não há como diagnosticar de fora.
    */
   async downloadMedia({ msgId }: { msgId: string }) {
-    const modelo = audiosConhecidos.get(msgId) ?? (await buscarMensagem(msgId));
-
-    const tentativas: { nome: string; executar: () => Promise<Blob> }[] = [];
-    if (modelo) {
-      tentativas.push({ nome: 'modelo', executar: () => WPP.chat.downloadMedia(modelo) });
-      if (typeof modelo.downloadMedia === 'function') {
-        tentativas.push({ nome: 'modelo.downloadMedia', executar: () => modelo.downloadMedia() });
-      }
+    const modelo = await buscarMensagem(msgId);
+    if (!modelo) {
+      throw new Error('Não achei esta mensagem na conversa aberta. Role até ela e tente de novo.');
     }
-    tentativas.push({ nome: 'id', executar: () => WPP.chat.downloadMedia(msgId) });
+
+    // O wa-js aceita o modelo ou o id serializado DELE (não o do DOM).
+    const idDoWpp: string = modelo?.id?._serialized ?? msgId;
+    const tentativas: { nome: string; executar: () => Promise<Blob> }[] = [
+      { nome: 'modelo', executar: () => WPP.chat.downloadMedia(modelo) },
+      { nome: 'id do WPP', executar: () => WPP.chat.downloadMedia(idDoWpp) },
+    ];
+    if (typeof modelo.downloadMedia === 'function') {
+      tentativas.push({ nome: 'modelo.downloadMedia', executar: () => modelo.downloadMedia() });
+    }
 
     let blob: Blob | null = null;
     const falhas: string[] = [];
@@ -199,7 +227,7 @@ const comandos: Record<string, (payload: any) => Promise<any>> = {
 
   /** Relatório de diagnóstico da transcrição — ver `__bcTranscricao()`. */
   async diagAudio({ msgId }: { msgId: string }) {
-    const modelo = audiosConhecidos.get(msgId) ?? (await buscarMensagem(msgId));
+    const modelo = await buscarMensagem(msgId);
     return {
       wppPronto: !!(WPP?.conn?.isMainReady?.() ?? pronto),
       temDownloadMedia: typeof WPP?.chat?.downloadMedia,
@@ -208,6 +236,7 @@ const comandos: Record<string, (payload: any) => Promise<any>> = {
       tipoDaMensagem: modelo?.type ?? null,
       idDoModelo: modelo?.id?._serialized ?? null,
       idPedido: msgId,
+      hashPedido: hashDoId(msgId),
       audiosEmCache: audiosConhecidos.size,
     };
   },
