@@ -41,7 +41,10 @@ src/
 
 **Barra lateral** (`TrilhoLateral` em `App.tsx`, como no BuildSales): fixa na borda direita
 **enquanto a gaveta está fechada**, com Contato / Mensagens rápidas / Conta do WhatsApp e, abaixo
-de um separador, o atalho **Meus contatos** que abre `PAINEL_URL/painel/contatos` (config.ts). Abre
+de um separador, o atalho **Meus contatos**, que abre o painel **já logado**: `urlDoPainel()`
+(auth.ts) embute a sessão da extensão no `#fragmento` de `PAINEL_URL/acesso?para=…` — o
+mesmo mecanismo dos links mágicos do Supabase; o fragmento não vai ao servidor e a página
+`/acesso` grava a sessão e o apaga da URL na hora. Sem sessão, abre o login normal. Abre
 a gaveta na guia certa (`abaGaveta` no store) e some — a gaveta toma o lugar dela; o X da
 gaveta traz a barra de volta. O `#app` cede `LARGURA_TRILHO` px fechada e 353 px aberta
 (estilo injetado em `montarTopBar()`).

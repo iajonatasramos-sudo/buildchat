@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BookUser, Loader2, Settings as SettingsIcon, Smartphone, User, X, Zap } from 'lucide-react';
 import { cn, emPx } from '@/lib/utils';
 import * as db from '@/lib/db';
-import { PAINEL_URL } from '@/lib/config';
+import { urlDoPainel } from '@/lib/auth';
 import { DOM, executarResposta, getContatoAtivo, observarConversa } from '@/lib/wa';
 import { inserirTextoNoCompose, reconciliarTagsContatos } from '@/lib/wa';
 import type { ContatoAtivo, RespostaDC, Settings } from '@/lib/types';
@@ -427,12 +427,19 @@ function TrilhoLateral() {
         <Smartphone size={17} />
       </button>
       <span className="my-1 h-px w-6 bg-border" />
-      {/* Meus contatos no painel web — o usuário entra lá com o mesmo e-mail e senha. */}
+      {/* Meus contatos no painel web, já logado com a sessão da extensão. A aba
+          nasce ANTES do await (o clique ainda vale como gesto) e recebe o endereço depois. */}
       <button
         type="button"
         title="Meus contatos no painel BuildChat"
         className={botao(false)}
-        onClick={() => window.open(`${PAINEL_URL}/painel/contatos`, '_blank', 'noopener')}
+        onClick={() => {
+          const aba = window.open('', '_blank');
+          urlDoPainel('/painel/contatos').then((url) => {
+            if (aba) aba.location.href = url;
+            else window.open(url, '_blank');
+          });
+        }}
       >
         <BookUser size={17} />
       </button>

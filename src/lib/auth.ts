@@ -6,7 +6,7 @@
 //     o vendedor não pode ficar travado no meio de um atendimento por falta de rede.
 
 import { createClient, type SupabaseClient, type Session } from '@supabase/supabase-js';
-import { SUPABASE_ANON_KEY, SUPABASE_URL, servidorConfigurado } from './config';
+import { PAINEL_URL, SUPABASE_ANON_KEY, SUPABASE_URL, servidorConfigurado } from './config';
 
 export type Empresa = {
   id: string;
@@ -279,4 +279,33 @@ function traduzir(msg: string): string {
   if (m.includes('failed to fetch')) return 'Sem conexão com o servidor.';
   if (m.includes('rate limit')) return 'Muitas tentativas de cadastro. Aguarde alguns minutos.';
   return msg;
+}
+
+// ───────────────────── Abrir o painel já logado ─────────────────────
+
+/**
+ * Endereço do painel com a sessão desta extensão embutida no #fragmento —
+ * o mesmo mecanismo dos links mágicos do Supabase: o fragmento nunca vai ao
+ * servidor, e a página /acesso grava a sessão e o apaga da URL na hora. Sem
+ * sessão aqui, devolve o endereço normal (a pessoa entra com e-mail e senha).
+ */
+export async function urlDoPainel(caminho: string): Promise<string> {
+  const destino = `${PAINEL_URL}${caminho}`;
+  const sb = supabase();
+  if (!sb) return destino;
+  try {
+    let { data } = await sb.auth.getSession();
+    // Token perto de vencer? Renova antes de entregar, senão o painel abre e cai.
+    const vence = (data.session?.expires_at ?? 0) * 1000;
+    if (data.session && vence - Date.now() < 5 * 60_000) {
+      const r = await sb.auth.refreshSession();
+      if (r.data.session) data = r.data;
+    }
+    const s = data.session;
+    if (!s?.access_token || !s.refresh_token) return destino;
+    const frag = new URLSearchParams({ at: s.access_token, rt: s.refresh_token });
+    return `${PAINEL_URL}/acesso?para=${encodeURIComponent(caminho)}#${frag}`;
+  } catch {
+    return destino;
+  }
 }
