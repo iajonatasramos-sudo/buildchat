@@ -37,8 +37,12 @@ function injetarEstilo() {
   const estilo = document.createElement('style');
   estilo.id = 'bc-tr-estilo';
   estilo.textContent = `
-    /* Pílula centralizada DENTRO da bolha, logo abaixo do player. */
-    .bc-tr { margin: 6px 0 2px; display: flex; flex-direction: column; gap: 6px; align-items: center; width: 100%; }
+    /* Pílula centralizada DENTRO da bolha, logo abaixo do player.
+       O padding de baixo reserva a faixa onde o WhatsApp desenha o horário
+       (posicionado em absoluto no canto inferior direito) — sem ela o horário
+       cai em cima do botão. */
+    .bc-tr { margin: 6px 0 0; padding: 0 0 18px; display: flex; flex-direction: column; gap: 6px;
+      align-items: center; width: 100%; box-sizing: border-box; }
     .bc-tr-btn {
       display: inline-flex; align-items: center; gap: 7px;
       background: none; border: 1.5px solid var(--bc-tr-marca); border-radius: 999px;
