@@ -27,6 +27,12 @@ function contatoDoChat(chat: any) {
   return { chatId: id, nome, telefone, ehGrupo, fixada: !!chat.pin };
 }
 
+/**
+ * Modelos das mensagens de áudio já vistas, por id. O `downloadMedia` precisa
+ * do modelo (e não do id cru do DOM) para não estourar na conversão de MsgKey.
+ */
+const audiosConhecidos = new Map<string, any>();
+
 async function chatAtivoId(): Promise<string | null> {
   const chat = WPP.chat.getActiveChat();
   return chat?.id?._serialized ?? null;
@@ -103,10 +109,14 @@ const comandos: Record<string, (payload: any) => Promise<any>> = {
     const alvo = chatId || (await chatAtivoId());
     if (!alvo) return { ids: [] as string[] };
     const msgs: any[] = (await WPP.chat.getMessages(alvo, { count: quantidade })) ?? [];
-    const ids = msgs
-      .filter((m) => m?.type === 'ptt' || m?.type === 'audio')
-      .map((m) => m?.id?._serialized ?? (typeof m?.id === 'string' ? m.id : null))
-      .filter(Boolean) as string[];
+    const ids: string[] = [];
+    for (const m of msgs) {
+      if (m?.type !== 'ptt' && m?.type !== 'audio') continue;
+      const id = m?.id?._serialized ?? (typeof m?.id === 'string' ? m.id : null);
+      if (!id) continue;
+      ids.push(id);
+      audiosConhecidos.set(id, m); // guarda o MODELO — ver downloadMedia
+    }
     return { ids };
   },
 
@@ -117,9 +127,29 @@ const comandos: Record<string, (payload: any) => Promise<any>> = {
    * como blob URL, mas o WhatsApp descarta o blob de conversas antigas. Aqui o
    * WPP busca de novo e descriptografa. Vai como string porque a resposta
    * atravessa o postMessage entre o mundo da página e o da extensão.
+   *
+   * O id do DOM sozinho NÃO serve: o WPP tenta convertê-lo em MsgKey e estoura
+   * com "reading '_serialized'" quando o formato não bate. Por isso passamos o
+   * modelo da mensagem — o mesmo que `audiosDoChat` já tinha em mãos — e só
+   * caímos no id como último recurso.
    */
   async downloadMedia({ msgId }: { msgId: string }) {
-    const blob: Blob = await WPP.chat.downloadMedia(msgId);
+    let alvo: any = audiosConhecidos.get(msgId);
+    if (!alvo) {
+      try {
+        alvo = await WPP.chat.getMessageById(msgId);
+      } catch {
+        /* id em formato que o WPP não converte — tenta com a string mesmo */
+      }
+    }
+
+    let blob: Blob | null = null;
+    try {
+      blob = await WPP.chat.downloadMedia(alvo ?? msgId);
+    } catch (e: any) {
+      console.warn('[BuildChat] downloadMedia falhou:', e);
+      throw new Error('Não consegui baixar este áudio. Toque nele uma vez e tente de novo.');
+    }
     if (!blob) throw new Error('Mídia indisponível.');
     const dataUrl: string = await new Promise((resolve, reject) => {
       const leitor = new FileReader();

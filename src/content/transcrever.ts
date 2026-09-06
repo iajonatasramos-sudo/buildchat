@@ -28,27 +28,26 @@ function injetarEstilo() {
   const estilo = document.createElement('style');
   estilo.id = 'bc-tr-estilo';
   estilo.textContent = `
-    .bc-tr { margin: 2px 0 6px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
-    .bc-tr[data-saida="1"] { align-items: flex-end; }
+    /* Pílula centralizada DENTRO da bolha, logo abaixo do player. */
+    .bc-tr { margin: 6px 0 2px; display: flex; flex-direction: column; gap: 6px; align-items: center; width: 100%; }
     .bc-tr-btn {
-      display: inline-flex; align-items: center; gap: 5px;
-      background: none; border: 1px solid var(--bc-tr-borda); border-radius: 8px;
-      padding: 3px 9px; font-size: 12px; font-family: inherit; font-weight: 600;
-      color: var(--bc-tr-cor); cursor: pointer; line-height: 1.5;
-      transition: border-color .15s ease, color .15s ease;
+      display: inline-flex; align-items: center; gap: 7px;
+      background: none; border: 1.5px solid var(--bc-tr-marca); border-radius: 999px;
+      padding: 5px 16px; font-size: 14px; font-family: inherit; font-weight: 600;
+      color: var(--bc-tr-marca); cursor: pointer; line-height: 1.5;
+      transition: background .15s ease;
     }
-    .bc-tr-btn:hover { border-color: var(--bc-tr-marca); color: var(--bc-tr-marca); }
-    .bc-tr-btn:disabled { cursor: default; opacity: .75; }
+    .bc-tr-btn:hover { background: var(--bc-tr-fundo-hover); }
+    .bc-tr-btn:disabled { cursor: default; opacity: .7; }
     .bc-tr-btn svg { flex-shrink: 0; }
     .bc-tr-girando { animation: bc-tr-giro 1s linear infinite; transform-origin: center; }
     @keyframes bc-tr-giro { to { transform: rotate(360deg); } }
     .bc-tr-texto {
-      max-width: 100%; font-size: 13.5px; line-height: 1.45; font-style: italic;
+      align-self: stretch; font-size: 13.5px; line-height: 1.45; font-style: italic;
       color: var(--bc-tr-cor-texto); border-left: 2px solid var(--bc-tr-marca);
-      padding: 1px 0 1px 8px; white-space: pre-wrap; word-break: break-word;
-      text-align: left;
+      padding: 1px 0 1px 8px; white-space: pre-wrap; word-break: break-word; text-align: left;
     }
-    .bc-tr-erro { font-size: 12px; line-height: 1.4; color: var(--bc-tr-erro); max-width: 100%; text-align: left; }
+    .bc-tr-erro { font-size: 12px; line-height: 1.4; color: var(--bc-tr-erro); text-align: center; }
     .bc-tr-refazer { background: none; border: 0; padding: 0; margin-left: 6px;
       font: inherit; font-size: 12px; color: var(--bc-tr-marca); cursor: pointer; text-decoration: underline; }
   `;
@@ -59,17 +58,23 @@ function injetarEstilo() {
 function aplicarCores() {
   const escuro = tema.get() === 'dark';
   const raiz = document.documentElement.style;
-  raiz.setProperty('--bc-tr-cor', escuro ? '#8696a0' : '#54656f');
   raiz.setProperty('--bc-tr-cor-texto', escuro ? '#d1d7db' : '#3b4a54');
-  raiz.setProperty('--bc-tr-borda', escuro ? 'rgba(134,150,160,.4)' : 'rgba(84,101,111,.3)');
-  raiz.setProperty('--bc-tr-marca', escuro ? '#8aa2ff' : '#4F46E5');
+  raiz.setProperty('--bc-tr-marca', escuro ? '#ff5f8f' : '#e11d6f');
+  raiz.setProperty('--bc-tr-fundo-hover', escuro ? 'rgba(255,95,143,.12)' : 'rgba(225,29,111,.08)');
   raiz.setProperty('--bc-tr-erro', escuro ? '#f0a5a5' : '#b91c1c');
 }
 
-const ICONE_TEXTO =
-  '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h11M4 18h7"/></svg>';
-const ICONE_GIRO =
-  '<svg class="bc-tr-girando" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg>';
+// Microfone com balão de fala — "o que foi falado, em texto".
+const ICONE_TEXTO = `<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor"
+  stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="1.6" y="7.5" width="4.8" height="8" rx="2.4"/>
+  <path d="M.2 13.2a3.8 3.8 0 0 0 7.6 0"/>
+  <path d="M4 17.5v3.3"/>
+  <path d="M10.6 2.2h11a1.6 1.6 0 0 1 1.6 1.6v6a1.6 1.6 0 0 1-1.6 1.6h-5.2l-3.4 2.9v-2.9h-2.4A1.6 1.6 0 0 1 9 9.8v-6a1.6 1.6 0 0 1 1.6-1.6Z"/>
+  <path d="M11.9 5.3h8.4M11.9 8.2h5.2"/>
+</svg>`;
+const ICONE_GIRO = `<svg class="bc-tr-girando" viewBox="0 0 24 24" width="18" height="18" fill="none"
+  stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg>`;
 
 /**
  * Reforço para quando a ponte WPP não respondeu: sinais de que a bolha tem
@@ -91,23 +96,35 @@ function pareceAudio(linha: HTMLElement): boolean {
 }
 
 /**
- * Onde encaixar o bloco: dentro da bolha, para o texto herdar a largura e o
- * alinhamento dela. Sem a bolha reconhecida, o fim da linha ainda serve.
+ * A bolha da mensagem — é dentro dela que o botão entra, centralizado.
+ *
+ * Procurar por classe não vale (o WhatsApp renomeia a cada versão), então
+ * achamos pela aparência: o elemento mais externo, dentro da linha, que tem
+ * fundo próprio e é mais estreito que a linha. É exatamente o que desenha o
+ * balão. Sem isso o bloco caía na linha inteira e encostava na borda esquerda.
  */
-function alvoDoBloco(linha: HTMLElement): HTMLElement {
+function acharBolha(linha: HTMLElement): HTMLElement {
+  const larguraLinha = linha.getBoundingClientRect().width || 1;
+  const fila: HTMLElement[] = [...linha.children].filter((n): n is HTMLElement => n instanceof HTMLElement);
+
+  while (fila.length) {
+    const el = fila.shift()!;
+    const caixa = el.getBoundingClientRect();
+    const fundo = getComputedStyle(el).backgroundColor;
+    const opaco = fundo && !/rgba\(0, 0, 0, 0\)|transparent/.test(fundo);
+    if (opaco && caixa.width > 60 && caixa.width < larguraLinha * 0.95) return el;
+    fila.push(...([...el.children].filter((n): n is HTMLElement => n instanceof HTMLElement)));
+  }
   return (
-    linha.querySelector<HTMLElement>('.copyable-text') ??
     linha.querySelector<HTMLElement>('[class*="message-in"], [class*="message-out"]') ??
+    linha.querySelector<HTMLElement>('.copyable-text') ??
     linha
   );
 }
 
 function montarBloco(linha: HTMLElement, msgId: string | null) {
-  const saida = linha.className.includes('message-out') || !!linha.querySelector('[class*="message-out"]');
-
   const bloco = document.createElement('div');
   bloco.className = 'bc-tr';
-  bloco.dataset.saida = saida ? '1' : '0';
 
   const botao = document.createElement('button');
   botao.type = 'button';
@@ -162,7 +179,7 @@ function montarBloco(linha: HTMLElement, msgId: string | null) {
     }
   });
 
-  alvoDoBloco(linha).appendChild(bloco);
+  acharBolha(linha).appendChild(bloco);
 }
 
 export function montarTranscricao() {

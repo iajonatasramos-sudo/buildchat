@@ -156,6 +156,13 @@ Botão **Transcrever** em cada mensagem de áudio. A transcrição é feita pela
   da linha: o comando `audiosDoChat` da ponte pergunta ao WPP quais mensagens são
   `ptt`/`audio` e cruzamos com esse atributo; `pareceAudio()` (ícone, `aria-label`,
   `data-testid`) fica de reforço para quando a ponte não responder.
+- **Onde o botão entra**: `acharBolha()` procura o balão por **geometria** — o elemento mais
+  externo dentro da linha que tem fundo próprio e é mais estreito que ela. Procurar por
+  classe não vale (mudam a cada versão) e ancorar na linha jogava a pílula para a borda
+  esquerda. O botão é uma pílula rosa centralizada no balão, logo abaixo do player.
+- **`downloadMedia` precisa do MODELO da mensagem**, não do `data-id` cru: o WPP tenta
+  converter o id em `MsgKey` e estoura com `reading '_serialized'`. `audiosDoChat` guarda os
+  modelos que já viu e o download usa esse mapa (com `getMessageById` como alternativa).
 - Diagnóstico no console: `__bcTranscricao()` mostra se o recurso está liberado, quantos
   áudios o WPP reconheceu e quantos botões estão na tela.
 - **Pegar o áudio** (`obterAudioDaMensagem` em `wa.ts`): o `<audio>` da bolha guarda um blob
