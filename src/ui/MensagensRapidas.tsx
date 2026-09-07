@@ -4,6 +4,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Bot,
   Check,
   ChevronDown,
   ChevronUp,
@@ -50,6 +51,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { cn, formatarTelefone } from '@/lib/utils';
 import { toast } from './toast';
+import { AutomacoesView } from './Automacoes';
 import * as db from '@/lib/db';
 import { enviarArquivo, getInfoConta } from '@/lib/wa';
 import { abaGaveta, modalProposta, pedirContaWhatsapp, propostasMudaram } from '@/lib/store';
@@ -123,12 +125,12 @@ export function MensagensRapidasPanel({
   onFechar?: () => void;
   /** Conversa aberta no WhatsApp — alimenta a guia "Contato". */
   contato: ContatoAtivo | null;
-  viewInicial?: 'rapidas' | 'cliente';
+  viewInicial?: 'rapidas' | 'cliente' | 'automacoes';
 }) {
   // A guia vive no store: a barra lateral abre a gaveta já na guia certa e a
   // faixa de abas aqui dentro continua funcionando.
-  const [view, setViewLocal] = useState<'rapidas' | 'cliente'>(abaGaveta.get() ?? viewInicial);
-  const setView = (v: 'rapidas' | 'cliente') => abaGaveta.set(v);
+  const [view, setViewLocal] = useState<'rapidas' | 'cliente' | 'automacoes'>(abaGaveta.get() ?? viewInicial);
+  const setView = (v: 'rapidas' | 'cliente' | 'automacoes') => abaGaveta.set(v);
   useEffect(() => abaGaveta.subscribe(setViewLocal), []);
   useEffect(() => {
     let primeiro = true;
@@ -277,12 +279,15 @@ export function MensagensRapidasPanel({
           <button type="button" data-ativo={view === 'rapidas' ? 1 : 0} onClick={() => setView('rapidas')} title="Mensagens rápidas">
             <Zap size={14} />
           </button>
+          <button type="button" data-ativo={view === 'automacoes' ? 1 : 0} onClick={() => setView('automacoes')} title="Automações">
+            <Bot size={14} />
+          </button>
           <button type="button" data-ativo={0} onClick={() => setDlgConta(true)} title="Conta de WhatsApp em uso">
             <Smartphone size={14} />
           </button>
         </div>
         <div className="ml-auto min-w-0 truncate text-[12px] font-bold tracking-tight">
-          {view === 'cliente' ? 'Contato' : 'Mensagens'}
+          {view === 'cliente' ? 'Contato' : view === 'automacoes' ? 'Automações' : 'Mensagens'}
         </div>
         {onFechar && (
           <button
@@ -299,6 +304,8 @@ export function MensagensRapidasPanel({
       {view === 'cliente' && (
         <ContatoGuia contato={contato} tags={data?.tags ?? []} onTagsMudaram={carregar} />
       )}
+
+      {view === 'automacoes' && <AutomacoesView />}
 
       {view === 'rapidas' && (
         <>

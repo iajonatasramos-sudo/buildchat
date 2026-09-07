@@ -221,6 +221,17 @@ export async function alternarTagContato(chatId: string, tagId: string): Promise
   return map[chatId];
 }
 
+export async function removerTagContato(chatId: string, tagId: string): Promise<void> {
+  const map = await get<Record<string, string[]>>(K.contactTags, {});
+  if (!map[chatId]?.includes(tagId)) return;
+  const resto = map[chatId].filter((x) => x !== tagId);
+  if (resto.length) map[chatId] = resto;
+  else delete map[chatId];
+  await set(K.contactTags, map);
+  const { enfileirar } = await import('./sync');
+  await enfileirar({ op: 'vinculo.set', pastaId: tagId, remoteJid: chatId, ativo: false });
+}
+
 export async function aplicarTagContato(chatId: string, tagId: string): Promise<void> {
   const map = await get<Record<string, string[]>>(K.contactTags, {});
   map[chatId] = [...new Set([...(map[chatId] ?? []), tagId])];

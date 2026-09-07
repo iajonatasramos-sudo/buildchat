@@ -2,9 +2,10 @@
 // do Saleschat, picker "/" e configurações (webhook / caractere de atalho).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BookUser, Loader2, Settings as SettingsIcon, Smartphone, User, X, Zap } from 'lucide-react';
+import { BookUser, Bot, Loader2, Settings as SettingsIcon, Smartphone, User, X, Zap } from 'lucide-react';
 import { cn, emPx } from '@/lib/utils';
 import * as db from '@/lib/db';
+import { iniciarMotor } from '@/lib/automacoes/motor';
 import type { Perfil } from '@/lib/auth';
 import { servidorConfigurado } from '@/lib/config';
 import { urlDoPainel } from '@/lib/auth';
@@ -62,6 +63,10 @@ export function App() {
 
   // Ciclo periódico enquanto o WhatsApp Web estiver aberto.
   useEffect(() => iniciarSyncPeriodico(), []);
+  // Motor das automações (fila durável): processa o que venceu enquanto a aba vive.
+  useEffect(() => {
+    iniciarMotor();
+  }, []);
 
   // Login obrigatório: sem conta, os recursos da extensão ficam fechados e
   // qualquer tentativa de usá-los abre o login. O WhatsApp em si segue livre.
@@ -446,7 +451,7 @@ function TrilhoLateral() {
   const [aba, setAba] = useState(abaGaveta.get());
   useEffect(() => abaGaveta.subscribe(setAba), []);
 
-  const ir = (destino: 'cliente' | 'rapidas') => {
+  const ir = (destino: 'cliente' | 'rapidas' | 'automacoes') => {
     abaGaveta.set(destino);
     gavetaAberta.set(true);
   };
@@ -470,6 +475,9 @@ function TrilhoLateral() {
       </button>
       <button type="button" title="Mensagens rápidas" className={botao(aba === 'rapidas')} onClick={() => ir('rapidas')}>
         <Zap size={17} />
+      </button>
+      <button type="button" title="Automações" className={botao(aba === 'automacoes')} onClick={() => ir('automacoes')}>
+        <Bot size={17} />
       </button>
       <button
         type="button"

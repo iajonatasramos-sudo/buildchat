@@ -212,6 +212,36 @@ Botão **Transcrever** em cada mensagem de áudio. A transcrição é feita pela
 - **A lista é virtualizada**: a bolha some ao rolar e volta remontada. O observer reinsere o
   botão e um cache por id de mensagem devolve o texto já transcrito, sem repagar a API.
 
+## Automações (`src/lib/automacoes/` + `src/ui/Automacoes.tsx`)
+
+Guia da gaveta com **Bots | Campanhas | Notificações | Webhook**, espelhando o Sales
+BuildClinic (`src/lib/sales/automacoes-types.ts` e `services/sales-automacoes.ts` de lá).
+Lá o motor roda no servidor (Evolution API); **aqui roda no navegador**, porque o WhatsApp
+é o da aba:
+
+- **Gatilho "mensagem recebida"** = evento `chat.new_message` do WPP (`nova-msg` na ponte →
+  `motor.aoReceberMensagem`). Só mensagens de fora, de contato (grupos ficam de fora).
+- **Condições** (`testarCondicao`/`avaliarCondicoes`): semântica copiada literalmente —
+  `contem/exato/palavra/regex` para mensagem, `igual/em` para DDD, `comeca_com/regex/igual`
+  para telefone; sem condição = casa sempre; combinação E/OU; `uma_vez` = idempotência por
+  regra+contato (`bc2_auto_feitos`); `pararNoMatch` interrompe as regras seguintes.
+- **Ações**: enviar mensagem (com `aplicarVariaveis`), enviar mensagem rápida (texto e
+  mídia, por `chatId`), adicionar/remover da pasta, espera. Origem/etapa/responsável/tag não
+  existem no nosso modelo — ficaram de fora do catálogo.
+- **Espera durável**: cada disparo vira uma `Execucao` em `bc2_auto_execucoes` com
+  `proximoIndice` + `executarEm`; `processarFila()` roda a cada 10 s enquanto a aba vive e
+  o service worker cutuca por `chrome.alarms` (`bc:fila`) a cada minuto. Fechou o navegador,
+  ao abrir roda o que venceu. **Fases** ("Então…"): condições da fase avaliadas com os alvos
+  do gatilho; reprovou, a fase é pulada sem contar a espera — igual ao BuildClinic.
+- **Campanhas**: segmento por pasta / DDD / dias sem contato (fichas e vínculos locais),
+  intervalo aleatório entre contatos, um envio por passada da fila, cancelável.
+- **Notificações**: eventos reais da extensão (proposta gerada/enviada, contato em pasta) →
+  mensagem no WhatsApp dos destinatários. **Webhook de saída**: POST JSON via service worker
+  (`bc:webhook:auto`, com `X-BuildChat-Secret`). **Entrada** (lead via webhook) exige
+  backend — a UI mostra o gatilho desligado.
+- Tudo em `chrome.storage` (por aparelho). Sincronizar automações com o servidor é passo
+  futuro. O editor abre em modal largo (a gaveta tem 266 px).
+
 ## Sincronização (`src/lib/sync.ts`) — Fase 2
 
 Offline-first. Toda alteração é aplicada no `chrome.storage` na hora e enfileirada numa
