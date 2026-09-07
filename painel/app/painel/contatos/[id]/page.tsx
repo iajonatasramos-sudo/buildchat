@@ -11,6 +11,7 @@ import {
   carregarPerfil,
   ehAdmin,
   formatarData,
+  formatarTelefone,
   meusNumeros,
   moeda,
   supabase,
@@ -30,8 +31,11 @@ type Contato = {
   interesses: string | null;
   ultimo_contato: string | null;
   criado_em: string;
-  compartilhado: boolean;
   criado_por: string | null;
+  compartilha_notas: boolean;
+  compartilha_interesses: boolean;
+  compartilha_etiquetas: boolean;
+  compartilha_propostas: boolean;
 };
 type Pasta = { id: string; nome: string; cor: string };
 type Vinculo = { pasta_id: string; deleted_at: string | null };
@@ -68,7 +72,7 @@ export default function FichaDoLead({ params }: { params: Promise<{ id: string }
   const carregar = useCallback(async () => {
     const { data: c } = await supabase
       .from('contatos')
-      .select('id, wa_number, remote_jid, nome, nome_whatsapp, telefone, interesses, ultimo_contato, criado_em, compartilhado, criado_por')
+      .select('id, wa_number, remote_jid, nome, nome_whatsapp, telefone, interesses, ultimo_contato, criado_em, criado_por, compartilha_notas, compartilha_interesses, compartilha_etiquetas, compartilha_propostas')
       .eq('id', id)
       .maybeSingle();
     let ct = c as Contato | null;
@@ -211,11 +215,11 @@ export default function FichaDoLead({ params }: { params: Promise<{ id: string }
     carregar();
   }
 
-  /** Admin: liga/desliga o compartilhamento da ficha, anotações e propostas deste contato com a equipe. */
-  async function alternarCompartilhamento() {
+  /** Admin: o que deste contato a equipe vê. Desligado = só quem cadastrou (e o admin). */
+  async function alternarChave(chave: 'compartilha_notas' | 'compartilha_interesses' | 'compartilha_etiquetas' | 'compartilha_propostas') {
     if (!contato) return;
     setErro(null);
-    const { error } = await supabase.from('contatos').update({ compartilhado: !contato.compartilhado }).eq('id', contato.id);
+    const { error } = await supabase.from('contatos').update({ [chave]: !contato[chave] }).eq('id', contato.id);
     if (error) return setErro(error.message);
     carregar();
   }
@@ -274,28 +278,54 @@ export default function FichaDoLead({ params }: { params: Promise<{ id: string }
         </p>
       )}
 
-      {/* Compartilhamento: ficha, anotações e propostas nascem de quem as fez; o admin libera para a equipe. */}
-      <div
-        className={`mb-4 flex items-center gap-3 rounded-cartao border px-4 py-3 ${
-          contato.compartilhado ? 'border-[#BBE5C8] bg-[#EEFBF2]' : 'border-borda bg-white'
-        }`}
-      >
-        <span className="text-[18px]">{contato.compartilhado ? '👥' : '🔒'}</span>
-        <div className="min-w-0 flex-1 leading-snug">
-          <div className="font-semibold">
-            {contato.compartilhado ? 'Compartilhado com a equipe' : 'Privado — só quem registrou vê'}
+      {/* Origem, quem cadastrou, quando — e o que a equipe vê deste contato. */}
+      <div className="mb-4 grid gap-3 sm:grid-cols-3">
+        <Cartao className="px-4 py-3">
+          <div className="rotulo mb-1">ORIGEM</div>
+          <div className="font-mono text-[13px]">{formatarTelefone(contato.wa_number)}</div>
+          <div className="text-[12px] text-tinta-4">WhatsApp da equipe conectado no cadastro</div>
+        </Cartao>
+        <Cartao className="px-4 py-3">
+          <div className="rotulo mb-1">USUÁRIO</div>
+          <div className="text-[13px] font-medium">{nomeDe(contato.criado_por)}</div>
+          <div className="text-[12px] text-tinta-4">quem cadastrou</div>
+        </Cartao>
+        <Cartao className="px-4 py-3">
+          <div className="rotulo mb-1">CADASTRO</div>
+          <div className="text-[13px] font-medium">{formatarData(contato.criado_em)}</div>
+          <div className="text-[12px] text-tinta-4">primeira vez visto pela equipe</div>
+        </Cartao>
+      </div>
+
+      <div className="mb-4 rounded-cartao border border-borda bg-white px-4 py-3">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <div className="min-w-0 leading-snug">
+            <div className="font-semibold">O que a equipe vê deste contato</div>
+            <div className="text-[12.5px] text-tinta-3">
+              Desligado = só {nomeDe(contato.criado_por)} (quem cadastrou) e o admin veem. A ficha em si é sempre da equipe.
+            </div>
           </div>
-          <div className="text-[12.5px] text-tinta-3">
-            {contato.compartilhado
-              ? 'Ficha, anotações e propostas deste contato aparecem para todos os usuários da clínica.'
-              : `Ficha, anotações e propostas ficam com ${nomeDe(contato.criado_por)}${perfil && ehAdmin(perfil) ? ' — você, como admin, vê tudo' : ''}. As etiquetas são sempre da equipe.`}
+          <div className="ml-auto flex flex-wrap gap-x-4 gap-y-1.5">
+            {(
+              [
+                ['compartilha_notas', 'Notas'],
+                ['compartilha_interesses', 'Interesses'],
+                ['compartilha_etiquetas', 'Etiquetas'],
+                ['compartilha_propostas', 'Propostas'],
+              ] as const
+            ).map(([chave, rotulo]) => (
+              <label key={chave} className={`flex items-center gap-1.5 text-[13px] ${perfil && ehAdmin(perfil) ? '' : 'opacity-70'}`}>
+                <input
+                  type="checkbox"
+                  checked={contato[chave]}
+                  disabled={!perfil || !ehAdmin(perfil)}
+                  onChange={() => alternarChave(chave)}
+                />
+                {rotulo}
+              </label>
+            ))}
           </div>
         </div>
-        {perfil && ehAdmin(perfil) && (
-          <Botao variante={contato.compartilhado ? 'secundario' : 'principal'} onClick={alternarCompartilhamento}>
-            {contato.compartilhado ? 'Tornar privado' : 'Compartilhar com a equipe'}
-          </Botao>
-        )}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">

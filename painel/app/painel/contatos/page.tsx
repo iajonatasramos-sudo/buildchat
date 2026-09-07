@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { carregarPerfil, ehAdmin, formatarData, meusNumeros, supabase, telefoneDoContato } from '@/lib/supabase';
+import { carregarPerfil, ehAdmin, formatarData, formatarDia, formatarTelefone, meusNumeros, supabase, telefoneDoContato } from '@/lib/supabase';
 import { Cabecalho, Cartao, Vazio } from '@/componentes/ui';
 
 type Contato = {
@@ -18,8 +18,15 @@ type Contato = {
   telefone: string | null;
   interesses: string | null;
   ultimo_contato: string | null;
-  compartilhado: boolean;
+  criado_em: string;
+  criado_por: string | null;
+  compartilha_notas: boolean;
+  compartilha_interesses: boolean;
+  compartilha_etiquetas: boolean;
+  compartilha_propostas: boolean;
 };
+type Usuario = { id: string; nome: string };
+type NumeroDaEquipe = { wa_number: string; nome_whatsapp: string | null };
 type Pasta = { id: string; nome: string; cor: string };
 type Vinculo = { pasta_id: string; remote_jid: string; wa_number: string };
 type PropostaResumo = { remote_jid: string; wa_number: string; enviada_em: string | null };
@@ -30,6 +37,8 @@ export default function Contatos() {
   const [vinculos, setVinculos] = useState<Vinculo[]>([]);
   const [propostas, setPropostas] = useState<PropostaResumo[]>([]);
   const [notas, setNotas] = useState<{ remote_jid: string; wa_number: string }[]>([]);
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [numerosEquipe, setNumerosEquipe] = useState<NumeroDaEquipe[]>([]);
   const [busca, setBusca] = useState('');
   const [filtroPasta, setFiltroPasta] = useState<string>('');
   const [carregando, setCarregando] = useState(true);
@@ -41,7 +50,7 @@ export default function Contatos() {
   const buscarContatos = async (perfilAtual: Awaited<ReturnType<typeof carregarPerfil>>) => {
     let q = supabase
       .from('contatos')
-      .select('id, wa_number, remote_jid, nome, nome_whatsapp, telefone, interesses, ultimo_contato, compartilhado')
+      .select('id, wa_number, remote_jid, nome, nome_whatsapp, telefone, interesses, ultimo_contato, criado_em, criado_por, compartilha_notas, compartilha_interesses, compartilha_etiquetas, compartilha_propostas')
       .is('deleted_at', null)
       .order('ultimo_contato', { ascending: false, nullsFirst: false });
     if (!ehAdmin(perfilAtual)) {
@@ -56,13 +65,17 @@ export default function Contatos() {
 
   const carregar = useCallback(async () => {
     const perfil = await carregarPerfil();
-    const [ct, pa, vi, pr, an] = await Promise.all([
+    const [ct, pa, vi, pr, an, us, nu] = await Promise.all([
       buscarContatos(perfil),
       supabase.from('pastas').select('id, nome, cor').is('deleted_at', null).order('ordem'),
       supabase.from('pasta_conversas').select('pasta_id, remote_jid, wa_number').is('deleted_at', null),
       supabase.from('propostas').select('remote_jid, wa_number, enviada_em').is('deleted_at', null),
       supabase.from('anotacoes').select('remote_jid, wa_number').is('deleted_at', null),
+      supabase.from('usuarios').select('id, nome'),
+      supabase.from('usuario_numeros').select('wa_number, nome_whatsapp'),
     ]);
+    setUsuarios((us.data as Usuario[]) ?? []);
+    setNumerosEquipe((nu.data as NumeroDaEquipe[]) ?? []);
     let lista = (ct.data as Contato[]) ?? [];
 
     // Conversa etiquetada, com proposta ou anotação é lead — mesmo que ninguém
@@ -136,6 +149,15 @@ export default function Contatos() {
     return m;
   }, [notas]);
 
+  const nomeUsuario = (id: string | null) => usuarios.find((u) => u.id === id)?.nome ?? '—';
+  /** Origem = o WhatsApp da equipe que estava conectado quando o contato foi cadastrado. */
+  const origem = (wa: string) => {
+    const n = numerosEquipe.find((x) => x.wa_number === wa);
+    return { numero: formatarTelefone(wa), nome: n?.nome_whatsapp ?? null };
+  };
+  const restrito = (c: Contato) =>
+    [!c.compartilha_notas && 'notas', !c.compartilha_interesses && 'interesses', !c.compartilha_etiquetas && 'etiquetas', !c.compartilha_propostas && 'propostas'].filter(Boolean) as string[];
+
   const lista = useMemo(() => {
     const q = busca.trim().toLowerCase();
     return contatos.filter((c) => {
@@ -154,13 +176,16 @@ export default function Contatos() {
 
   function exportarCsv() {
     const linhas = [
-      ['Nome', 'Telefone', 'Pastas', 'Propostas', 'Interesses', 'Último contato'],
+      ['Nome', 'Telefone', 'Origem', 'Usuário', 'Cadastro', 'Pastas', 'Propostas', 'Interesses', 'Último contato'],
       ...lista.map((c) => {
         const chave = `${c.wa_number}|${c.remote_jid}`;
         const suas = porJid.get(chave) ?? [];
         return [
           c.nome ?? c.nome_whatsapp ?? '',
           telefoneDoContato(c),
+          origem(c.wa_number).numero,
+          nomeUsuario(c.criado_por),
+          formatarDia(c.criado_em),
           suas.map((p) => p.nome).join(' | '),
           String(propostasPorJid.get(chave)?.total ?? 0),
           (c.interesses ?? '').replace(/\n/g, ' '),
@@ -238,7 +263,7 @@ export default function Contatos() {
             <table className="w-full border-collapse">
               <thead>
                 <tr className="bg-fundo text-left">
-                  {['CONTATO', 'TELEFONE', 'PASTAS', 'PROPOSTAS', 'NOTAS', 'INTERESSES', 'ÚLTIMO CONTATO'].map((h) => (
+                  {['CONTATO', 'TELEFONE', 'ORIGEM', 'USUÁRIO', 'CADASTRO', 'PASTAS', 'PROPOSTAS', 'NOTAS', 'INTERESSES', 'ÚLTIMO CONTATO'].map((h) => (
                     <th key={h} className="rotulo border-b border-borda px-[18px] py-3">
                       {h}
                     </th>
@@ -256,9 +281,9 @@ export default function Contatos() {
                         <Link href={`/painel/contatos/${c.id}`} className="font-medium text-marca hover:underline">
                           {c.nome || c.nome_whatsapp || telefoneDoContato(c)}
                         </Link>
-                        <span className="ml-1.5 text-[11px]" title={c.compartilhado ? 'Compartilhado com a equipe' : 'Privado de quem registrou'}>
-                          {c.compartilhado ? '👥' : '🔒'}
-                        </span>
+                        {restrito(c).length > 0 && (
+                          <span className="ml-1.5 text-[11px]" title={`Restrito a quem cadastrou: ${restrito(c).join(', ')}`}>🔒</span>
+                        )}
                         {c.nome && c.nome_whatsapp && c.nome !== c.nome_whatsapp && (
                           <div className="text-[12px] text-tinta-4">no WhatsApp: {c.nome_whatsapp}</div>
                         )}
@@ -266,6 +291,12 @@ export default function Contatos() {
                       <td className="whitespace-nowrap border-b border-linha px-[18px] py-3.5 font-mono text-[12.5px] text-tinta-3">
                         {telefoneDoContato(c)}
                       </td>
+                      <td className="whitespace-nowrap border-b border-linha px-[18px] py-3.5">
+                        <div className="font-mono text-[12px] text-tinta-3">{origem(c.wa_number).numero}</div>
+                        {origem(c.wa_number).nome && <div className="text-[11.5px] text-tinta-4">{origem(c.wa_number).nome}</div>}
+                      </td>
+                      <td className="whitespace-nowrap border-b border-linha px-[18px] py-3.5 text-tinta-3">{nomeUsuario(c.criado_por)}</td>
+                      <td className="whitespace-nowrap border-b border-linha px-[18px] py-3.5 text-tinta-3">{formatarDia(c.criado_em)}</td>
                       <td className="border-b border-linha px-[18px] py-3.5">
                         <div className="flex flex-wrap gap-1.5">
                           {suas.length === 0 ? (

@@ -85,6 +85,23 @@ async function registrarNumeroConectado(): Promise<void> {
 }
 
 /**
+ * Regra do CRM: toda conversa de contato (não grupo) do WhatsApp conectado
+ * vira contato no servidor, com nome do WhatsApp e telefone. Uma vez por hora;
+ * `registrarContato` só enfileira o que ainda não tem ficha completa.
+ */
+let conversasRegistradasEm = 0;
+async function registrarTodasConversas(): Promise<void> {
+  if (Date.now() - conversasRegistradasEm < 3600_000) return;
+  const chats = await listarChats();
+  if (chats.length === 0) return;
+  conversasRegistradasEm = Date.now();
+  for (const c of chats) {
+    if (c.ehGrupo || !c.chatId.includes('@')) continue;
+    await db.registrarContato(c.chatId, c.nome, c.telefone);
+  }
+}
+
+/**
  * Contato etiquetado antes de a ficha existir aparece no painel sem nome e sem
  * telefone. Uma vez por hora, para toda ficha sem `nomeWhatsapp` ou `telefone`,
  * pega os dois na lista de conversas do WPP e salva — o que enfileira o
@@ -190,6 +207,7 @@ export async function sincronizar(): Promise<void> {
     await enviarFila(perfil);
     estado.ultimoSync = await puxar(perfil, estado.ultimoSync);
     await completarFichasComWhatsApp();
+    await registrarTodasConversas();
 
     await gravar(K_ESTADO, estado);
     estadoSync.set('ok');
@@ -695,12 +713,8 @@ async function puxar(perfil: Perfil, desde: string | null): Promise<string> {
 
   // Ficha dos contatos do número conectado
   if (wa) {
-    let qc = sb
-      .from('contatos')
-      .select('remote_jid, nome, nome_whatsapp, telefone, interesses, ultimo_contato, deleted_at')
-      .eq('wa_number', wa);
-    if (desde) qc = qc.gt('atualizado_em', desde);
-    const { data: fichas, error: erroFichas } = await qc;
+    // Pela RPC, não pela tabela: `interesses` vem mascarado quando o admin restringiu.
+    const { data: fichas, error: erroFichas } = await sb.rpc('minhas_fichas', { p_wa: wa, p_desde: desde });
     if (erroFichas) throw erroFichas;
 
     if (fichas?.length) {

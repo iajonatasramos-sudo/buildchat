@@ -32,6 +32,12 @@ export function App() {
   const [aberto, setAbertoLocal] = useState(gavetaAberta.get());
   useEffect(() => gavetaAberta.subscribe(setAbertoLocal), []);
   const [contato, setContato] = useState<ContatoAtivo | null>(null);
+  // Regra do CRM: toda conversa aberta com conta logada vira contato no servidor
+  // (nome do WhatsApp e telefone). Não cria nada para grupos nem sem jid confiável.
+  const definirContato = (c: ContatoAtivo | null) => {
+    setContato(c);
+    if (c && !c.ehGrupo && c.chatId.includes('@')) db.registrarContato(c.chatId, c.nome, c.telefone).catch(() => {});
+  };
   const [settings, setSettings] = useState<Settings>({ webhookUrl: '', triggerChar: '/', tema: 'auto' });
   const [dlgSettings, setDlgSettings] = useState(false);
   const [enviando, setEnviando] = useState(false);
@@ -122,7 +128,7 @@ export function App() {
       const d = await db.carregarMensagensRapidas();
       setRespostas(d.respostas);
       setPronto(true);
-      setContato(await getContatoAtivo());
+      definirContato(await getContatoAtivo());
     })();
     const parar = observarConversa(setContato);
     const recarregar = (changes: Record<string, unknown>) => {

@@ -316,13 +316,17 @@ exclusão lógica por `deleted_at`, e vínculo pasta↔conversa por **número co
   renderização e o observer reaplica; `chrome.storage.onChanged` em `bc2_contatos` refaz o
   mapa quando a ficha muda.
 - `ultimo_contato` é gravado a cada envio pela extensão — é o que alimenta o CRM.
-- **Compartilhamento por contato** (`0021`): ficha, anotações e propostas nascem **privadas
-  de quem registrou** (`contatos.criado_por` por trigger, `anotacoes.autor_id`,
-  `propostas.criado_por`); o **admin liga** `contatos.compartilhado` na ficha do lead e a
-  equipe inteira passa a ver. Sem ficha, a anotação vale como compartilhada. Etiquetas
-  (`pasta_conversas`) são sempre da empresa. Ligar/desligar "toca" `atualizado_em` das
-  anotações/propostas do contato, senão o pull incremental do colega não as traria. O que
-  existia antes ficou compartilhado. Diagnóstico do sync no console: `await __bcSync()`.
+- **Todo contato conversado sobe** (regra do CRM): ao abrir uma conversa com conta logada
+  (`definirContato` no App) e, 1×/hora, todas as conversas de contato do WhatsApp conectado
+  (`registrarTodasConversas`) — com nome do WhatsApp e telefone. Grupos ficam de fora.
+- **Compartilhamento por item** (`0023`): a ficha (nome, telefone, **origem** = `wa_number`
+  conectado no cadastro, **usuário** = `criado_por` por trigger, **cadastro** = `criado_em`)
+  é sempre da empresa. O admin restringe, por contato, `compartilha_notas` /
+  `_interesses` / `_etiquetas` / `_propostas` — **tudo compartilhado por padrão**; desligado,
+  só quem cadastrou e o admin veem (`app.contato_libera`). Interesses são coluna, então a
+  extensão lê as fichas pela RPC `minhas_fichas(p_wa, p_desde)`, que mascara o campo. Mudar
+  uma chave "toca" `atualizado_em` do item para o sync incremental dos colegas.
+  Diagnóstico do sync no console: `await __bcSync()`.
 - **`@lid` não é telefone.** O WhatsApp identifica algumas conversas por LID (id interno de
   15 dígitos, `…@lid`); derivar o número do `remote_jid` mostrava esse id como celular. A
   ponte resolve o número real com `WPP.contact.getPnLidEntry` (`contatoCompleto`, com cache),
