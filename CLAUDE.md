@@ -469,7 +469,12 @@ ponta a ponta passando contra ele (`scripts/teste-e2e.mjs`). Credenciais públic
 - Sincronizam: mensagens rápidas (padrão da empresa + pessoais), pastas, vínculos,
   anotações e configurações do usuário.
 - **Nunca sobem**: conversas, mídia recebida e cache de apagadas.
-- Vínculos e anotações são da empresa, **chaveados pelo número conectado** (`wa_number`).
+- Vínculos, anotações, fichas e propostas são **do contato na empresa**. Cada linha guarda
+  o número da equipe que a criou (`wa_number` = origem), mas a extensão baixa a empresa
+  inteira e mescla por `remote_jid`; o servidor mantém as linhas irmãs coerentes (`0024`:
+  nome, interesses, telefone, `ultimo_contato`, chaves de compartilhamento e remoção de
+  etiqueta se propagam entre as origens). Antes cada extensão só baixava o próprio número
+  — a Patricia abria o contato e não via o que o Jonatas tinha registrado.
 - Servidor próprio (Supabase novo), independente do BuildClinic.
 
 Detalhes, fases e pendências: [PLANEJAMENTO-SERVIDOR.md](PLANEJAMENTO-SERVIDOR.md).

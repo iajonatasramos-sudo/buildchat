@@ -584,12 +584,13 @@ async function puxar(perfil: Perfil, desde: string | null): Promise<string> {
     await db.salvarTags([...porId.values()]);
   }
 
-  // Vínculos do número conectado
+  // Vínculos do CONTATO na empresa — de qualquer número da equipe. A remoção
+  // por um número se propaga às linhas irmãs no servidor (0024), então um lote
+  // nunca traz "ativa numa origem, removida na outra".
   if (wa) {
     let qv = sb
       .from('pasta_conversas')
-      .select('pasta_id, remote_jid, deleted_at, atualizado_em')
-      .eq('wa_number', wa);
+      .select('pasta_id, remote_jid, deleted_at, atualizado_em');
     if (desde) qv = qv.gt('atualizado_em', desde);
     const { data: vinculos, error: erroVinc } = await qv;
     if (erroVinc) throw erroVinc;
@@ -667,12 +668,12 @@ async function puxar(perfil: Perfil, desde: string | null): Promise<string> {
     await db.salvarRespostas([...locais.values()]);
   }
 
-  // Anotações do número conectado
+  // Anotações do contato, venham de que número da equipe vierem (a RLS já
+  // aplica as chaves de compartilhamento do admin).
   if (wa) {
     let qa = sb
       .from('anotacoes')
-      .select('id, remote_jid, texto, criado_em, deleted_at')
-      .eq('wa_number', wa);
+      .select('id, remote_jid, texto, criado_em, deleted_at');
     if (desde) qa = qa.gt('atualizado_em', desde);
     const { data: notas, error: erroNotas } = await qa;
     if (erroNotas) throw erroNotas;
@@ -711,35 +712,37 @@ async function puxar(perfil: Perfil, desde: string | null): Promise<string> {
     }
   }
 
-  // Ficha dos contatos do número conectado
+  // Fichas da EMPRESA inteira, mescladas por contato: o mesmo contato tem uma
+  // linha por número da equipe que o atendeu; o servidor mantém as irmãs
+  // coerentes (0024) e aqui a mais recente completa a anterior. Pela RPC, não
+  // pela tabela: `interesses` vem mascarado quando o admin restringiu.
   if (wa) {
-    // Pela RPC, não pela tabela: `interesses` vem mascarado quando o admin restringiu.
-    const { data: fichas, error: erroFichas } = await sb.rpc('minhas_fichas', { p_wa: wa, p_desde: desde });
+    const { data: fichas, error: erroFichas } = await sb.rpc('minhas_fichas', { p_desde: desde });
     if (erroFichas) throw erroFichas;
 
     if (fichas?.length) {
       const mapa = await db.mapaFichas();
       for (const f of fichas as any[]) {
-        if (f.deleted_at) delete mapa[f.remote_jid];
-        else
-          mapa[f.remote_jid] = {
-            nome: f.nome,
-            nomeWhatsapp: f.nome_whatsapp,
-            telefone: f.telefone ?? null,
-            interesses: f.interesses,
-            ultimoContato: f.ultimo_contato,
-          };
+        if (f.deleted_at) continue; // uma origem apagada não apaga o contato das outras
+        const atual = mapa[f.remote_jid];
+        mapa[f.remote_jid] = {
+          nome: f.nome ?? atual?.nome ?? null,
+          nomeWhatsapp: f.nome_whatsapp ?? atual?.nomeWhatsapp ?? null,
+          telefone: f.telefone ?? atual?.telefone ?? null,
+          interesses: f.interesses ?? atual?.interesses ?? null,
+          ultimoContato:
+            [f.ultimo_contato, atual?.ultimoContato].filter(Boolean).sort().pop() ?? null,
+        };
       }
       await db.salvarMapaFichas(mapa);
     }
   }
 
-  // Propostas geradas para os contatos deste número (a equipe reenvia pela guia)
+  // Propostas do contato, de qualquer número da equipe (a equipe reenvia pela guia)
   if (wa) {
     let qp = sb
       .from('propostas')
-      .select('id, remote_jid, contato_nome, tipo, valor_centavos, arquivo_path, enviada_em, criado_em, deleted_at')
-      .eq('wa_number', wa);
+      .select('id, remote_jid, contato_nome, tipo, valor_centavos, arquivo_path, enviada_em, criado_em, deleted_at');
     if (desde) qp = qp.gt('atualizado_em', desde);
     const { data: props, error: erroProps } = await qp;
     if (erroProps) throw erroProps;

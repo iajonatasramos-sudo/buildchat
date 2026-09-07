@@ -25,8 +25,9 @@ after(async () => h.fechar());
 
 const conta = async (quem, tabela) =>
   (await h.como(quem, `select count(*)::int as n from ${tabela} where deleted_at is null and remote_jid = $1`, [JID])).rows[0].n;
+// minhas_fichas() devolve a empresa inteira (0024); a origem vem em wa_number.
 const interessesVistos = async (quem) =>
-  (await h.como(quem, `select interesses from minhas_fichas($1) where remote_jid = $2`, [WA, JID])).rows[0]?.interesses ?? null;
+  (await h.como(quem, `select interesses from minhas_fichas() where remote_jid = $1 and wa_number = $2`, [JID, WA])).rows[0]?.interesses ?? null;
 const chave = (nome, valor) => h.como(A.admin, `update contatos set ${nome} = ${valor} where remote_jid = $1`, [JID]);
 
 describe('nasce compartilhado', () => {
