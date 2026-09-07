@@ -286,8 +286,12 @@ exclusão lógica por `deleted_at`, e vínculo pasta↔conversa por **número co
   ✕ ao lado dela no seletor de etiquetas (`db.removerTag` → `pasta.delete`). O admin **enxerga tudo** na RLS (precisa administrar no painel) —
   quem filtra o que aparece nas mensagens rápidas dele é a **extensão**
   (`MensagensRapidas.carregar`, usando `minhasEquipes()` do sync).
-- **Escopo na extensão**: tudo que a pessoa cria ali nasce **pessoal**, mesmo sendo admin
-  (`escopoDe` em `sync.ts`). Mensagem da empresa só nasce no painel.
+- **Escopo na extensão**: tudo que a pessoa cria ali nasce **pessoal** (`escopoDe` em
+  `sync.ts`) — com uma exceção: o **admin**, ao criar/editar uma mensagem rápida, tem a seção
+  "Quem vê esta mensagem" (todos / equipes / pessoas, como no painel). Marcou alguém →
+  `padrao: true` + `visivel_*` e o sync publica com escopo `empresa`; nada marcado → pessoal.
+  Exige o recurso `mensagens_empresa` do plano (Pro+), fiscalizado pela RLS. Categoria sem
+  nenhuma mensagem visível para o usuário **não aparece** (filtro em `grupos`).
 - **Ficha do contato** (`contatos`, chave `empresa+wa_number+remote_jid`): nome de
   tratamento, interesses e `ultimo_contato`. **O nome da ficha vale em toda tela nossa**:
   `{{nome}}`, proposta, guia Contato, lista da pasta, cabeçalho das anotações e autor das

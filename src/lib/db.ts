@@ -102,6 +102,11 @@ export type RespostaPayload = {
   atalho: string;
   tagId: string | null;
   acoes: RespostaDC['acoes'];
+  /** Admin: mensagem da empresa, visível para quem for marcado. Sem nada marcado = pessoal. */
+  padrao?: boolean;
+  visivelTodos?: boolean;
+  visivelEquipes?: string[];
+  visivelUsuarios?: string[];
 };
 
 async function resolverTag(tagId: string | null): Promise<{ tagNome: string | null; tagCor: string | null }> {
@@ -121,7 +126,10 @@ export async function criarResposta(payload: RespostaPayload): Promise<RespostaD
     atalho: payload.atalho,
     usos: 0,
     ordem: lista.length,
-    padrao: false,
+    padrao: payload.padrao ?? false,
+    visivelTodos: payload.visivelTodos ?? false,
+    visivelEquipes: payload.visivelEquipes ?? [],
+    visivelUsuarios: payload.visivelUsuarios ?? [],
     tagId: payload.tagId,
     tagNome,
     tagCor,

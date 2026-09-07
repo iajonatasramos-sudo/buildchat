@@ -58,7 +58,7 @@ import { abaGaveta, modalProposta, pedirContaWhatsapp, propostasMudaram } from '
 import { TIPOS, brl } from '@/lib/propostas';
 import type { PropostaSalva } from '@/lib/types';
 import { minhasEquipes } from '@/lib/sync';
-import { carregarPerfil } from '@/lib/auth';
+import { carregarPerfil, supabase } from '@/lib/auth';
 import {
   CORES_CATEGORIA,
   TIPOS_RESPOSTA,
@@ -683,6 +683,35 @@ function RespostaDialog({
   );
   const [salvando, setSalvando] = useState(false);
 
+  // "Quem vê": só o admin publica para a empresa. Nada marcado = mensagem pessoal.
+  const [ehAdmin, setEhAdmin] = useState(false);
+  const [equipesOpts, setEquipesOpts] = useState<{ id: string; nome: string }[]>([]);
+  const [usuariosOpts, setUsuariosOpts] = useState<{ id: string; nome: string }[]>([]);
+  const [visTodos, setVisTodos] = useState(resposta?.visivelTodos ?? false);
+  const [visEquipes, setVisEquipes] = useState<string[]>(resposta?.visivelEquipes ?? []);
+  const [visUsuarios, setVisUsuarios] = useState<string[]>(resposta?.visivelUsuarios ?? []);
+  useEffect(() => {
+    let vivo = true;
+    carregarPerfil().then(async (perfil) => {
+      if (!vivo || perfil?.papel !== 'admin') return;
+      setEhAdmin(true);
+      const sb = supabase();
+      if (!sb) return;
+      const [eq, us] = await Promise.all([
+        sb.from('equipes').select('id, nome').is('deleted_at', null).order('nome'),
+        sb.from('usuarios').select('id, nome').eq('ativo', true).order('nome'),
+      ]);
+      if (!vivo) return;
+      setEquipesOpts((eq.data as { id: string; nome: string }[]) ?? []);
+      setUsuariosOpts((us.data as { id: string; nome: string }[]) ?? []);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, []);
+  const publicada = ehAdmin && (visTodos || visEquipes.length > 0 || visUsuarios.length > 0);
+  const alternarId = (lista: string[], id: string) => (lista.includes(id) ? lista.filter((x) => x !== id) : [...lista, id]);
+
   function patch(i: number, p: Partial<AcaoForm>) {
     setAcoes((arr) => arr.map((a, idx) => (idx === i ? { ...a, ...p } : a)));
   }
@@ -708,6 +737,10 @@ function RespostaDialog({
       titulo,
       atalho: atalho.trim() || titulo.toLowerCase().replace(/\s+/g, '-').slice(0, 30),
       tagId: tagId || null,
+      padrao: publicada,
+      visivelTodos: publicada && visTodos,
+      visivelEquipes: publicada && !visTodos ? visEquipes : [],
+      visivelUsuarios: publicada && !visTodos ? visUsuarios : [],
       acoes: acoes.map((a) => ({
         tipo: a.tipo,
         texto: a.texto,
@@ -795,6 +828,61 @@ function RespostaDialog({
             </select>
           </Campo>
         </div>
+
+        {ehAdmin && (
+          <div className="rounded-lg border border-border bg-surface-2 p-3">
+            <div className="text-[10.5px] font-bold uppercase tracking-wide text-muted">Quem vê esta mensagem</div>
+            <p className="mb-2 text-[11px] text-muted">
+              {publicada ? 'Mensagem da clínica: aparece para quem estiver marcado.' : 'Nada marcado: fica só com você (pessoal).'}
+            </p>
+            <button
+              type="button"
+              onClick={() => setVisTodos((v) => !v)}
+              className={cn(
+                'mb-2 w-full rounded-md border px-3 py-1.5 text-[12px] font-semibold transition',
+                visTodos ? 'border-brand bg-brand text-white' : 'border-border-strong bg-surface hover:border-brand',
+              )}
+            >
+              Todos da clínica
+            </button>
+            {!visTodos && (
+              <>
+                <div className="mb-1 text-[11px] font-semibold">Equipes</div>
+                <div className="mb-2 flex flex-wrap gap-1.5">
+                  {equipesOpts.length === 0 && <span className="text-[11px] text-muted">Nenhuma equipe.</span>}
+                  {equipesOpts.map((e) => (
+                    <button
+                      key={e.id}
+                      type="button"
+                      onClick={() => setVisEquipes((l) => alternarId(l, e.id))}
+                      className={cn('rounded-md border px-2 py-0.5 text-[11.5px] font-semibold', visEquipes.includes(e.id) ? 'border-success bg-success text-white' : 'border-border-strong bg-surface')}
+                    >
+                      {e.nome}
+                    </button>
+                  ))}
+                </div>
+                <div className="mb-1 text-[11px] font-semibold">Pessoas</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {usuariosOpts.map((u) => (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => setVisUsuarios((l) => alternarId(l, u.id))}
+                      className={cn('rounded-md border px-2 py-0.5 text-[11.5px] font-semibold', visUsuarios.includes(u.id) ? 'border-brand bg-brand text-white' : 'border-border-strong bg-surface')}
+                    >
+                      {u.nome}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+            {publicada && (
+              <button type="button" onClick={() => { setVisTodos(false); setVisEquipes([]); setVisUsuarios([]); }} className="mt-2 text-[11px] text-muted hover:text-text">
+                Limpar seleção
+              </button>
+            )}
+          </div>
+        )}
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">

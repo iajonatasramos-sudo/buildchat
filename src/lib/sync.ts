@@ -428,7 +428,16 @@ async function enviarResposta(perfil: Perfil, resp: RespostaDC): Promise<void> {
     pasta_id: resp.tagId,
     usos: resp.usos,
     ordem: resp.ordem,
-    ...escopoDe(perfil),
+    // Admin que marcou "quem vê" publica para a empresa; o resto é pessoal.
+    ...(resp.padrao && perfil.papel === 'admin'
+      ? {
+          escopo: 'empresa' as const,
+          owner_id: null,
+          visivel_todos: !!resp.visivelTodos,
+          visivel_equipes: resp.visivelEquipes ?? [],
+          visivel_usuarios: resp.visivelUsuarios ?? [],
+        }
+      : escopoDe(perfil)),
     deleted_at: null,
   });
   if (error) throw error;
