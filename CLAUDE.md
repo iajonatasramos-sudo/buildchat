@@ -357,7 +357,11 @@ painel/app/painel/           casca com barra lateral + faixa de assinatura venci
   equipes/                   equipes e seus membros
   pastas/                    lista com ordem, cor e contagem de conversas
   contatos/                  CRM: planilha de contatos, pastas, propostas, interesses e
-                             último contato, com busca, filtro por pasta e export CSV
+                             último contato, com busca, filtro por pasta e export CSV.
+                             UMA linha por contato: o servidor guarda uma linha por
+                             WhatsApp da equipe (chave empresa+wa_number+remote_jid); a
+                             planilha consolida por remote_jid, lista as origens e soma
+                             pastas/propostas/notas; a ficha filtra só por remote_jid
   contatos/[id]/             ficha do lead: nome/interesses editáveis, entrar/sair de
                              pasta, propostas com "Abrir PDF" (URL assinada do Storage) e
                              anotações — tudo chega à extensão no sync seguinte

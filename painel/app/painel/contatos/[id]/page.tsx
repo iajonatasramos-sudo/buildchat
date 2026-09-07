@@ -92,7 +92,8 @@ export default function FichaDoLead({ params }: { params: Promise<{ id: string }
     setNome(ct.nome ?? '');
     setInteresses(ct.interesses ?? '');
 
-    const conversa = (q: any) => q.eq('wa_number', ct.wa_number).eq('remote_jid', ct.remote_jid);
+    // O mesmo contato pode ter uma linha por WhatsApp da equipe: a ficha junta tudo pelo remote_jid.
+    const conversa = (q: any) => q.eq('remote_jid', ct.remote_jid);
     const [pa, vi, pr, no, us] = await Promise.all([
       supabase.from('pastas').select('id, nome, cor').is('deleted_at', null).order('ordem'),
       conversa(supabase.from('pasta_conversas').select('pasta_id, deleted_at')),

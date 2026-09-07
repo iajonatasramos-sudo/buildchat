@@ -158,11 +158,51 @@ export default function Contatos() {
   const restrito = (c: Contato) =>
     [!c.compartilha_notas && 'notas', !c.compartilha_interesses && 'interesses', !c.compartilha_etiquetas && 'etiquetas', !c.compartilha_propostas && 'propostas'].filter(Boolean) as string[];
 
+  // O mesmo contato visto de dois WhatsApps da equipe são duas linhas no
+  // servidor (chave empresa + número conectado + contato). No CRM é UM contato:
+  // consolidamos por remote_jid e somamos pastas/propostas/notas de todas as origens.
+  const consolidados = useMemo(() => {
+    const porJid = new Map<string, Contato & { origens: string[]; linhas: Contato[] }>();
+    for (const c of contatos) {
+      const atual = porJid.get(c.remote_jid);
+      if (!atual) {
+        porJid.set(c.remote_jid, { ...c, origens: [c.wa_number], linhas: [c] });
+        continue;
+      }
+      atual.origens.push(c.wa_number);
+      atual.linhas.push(c);
+      // A linha mais completa manda no que aparece.
+      atual.nome = atual.nome || c.nome;
+      atual.nome_whatsapp = atual.nome_whatsapp || c.nome_whatsapp;
+      atual.telefone = atual.telefone || c.telefone;
+      atual.interesses = atual.interesses || c.interesses;
+      atual.criado_por = atual.criado_por || c.criado_por;
+      if (c.criado_em < atual.criado_em) atual.criado_em = c.criado_em;
+      if ((c.ultimo_contato ?? '') > (atual.ultimo_contato ?? '')) atual.ultimo_contato = c.ultimo_contato;
+    }
+    return [...porJid.values()];
+  }, [contatos]);
+
+  type Consolidado = Contato & { origens: string[]; linhas: Contato[] };
+  const pastasDe = (c: Consolidado) => {
+    const vistas = new Map<string, Pasta>();
+    for (const wa of c.origens) for (const p of porJid.get(`${wa}|${c.remote_jid}`) ?? []) vistas.set(p.id, p);
+    return [...vistas.values()];
+  };
+  const propostasDe = (c: Consolidado) => {
+    let total = 0, enviadas = 0;
+    for (const wa of c.origens) {
+      const p = propostasPorJid.get(`${wa}|${c.remote_jid}`);
+      if (p) { total += p.total; enviadas += p.enviadas; }
+    }
+    return total ? { total, enviadas } : null;
+  };
+  const notasDe = (c: Consolidado) => c.origens.reduce((n, wa) => n + (notasPorJid.get(`${wa}|${c.remote_jid}`) ?? 0), 0);
+
   const lista = useMemo(() => {
     const q = busca.trim().toLowerCase();
-    return contatos.filter((c) => {
-      const chave = `${c.wa_number}|${c.remote_jid}`;
-      const suas = porJid.get(chave) ?? [];
+    return consolidados.filter((c) => {
+      const suas = pastasDe(c);
       if (filtroPasta && !suas.some((p) => p.id === filtroPasta)) return false;
       if (!q) return true;
       return (
@@ -172,22 +212,21 @@ export default function Contatos() {
         c.remote_jid.includes(q)
       );
     });
-  }, [contatos, busca, filtroPasta, porJid]);
+  }, [consolidados, busca, filtroPasta, porJid]);
 
   function exportarCsv() {
     const linhas = [
       ['Nome', 'Telefone', 'Origem', 'Usuário', 'Cadastro', 'Pastas', 'Propostas', 'Interesses', 'Último contato'],
       ...lista.map((c) => {
-        const chave = `${c.wa_number}|${c.remote_jid}`;
-        const suas = porJid.get(chave) ?? [];
+        const suas = pastasDe(c);
         return [
           c.nome ?? c.nome_whatsapp ?? '',
           telefoneDoContato(c),
-          origem(c.wa_number).numero,
+          c.origens.map((wa) => origem(wa).numero).join(' | '),
           nomeUsuario(c.criado_por),
           formatarDia(c.criado_em),
           suas.map((p) => p.nome).join(' | '),
-          String(propostasPorJid.get(chave)?.total ?? 0),
+          String(propostasDe(c)?.total ?? 0),
           (c.interesses ?? '').replace(/\n/g, ' '),
           c.ultimo_contato ? formatarData(c.ultimo_contato) : '',
         ];
@@ -210,8 +249,8 @@ export default function Contatos() {
         titulo={soMeus ? 'Meus contatos' : 'Contatos'}
         subtitulo={
           soMeus
-            ? `${contatos.length} contato(s) dos números de WhatsApp que você conectou na extensão.`
-            : `${contatos.length} contato(s) — alimentados pela extensão conforme a equipe atende.`
+            ? `${consolidados.length} contato(s) dos números de WhatsApp que você conectou na extensão.`
+            : `${consolidados.length} contato(s) — alimentados pela extensão conforme a equipe atende.`
         }
         acao={
           contatos.length > 0 && (
@@ -272,11 +311,11 @@ export default function Contatos() {
               </thead>
               <tbody>
                 {lista.map((c) => {
-                  const chave = `${c.wa_number}|${c.remote_jid}`;
-                  const suas = porJid.get(chave) ?? [];
-                  const props = propostasPorJid.get(chave);
+                  const suas = pastasDe(c);
+                  const props = propostasDe(c);
+                  const notasN = notasDe(c);
                   return (
-                    <tr key={c.id} className="transition hover:bg-fundo">
+                    <tr key={c.remote_jid} className="transition hover:bg-fundo">
                       <td className="border-b border-linha px-[18px] py-3.5">
                         <Link href={`/painel/contatos/${c.id}`} className="font-medium text-marca hover:underline">
                           {c.nome || c.nome_whatsapp || telefoneDoContato(c)}
@@ -292,8 +331,12 @@ export default function Contatos() {
                         {telefoneDoContato(c)}
                       </td>
                       <td className="whitespace-nowrap border-b border-linha px-[18px] py-3.5">
-                        <div className="font-mono text-[12px] text-tinta-3">{origem(c.wa_number).numero}</div>
-                        {origem(c.wa_number).nome && <div className="text-[11.5px] text-tinta-4">{origem(c.wa_number).nome}</div>}
+                        {c.origens.map((wa) => (
+                          <div key={wa} className="leading-tight">
+                            <div className="font-mono text-[12px] text-tinta-3">{origem(wa).numero}</div>
+                            {origem(wa).nome && <div className="text-[11.5px] text-tinta-4">{origem(wa).nome}</div>}
+                          </div>
+                        ))}
                       </td>
                       <td className="whitespace-nowrap border-b border-linha px-[18px] py-3.5 text-tinta-3">{nomeUsuario(c.criado_por)}</td>
                       <td className="whitespace-nowrap border-b border-linha px-[18px] py-3.5 text-tinta-3">{formatarDia(c.criado_em)}</td>
@@ -327,7 +370,7 @@ export default function Contatos() {
                         )}
                       </td>
                       <td className="whitespace-nowrap border-b border-linha px-[18px] py-3.5">
-                        {notasPorJid.get(chave) ? <span className="font-medium">{notasPorJid.get(chave)}</span> : <span className="text-tinta-4">—</span>}
+                        {notasN ? <span className="font-medium">{notasN}</span> : <span className="text-tinta-4">—</span>}
                       </td>
                       <td className="max-w-[320px] border-b border-linha px-[18px] py-3.5 text-tinta-3">
                         {c.interesses || <span className="text-tinta-4">—</span>}
