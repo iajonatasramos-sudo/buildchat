@@ -18,6 +18,7 @@ type Contato = {
   telefone: string | null;
   interesses: string | null;
   ultimo_contato: string | null;
+  compartilhado: boolean;
 };
 type Pasta = { id: string; nome: string; cor: string };
 type Vinculo = { pasta_id: string; remote_jid: string; wa_number: string };
@@ -28,6 +29,7 @@ export default function Contatos() {
   const [pastas, setPastas] = useState<Pasta[]>([]);
   const [vinculos, setVinculos] = useState<Vinculo[]>([]);
   const [propostas, setPropostas] = useState<PropostaResumo[]>([]);
+  const [notas, setNotas] = useState<{ remote_jid: string; wa_number: string }[]>([]);
   const [busca, setBusca] = useState('');
   const [filtroPasta, setFiltroPasta] = useState<string>('');
   const [carregando, setCarregando] = useState(true);
@@ -39,7 +41,7 @@ export default function Contatos() {
   const buscarContatos = async (perfilAtual: Awaited<ReturnType<typeof carregarPerfil>>) => {
     let q = supabase
       .from('contatos')
-      .select('id, wa_number, remote_jid, nome, nome_whatsapp, telefone, interesses, ultimo_contato')
+      .select('id, wa_number, remote_jid, nome, nome_whatsapp, telefone, interesses, ultimo_contato, compartilhado')
       .is('deleted_at', null)
       .order('ultimo_contato', { ascending: false, nullsFirst: false });
     if (!ehAdmin(perfilAtual)) {
@@ -92,6 +94,7 @@ export default function Contatos() {
     setPastas((pa.data as Pasta[]) ?? []);
     setVinculos((vi.data as Vinculo[]) ?? []);
     setPropostas((pr.data as PropostaResumo[]) ?? []);
+    setNotas((an.data as { remote_jid: string; wa_number: string }[]) ?? []);
     setCarregando(false);
   }, []);
 
@@ -123,6 +126,15 @@ export default function Contatos() {
     }
     return m;
   }, [propostas]);
+
+  const notasPorJid = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const n of notas) {
+      const chave = `${n.wa_number}|${n.remote_jid}`;
+      m.set(chave, (m.get(chave) ?? 0) + 1);
+    }
+    return m;
+  }, [notas]);
 
   const lista = useMemo(() => {
     const q = busca.trim().toLowerCase();
@@ -226,7 +238,7 @@ export default function Contatos() {
             <table className="w-full border-collapse">
               <thead>
                 <tr className="bg-fundo text-left">
-                  {['CONTATO', 'TELEFONE', 'PASTAS', 'PROPOSTAS', 'INTERESSES', 'ÚLTIMO CONTATO'].map((h) => (
+                  {['CONTATO', 'TELEFONE', 'PASTAS', 'PROPOSTAS', 'NOTAS', 'INTERESSES', 'ÚLTIMO CONTATO'].map((h) => (
                     <th key={h} className="rotulo border-b border-borda px-[18px] py-3">
                       {h}
                     </th>
@@ -244,6 +256,9 @@ export default function Contatos() {
                         <Link href={`/painel/contatos/${c.id}`} className="font-medium text-marca hover:underline">
                           {c.nome || c.nome_whatsapp || telefoneDoContato(c)}
                         </Link>
+                        <span className="ml-1.5 text-[11px]" title={c.compartilhado ? 'Compartilhado com a equipe' : 'Privado de quem registrou'}>
+                          {c.compartilhado ? '👥' : '🔒'}
+                        </span>
                         {c.nome && c.nome_whatsapp && c.nome !== c.nome_whatsapp && (
                           <div className="text-[12px] text-tinta-4">no WhatsApp: {c.nome_whatsapp}</div>
                         )}
@@ -279,6 +294,9 @@ export default function Contatos() {
                         ) : (
                           <span className="text-tinta-4">—</span>
                         )}
+                      </td>
+                      <td className="whitespace-nowrap border-b border-linha px-[18px] py-3.5">
+                        {notasPorJid.get(chave) ? <span className="font-medium">{notasPorJid.get(chave)}</span> : <span className="text-tinta-4">—</span>}
                       </td>
                       <td className="max-w-[320px] border-b border-linha px-[18px] py-3.5 text-tinta-3">
                         {c.interesses || <span className="text-tinta-4">—</span>}

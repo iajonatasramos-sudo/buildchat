@@ -30,6 +30,8 @@ type Contato = {
   interesses: string | null;
   ultimo_contato: string | null;
   criado_em: string;
+  compartilhado: boolean;
+  criado_por: string | null;
 };
 type Pasta = { id: string; nome: string; cor: string };
 type Vinculo = { pasta_id: string; deleted_at: string | null };
@@ -66,7 +68,7 @@ export default function FichaDoLead({ params }: { params: Promise<{ id: string }
   const carregar = useCallback(async () => {
     const { data: c } = await supabase
       .from('contatos')
-      .select('id, wa_number, remote_jid, nome, nome_whatsapp, telefone, interesses, ultimo_contato, criado_em')
+      .select('id, wa_number, remote_jid, nome, nome_whatsapp, telefone, interesses, ultimo_contato, criado_em, compartilhado, criado_por')
       .eq('id', id)
       .maybeSingle();
     let ct = c as Contato | null;
@@ -209,6 +211,15 @@ export default function FichaDoLead({ params }: { params: Promise<{ id: string }
     carregar();
   }
 
+  /** Admin: liga/desliga o compartilhamento da ficha, anotações e propostas deste contato com a equipe. */
+  async function alternarCompartilhamento() {
+    if (!contato) return;
+    setErro(null);
+    const { error } = await supabase.from('contatos').update({ compartilhado: !contato.compartilhado }).eq('id', contato.id);
+    if (error) return setErro(error.message);
+    carregar();
+  }
+
   /** Apaga a proposta: o arquivo sai do Storage (é o que ocupa espaço) e a linha vira exclusão lógica. */
   async function apagarProposta(p: Proposta) {
     if (!confirm('Apagar esta proposta? O PDF é removido do servidor.')) return;
@@ -262,6 +273,30 @@ export default function FichaDoLead({ params }: { params: Promise<{ id: string }
           {erro}
         </p>
       )}
+
+      {/* Compartilhamento: ficha, anotações e propostas nascem de quem as fez; o admin libera para a equipe. */}
+      <div
+        className={`mb-4 flex items-center gap-3 rounded-cartao border px-4 py-3 ${
+          contato.compartilhado ? 'border-[#BBE5C8] bg-[#EEFBF2]' : 'border-borda bg-white'
+        }`}
+      >
+        <span className="text-[18px]">{contato.compartilhado ? '👥' : '🔒'}</span>
+        <div className="min-w-0 flex-1 leading-snug">
+          <div className="font-semibold">
+            {contato.compartilhado ? 'Compartilhado com a equipe' : 'Privado — só quem registrou vê'}
+          </div>
+          <div className="text-[12.5px] text-tinta-3">
+            {contato.compartilhado
+              ? 'Ficha, anotações e propostas deste contato aparecem para todos os usuários da clínica.'
+              : `Ficha, anotações e propostas ficam com ${nomeDe(contato.criado_por)}${perfil && ehAdmin(perfil) ? ' — você, como admin, vê tudo' : ''}. As etiquetas são sempre da equipe.`}
+          </div>
+        </div>
+        {perfil && ehAdmin(perfil) && (
+          <Botao variante={contato.compartilhado ? 'secundario' : 'principal'} onClick={alternarCompartilhamento}>
+            {contato.compartilhado ? 'Tornar privado' : 'Compartilhar com a equipe'}
+          </Botao>
+        )}
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         {/* ── Coluna esquerda: ficha e pastas ── */}

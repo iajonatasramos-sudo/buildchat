@@ -299,6 +299,13 @@ exclusão lógica por `deleted_at`, e vínculo pasta↔conversa por **número co
   renderização e o observer reaplica; `chrome.storage.onChanged` em `bc2_contatos` refaz o
   mapa quando a ficha muda.
 - `ultimo_contato` é gravado a cada envio pela extensão — é o que alimenta o CRM.
+- **Compartilhamento por contato** (`0021`): ficha, anotações e propostas nascem **privadas
+  de quem registrou** (`contatos.criado_por` por trigger, `anotacoes.autor_id`,
+  `propostas.criado_por`); o **admin liga** `contatos.compartilhado` na ficha do lead e a
+  equipe inteira passa a ver. Sem ficha, a anotação vale como compartilhada. Etiquetas
+  (`pasta_conversas`) são sempre da empresa. Ligar/desligar "toca" `atualizado_em` das
+  anotações/propostas do contato, senão o pull incremental do colega não as traria. O que
+  existia antes ficou compartilhado. Diagnóstico do sync no console: `await __bcSync()`.
 - **`@lid` não é telefone.** O WhatsApp identifica algumas conversas por LID (id interno de
   15 dígitos, `…@lid`); derivar o número do `remote_jid` mostrava esse id como celular. A
   ponte resolve o número real com `WPP.contact.getPnLidEntry` (`contatoCompleto`, com cache),

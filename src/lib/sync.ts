@@ -160,11 +160,29 @@ export async function sincronizar(): Promise<void> {
     estadoSync.set('ok');
   } catch (e) {
     console.warn('[BuildChat] sync:', e);
+    ultimoErro = e instanceof Error ? e.message : String(e);
     estadoSync.set('erro');
   } finally {
     rodando = false;
   }
 }
+
+let ultimoErro: string | null = null;
+
+/** Diagnóstico no console: `await __bcSync()` — fila, último erro, número conectado. */
+export async function diagnosticoSync() {
+  const fila = await ler<Op[]>(K_OUTBOX, []);
+  const estado = await ler<Estado>(K_ESTADO, ESTADO_INICIAL);
+  return {
+    numeroConectado: await numeroConectado(),
+    fila: fila.length,
+    tiposNaFila: [...new Set(fila.map((o) => o.op))],
+    ultimoSync: estado.ultimoSync,
+    ultimoErro,
+    estadoAtual: estadoSync.get(),
+  };
+}
+if (typeof window !== 'undefined') (window as any).__bcSync = diagnosticoSync;
 
 // ───────────────────────────── Envio (push) ─────────────────────────────
 
