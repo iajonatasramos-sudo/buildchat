@@ -146,7 +146,8 @@ export default function LayoutPainel({ children }: { children: React.ReactNode }
             )}
           </div>
         )}
-        <div className="max-w-[1180px] px-10 pb-10 pt-9">{children}</div>
+        {/* Página larga (planilha de contatos) pede a largura toda: marca `data-pagina-larga` no <html>. */}
+        <div className="max-w-[1180px] px-10 pb-10 pt-9 [[data-pagina-larga]_&]:max-w-none [[data-pagina-larga]_&]:px-5">{children}</div>
         <div className="mt-auto flex gap-4 px-10 pb-8 text-[12.5px] text-tinta-4">
           <Link href="/instalar" target="_blank" className="hover:text-marca">
             Instalar a extensão

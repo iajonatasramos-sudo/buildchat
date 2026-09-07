@@ -44,6 +44,19 @@ export default function Contatos() {
   const [carregando, setCarregando] = useState(true);
   const [soMeus, setSoMeus] = useState(false); // usuário comum: só os números que ele conectou
   const [semNumero, setSemNumero] = useState(false);
+  // Ordenação pela coluna clicada (segundo clique inverte).
+  type Coluna = 'contato' | 'telefone' | 'origem' | 'usuario' | 'cadastro' | 'pastas' | 'propostas' | 'notas' | 'interesses' | 'ultimo';
+  const [ordem, setOrdem] = useState<{ coluna: Coluna; desc: boolean }>({ coluna: 'ultimo', desc: true });
+  const ordenarPor = (coluna: Coluna) =>
+    setOrdem((o) => (o.coluna === coluna ? { coluna, desc: !o.desc } : { coluna, desc: coluna === 'cadastro' || coluna === 'ultimo' || coluna === 'propostas' || coluna === 'notas' }));
+
+  // A planilha tem muitas colunas: esta página pede a largura toda ao layout.
+  useEffect(() => {
+    document.documentElement.dataset.paginaLarga = '1';
+    return () => {
+      delete document.documentElement.dataset.paginaLarga;
+    };
+  }, []);
 
   // O usuário comum vê só os contatos dos números que ELE conectou na extensão.
   // O admin vê a clínica inteira.
@@ -201,7 +214,7 @@ export default function Contatos() {
 
   const lista = useMemo(() => {
     const q = busca.trim().toLowerCase();
-    return consolidados.filter((c) => {
+    const filtrados = consolidados.filter((c) => {
       const suas = pastasDe(c);
       if (filtroPasta && !suas.some((p) => p.id === filtroPasta)) return false;
       if (!q) return true;
@@ -212,7 +225,33 @@ export default function Contatos() {
         c.remote_jid.includes(q)
       );
     });
-  }, [consolidados, busca, filtroPasta, porJid]);
+    // Valor comparável de cada coluna; vazio vai sempre para o fim.
+    const chave = (c: Consolidado): string | number | null => {
+      switch (ordem.coluna) {
+        case 'contato': return (c.nome || c.nome_whatsapp || telefoneDoContato(c) || '').toLowerCase() || null;
+        case 'telefone': return telefoneDoContato(c) || null;
+        case 'origem': return c.origens.map((wa) => origem(wa).numero).join(' ') || null;
+        case 'usuario': return nomeUsuario(c.criado_por)?.toLowerCase() || null;
+        case 'cadastro': return c.criado_em;
+        case 'pastas': return pastasDe(c).map((p) => p.nome).sort().join(' ').toLowerCase() || null;
+        case 'propostas': return propostasDe(c)?.total ?? null;
+        case 'notas': return notasDe(c) || null;
+        case 'interesses': return c.interesses?.toLowerCase() || null;
+        case 'ultimo': return c.ultimo_contato ?? null;
+      }
+    };
+    const sinal = ordem.desc ? -1 : 1;
+    return filtrados
+      .map((c, i) => ({ c, k: chave(c), i }))
+      .sort((a, b) => {
+        if (a.k === null && b.k === null) return a.i - b.i;
+        if (a.k === null) return 1;
+        if (b.k === null) return -1;
+        const cmp = typeof a.k === 'number' && typeof b.k === 'number' ? a.k - b.k : String(a.k).localeCompare(String(b.k), 'pt-BR');
+        return cmp === 0 ? a.i - b.i : cmp * sinal;
+      })
+      .map((x) => x.c);
+  }, [consolidados, busca, filtroPasta, porJid, ordem]);
 
   function exportarCsv() {
     const linhas = [
@@ -298,13 +337,33 @@ export default function Contatos() {
             <span className="text-[13px] text-tinta-3">{lista.length} exibido(s)</span>
           </div>
 
-          <Cartao className="overflow-hidden">
+          {/* Sem corte: a planilha ocupa a largura da tela e, se ainda faltar, rola de lado dentro do cartão. */}
+          <Cartao className="overflow-x-auto">
             <table className="w-full border-collapse">
               <thead>
                 <tr className="bg-fundo text-left">
-                  {['CONTATO', 'TELEFONE', 'ORIGEM', 'USUÁRIO', 'CADASTRO', 'PASTAS', 'PROPOSTAS', 'NOTAS', 'INTERESSES', 'ÚLTIMO CONTATO'].map((h) => (
-                    <th key={h} className="rotulo border-b border-borda px-[18px] py-3">
+                  {(
+                    [
+                      ['contato', 'CONTATO'],
+                      ['telefone', 'TELEFONE'],
+                      ['origem', 'ORIGEM'],
+                      ['usuario', 'USUÁRIO'],
+                      ['cadastro', 'CADASTRO'],
+                      ['pastas', 'PASTAS'],
+                      ['propostas', 'PROPOSTAS'],
+                      ['notas', 'NOTAS'],
+                      ['interesses', 'INTERESSES'],
+                      ['ultimo', 'ÚLTIMO CONTATO'],
+                    ] as [Coluna, string][]
+                  ).map(([col, h]) => (
+                    <th
+                      key={col}
+                      onClick={() => ordenarPor(col)}
+                      title="Ordenar por esta coluna"
+                      className={`rotulo cursor-pointer select-none whitespace-nowrap border-b border-borda px-3 py-2.5 transition hover:text-marca ${ordem.coluna === col ? 'text-marca' : ''} ${col === 'contato' ? 'sticky left-0 z-[1] bg-fundo' : ''}`}
+                    >
                       {h}
+                      <span className="ml-1 inline-block w-3 text-[10px]">{ordem.coluna === col ? (ordem.desc ? '▼' : '▲') : ''}</span>
                     </th>
                   ))}
                 </tr>
@@ -316,7 +375,8 @@ export default function Contatos() {
                   const notasN = notasDe(c);
                   return (
                     <tr key={c.remote_jid} className="transition hover:bg-fundo">
-                      <td className="border-b border-linha px-[18px] py-3.5">
+                      {/* Fixa ao rolar de lado: o nome fica visível enquanto as outras colunas passam. */}
+                      <td className="sticky left-0 z-[1] min-w-[180px] max-w-[260px] border-b border-linha bg-white px-3 py-3">
                         <Link href={`/painel/contatos/${c.id}`} className="font-medium text-marca hover:underline">
                           {c.nome || c.nome_whatsapp || telefoneDoContato(c)}
                         </Link>
@@ -327,10 +387,10 @@ export default function Contatos() {
                           <div className="text-[12px] text-tinta-4">no WhatsApp: {c.nome_whatsapp}</div>
                         )}
                       </td>
-                      <td className="whitespace-nowrap border-b border-linha px-[18px] py-3.5 font-mono text-[12.5px] text-tinta-3">
+                      <td className="whitespace-nowrap border-b border-linha px-3 py-3 font-mono text-[12.5px] text-tinta-3">
                         {telefoneDoContato(c)}
                       </td>
-                      <td className="whitespace-nowrap border-b border-linha px-[18px] py-3.5">
+                      <td className="whitespace-nowrap border-b border-linha px-3 py-3">
                         {c.origens.map((wa) => (
                           <div key={wa} className="leading-tight">
                             <div className="font-mono text-[12px] text-tinta-3">{origem(wa).numero}</div>
@@ -338,9 +398,9 @@ export default function Contatos() {
                           </div>
                         ))}
                       </td>
-                      <td className="whitespace-nowrap border-b border-linha px-[18px] py-3.5 text-tinta-3">{nomeUsuario(c.criado_por)}</td>
-                      <td className="whitespace-nowrap border-b border-linha px-[18px] py-3.5 text-tinta-3">{formatarDia(c.criado_em)}</td>
-                      <td className="border-b border-linha px-[18px] py-3.5">
+                      <td className="whitespace-nowrap border-b border-linha px-3 py-3 text-tinta-3">{nomeUsuario(c.criado_por)}</td>
+                      <td className="whitespace-nowrap border-b border-linha px-3 py-3 text-tinta-3">{formatarDia(c.criado_em)}</td>
+                      <td className="border-b border-linha px-3 py-3">
                         <div className="flex flex-wrap gap-1.5">
                           {suas.length === 0 ? (
                             <span className="text-tinta-4">—</span>
@@ -357,7 +417,7 @@ export default function Contatos() {
                           )}
                         </div>
                       </td>
-                      <td className="whitespace-nowrap border-b border-linha px-[18px] py-3.5">
+                      <td className="whitespace-nowrap border-b border-linha px-3 py-3">
                         {props ? (
                           <>
                             <span className="font-medium">{props.total}</span>
@@ -369,13 +429,13 @@ export default function Contatos() {
                           <span className="text-tinta-4">—</span>
                         )}
                       </td>
-                      <td className="whitespace-nowrap border-b border-linha px-[18px] py-3.5">
+                      <td className="whitespace-nowrap border-b border-linha px-3 py-3">
                         {notasN ? <span className="font-medium">{notasN}</span> : <span className="text-tinta-4">—</span>}
                       </td>
-                      <td className="max-w-[320px] border-b border-linha px-[18px] py-3.5 text-tinta-3">
+                      <td className="min-w-[160px] max-w-[280px] whitespace-normal border-b border-linha px-3 py-3 text-tinta-3">
                         {c.interesses || <span className="text-tinta-4">—</span>}
                       </td>
-                      <td className="whitespace-nowrap border-b border-linha px-[18px] py-3.5 text-tinta-3">
+                      <td className="whitespace-nowrap border-b border-linha px-3 py-3 text-tinta-3">
                         {c.ultimo_contato ? formatarData(c.ultimo_contato) : <span className="text-tinta-4">—</span>}
                       </td>
                     </tr>
