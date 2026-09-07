@@ -55,7 +55,8 @@ export type RespostaDC = {
   acoes: AcaoDC[];
 };
 
-export type TagOpt = { id: string; nome: string; cor: string };
+/** `padrao`: pasta da empresa (só o admin mexe, pelo painel). Sem ela, é pessoal. */
+export type TagOpt = { id: string; nome: string; cor: string; padrao?: boolean };
 
 export type MensagensRapidasData = {
   categorias: CategoriaDC[];

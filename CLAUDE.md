@@ -244,13 +244,16 @@ exclusão lógica por `deleted_at`, e vínculo pasta↔conversa por **número co
 ## Equipes, visibilidade e ficha do contato
 
 - **Equipes** (`equipes` + `equipe_usuarios`): agrupam usuários. Só admin cria e move gente.
-- **Visibilidade** (só de `respostas`): `visivel_todos` (booleano) + `visivel_equipes` /
-  `visivel_usuarios`. **Mensagem nova nasce visível para NINGUÉM** — é escolha explícita do
-  admin. Pastas **não** têm restrição: o vínculo conversa↔pasta é compartilhado, esconder a
-  pasta deixaria a conversa etiquetada num lugar invisível para o colega. Desde
-  `0014_pastas_da_equipe.sql` a **escrita** em `pastas` também é livre: qualquer usuário
-  ativo cria/edita etiqueta, em qualquer plano (antes seguia `app.pode_escrever`, que exige
-  admin + recurso do plano — travava o atendente e, no Start, até o admin). O admin **enxerga tudo** na RLS (precisa administrar no painel) —
+- **Padrão × pessoal, para mensagens E pastas** (`0020`): o **admin** cria o padrão (escopo
+  `empresa`) **pelo painel** e escolhe para quem aparece — `visivel_todos` + `visivel_equipes` /
+  `visivel_usuarios`. Mensagem nova nasce visível para **ninguém**; pasta nova nasce para
+  **todos** (é o que uma etiqueta da clínica costuma ser). Qualquer usuário cria os seus
+  itens **pessoais** (extensão ou painel): só ele vê e só ele apaga — o admin não apaga o
+  pessoal de ninguém (a RLS nem lhe devolve as linhas). **Tudo que nasce na extensão é
+  pessoal**, inclusive do admin e inclusive o acervo adotado no primeiro login. RLS: a
+  leitura respeita a visibilidade para o usuário comum; o admin recebe tudo (administra no
+  painel) e a extensão dele filtra (`vejo()` no pull). Apagar pasta pessoal na extensão: o
+  ✕ ao lado dela no seletor de etiquetas (`db.removerTag` → `pasta.delete`). O admin **enxerga tudo** na RLS (precisa administrar no painel) —
   quem filtra o que aparece nas mensagens rápidas dele é a **extensão**
   (`MensagensRapidas.carregar`, usando `minhasEquipes()` do sync).
 - **Escopo na extensão**: tudo que a pessoa cria ali nasce **pessoal**, mesmo sendo admin
@@ -386,7 +389,7 @@ escondidos na interface — esconder botão não impede chamada direta à API.
 server/sql/0001_schema.sql        tabelas multiempresa (escopo empresa × pessoal)
 server/sql/0002_rls.sql           RLS + funções app.* + grants para `authenticated`
 server/sql/0003_supabase_auth.sql FK com auth.users + criar_empresa_e_admin + aceitar_convite
-server/tests/                     95 testes rodando em Postgres real (PGlite/WASM)
+server/tests/                     119 testes rodando em Postgres real (PGlite/WASM)
 ```
 
 `cd server && npm test` — sobe um Postgres 16 em WASM, aplica as migrações e executa como

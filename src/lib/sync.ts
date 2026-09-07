@@ -182,9 +182,10 @@ async function enviarFila(perfil: Perfil): Promise<void> {
         const { error } = await sb.from('pastas').upsert({
           id: op.id,
           empresa_id: perfil.empresa.id,
-          // Pasta é organização compartilhada: nasce da empresa, não pessoal.
-          escopo: 'empresa',
-          owner_id: null,
+          // Criada na extensão = PESSOAL (só de quem criou). Pasta padrão da
+          // empresa só nasce no painel, pelo admin — mesma regra das mensagens.
+          escopo: 'pessoal',
+          owner_id: perfil.id,
           nome: op.nome,
           cor: op.cor,
           ordem: op.ordem,
@@ -441,7 +442,14 @@ async function puxar(perfil: Perfil, desde: string | null): Promise<string> {
   const wa = await numeroConectado();
 
   // Pastas da empresa
-  let q = sb.from('pastas').select('id, nome, cor, ordem, deleted_at, atualizado_em');
+  // Equipes de que faço parte — a visibilidade das pastas e mensagens depende delas.
+  const { data: minhasLinhas } = await sb.from('equipe_usuarios').select('equipe_id').eq('usuario_id', perfil.id);
+  const minhasEquipes = new Set<string>((minhasLinhas ?? []).map((e: any) => e.equipe_id));
+  await gravar(K_EQUIPES, [...minhasEquipes]);
+
+  let q = sb
+    .from('pastas')
+    .select('id, nome, cor, ordem, escopo, visivel_todos, visivel_equipes, visivel_usuarios, deleted_at, atualizado_em');
   if (desde) q = q.gt('atualizado_em', desde);
   const { data: pastas, error: erroPastas } = await q;
   if (erroPastas) throw erroPastas;
@@ -449,9 +457,16 @@ async function puxar(perfil: Perfil, desde: string | null): Promise<string> {
   if (pastas?.length) {
     const locais = await db.listarTags();
     const porId = new Map(locais.map((t) => [t.id, t]));
+    // Para o usuário comum a RLS já filtra; o admin recebe tudo (administra
+    // no painel) e é a extensão dele que respeita a escolha de visibilidade.
+    const vejo = (p: any) =>
+      p.escopo === 'pessoal' ||
+      p.visivel_todos ||
+      (p.visivel_usuarios ?? []).includes(perfil.id) ||
+      (p.visivel_equipes ?? []).some((e: string) => minhasEquipes.has(e));
     for (const p of pastas as any[]) {
-      if (p.deleted_at) porId.delete(p.id);
-      else porId.set(p.id, { id: p.id, nome: p.nome, cor: p.cor });
+      if (p.deleted_at || !vejo(p)) porId.delete(p.id);
+      else porId.set(p.id, { id: p.id, nome: p.nome, cor: p.cor, padrao: p.escopo === 'empresa' });
     }
     await db.salvarTags([...porId.values()]);
   }
@@ -640,9 +655,6 @@ async function puxar(perfil: Perfil, desde: string | null): Promise<string> {
   const { data: integracoes } = await sb.rpc('minhas_integracoes');
   if (integracoes) await db.salvarIntegracoes(integracoes as any[]);
 
-  // Equipes de que faço parte — a extensão filtra o acervo por elas.
-  const { data: minhas } = await sb.from('equipe_usuarios').select('equipe_id').eq('usuario_id', perfil.id);
-  await gravar(K_EQUIPES, (minhas ?? []).map((e: any) => e.equipe_id));
 
   return agora;
 }
@@ -661,13 +673,14 @@ async function adotarAcervoLocal(perfil: Perfil): Promise<void> {
   if (error) throw error;
 
   const porNome = new Map((remotas ?? []).map((p: any) => [normalizar(p.nome), p.id as string]));
-  const criar: { empresa_id: string; nome: string; cor: string; ordem: number }[] = [];
+  // O que o aparelho já tinha vira pasta PESSOAL de quem entrou (padrão é do painel).
+  const criar: { empresa_id: string; escopo: string; owner_id: string; nome: string; cor: string; ordem: number }[] = [];
   const dePara: Record<string, string> = {};
 
   locais.forEach((t, i) => {
     const existente = porNome.get(normalizar(t.nome));
     if (existente) dePara[t.id] = existente;
-    else criar.push({ empresa_id: perfil.empresa.id, nome: t.nome, cor: t.cor, ordem: i });
+    else criar.push({ empresa_id: perfil.empresa.id, escopo: 'pessoal', owner_id: perfil.id, nome: t.nome, cor: t.cor, ordem: i });
   });
 
   if (criar.length) {

@@ -21,7 +21,8 @@ const MENU_ADMIN = [
 ];
 const MENU_USUARIO = [
   { href: '/painel', rotulo: 'Visão geral' },
-  { href: '/painel/pastas', rotulo: 'Pastas' },
+  { href: '/painel/mensagens', rotulo: 'Minhas mensagens' },
+  { href: '/painel/pastas', rotulo: 'Minhas pastas' },
   { href: '/painel/contatos', rotulo: 'Meus contatos' },
 ];
 

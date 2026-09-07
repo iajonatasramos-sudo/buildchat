@@ -53,24 +53,35 @@ export default function Mensagens() {
   if (!perfil) return null;
   const ehAdmin = perfil.papel === 'admin';
 
+  // Admin: o acervo padrão da clínica (e as pessoais dele). Atendente: só as
+  // dele — as padrão que ele vê são do admin, e ele não as edita.
+  const minhas = ehAdmin ? respostas : respostas.filter((r) => r.escopo === 'pessoal');
   const grupos = [
-    ...categorias.map((c) => ({ cat: c, itens: respostas.filter((r) => r.categoria_id === c.id) })),
-    { cat: null, itens: respostas.filter((r) => !r.categoria_id) },
+    ...categorias.map((c) => ({ cat: c, itens: minhas.filter((r) => r.categoria_id === c.id) })),
+    { cat: null, itens: minhas.filter((r) => !r.categoria_id) },
   ].filter((g) => g.itens.length > 0);
 
   return (
     <div>
       <Cabecalho
-        titulo="Mensagens padrão da empresa"
-        subtitulo="Publicadas para todos os usuários da extensão."
-        acao={ehAdmin && <Botao onClick={() => router.push('/painel/mensagens/nova')}>Nova mensagem</Botao>}
+        titulo={ehAdmin ? 'Mensagens padrão da empresa' : 'Minhas mensagens'}
+        subtitulo={
+          ehAdmin
+            ? 'Você escolhe para quem cada uma aparece: todos, equipes ou pessoas.'
+            : 'Só você vê e usa estas mensagens. As padrão da clínica aparecem direto na extensão.'
+        }
+        acao={<Botao onClick={() => router.push('/painel/mensagens/nova')}>Nova mensagem</Botao>}
       />
 
       {grupos.length === 0 ? (
         <Vazio
-          titulo="Nenhuma mensagem padrão ainda"
-          texto="Crie a primeira mensagem rápida da clínica — por exemplo uma saudação com texto, áudio e o PDF de avaliação — e ela aparece na extensão de toda a equipe."
-          acao={ehAdmin && <Botao onClick={() => router.push('/painel/mensagens/nova')}>Criar primeira mensagem</Botao>}
+          titulo={ehAdmin ? 'Nenhuma mensagem padrão ainda' : 'Nenhuma mensagem sua ainda'}
+          texto={
+            ehAdmin
+              ? 'Crie a primeira mensagem rápida da clínica — por exemplo uma saudação com texto, áudio e o PDF de avaliação — e escolha quem a recebe na extensão.'
+              : 'Crie aqui ou direto na extensão — ela sincroniza sozinha e aparece só para você.'
+          }
+          acao={<Botao onClick={() => router.push('/painel/mensagens/nova')}>Criar primeira mensagem</Botao>}
         />
       ) : (
         <div className="flex flex-col gap-[18px]">

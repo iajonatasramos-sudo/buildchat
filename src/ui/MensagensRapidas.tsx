@@ -1390,17 +1390,40 @@ function ContatoGuia({
 
             <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto">
               {sugestoes.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => alternarTag(t.id)}
-                  className="rounded-md border bg-surface px-2.5 py-0.5 text-[11.5px] font-semibold transition hover:text-white"
-                  style={{ borderColor: t.cor, color: t.cor }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = t.cor)}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = '')}
-                >
-                  {t.nome}
-                </button>
+                <span key={t.id} className="inline-flex items-stretch">
+                  <button
+                    type="button"
+                    onClick={() => alternarTag(t.id)}
+                    className={cn(
+                      'border bg-surface px-2.5 py-0.5 text-[11.5px] font-semibold transition hover:text-white',
+                      t.padrao ? 'rounded-md' : 'rounded-l-md',
+                    )}
+                    style={{ borderColor: t.cor, color: t.cor }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = t.cor)}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = '')}
+                    title={t.padrao ? 'Pasta padrão da clínica' : 'Sua pasta'}
+                  >
+                    {t.nome}
+                  </button>
+                  {/* Pasta pessoal: só o dono apaga — e é aqui que ele faz isso. */}
+                  {!t.padrao && (
+                    <button
+                      type="button"
+                      title="Apagar esta pasta (só você a vê)"
+                      onClick={() => {
+                        if (!window.confirm(`Apagar a pasta "${t.nome}"? As conversas continuam, só perdem a etiqueta.`)) return;
+                        db.removerTag(t.id).then(() => {
+                          onTagsMudaram();
+                          toast.success('Pasta apagada.');
+                        });
+                      }}
+                      className="rounded-r-md border border-l-0 px-1.5 text-[11px] text-muted transition hover:bg-red-bg hover:text-danger"
+                      style={{ borderColor: t.cor }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </span>
               ))}
 
               {sugestoes.length === 0 && !termo && (

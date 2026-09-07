@@ -178,6 +178,26 @@ export async function criarTag(nome: string, cor: string): Promise<TagOpt> {
   return nova;
 }
 
+/**
+ * Apaga uma pasta PESSOAL (a padrão é do admin, pelo painel): some da lista,
+ * dos vínculos locais e, pela fila, do servidor.
+ */
+export async function removerTag(id: string): Promise<void> {
+  const lista = await get<TagOpt[]>(K.tags, []);
+  const alvo = lista.find((t) => t.id === id);
+  if (!alvo || alvo.padrao) return;
+  await set(K.tags, lista.filter((t) => t.id !== id));
+  const mapa = await get<Record<string, string[]>>(K.contactTags, {});
+  for (const chave of Object.keys(mapa)) {
+    const resto = mapa[chave].filter((x) => x !== id);
+    if (resto.length) mapa[chave] = resto;
+    else delete mapa[chave];
+  }
+  await set(K.contactTags, mapa);
+  const { enfileirar } = await import('./sync');
+  await enfileirar({ op: 'pasta.delete', id });
+}
+
 /** Mapa completo chatId -> etiquetas (para a barra de pastas/filtros). */
 export async function mapaTagsContatos(): Promise<Record<string, string[]>> {
   return get<Record<string, string[]>>(K.contactTags, {});
