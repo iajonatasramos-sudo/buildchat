@@ -423,14 +423,28 @@ function SettingsModal({
             Pastas, mensagens rápidas (com a mídia), anotações, fichas e propostas num arquivo JSON.
             Conversas e arquivos recebidos não entram — nunca saem do computador.
           </p>
-          <button
-            type="button"
-            onClick={exportarBackup}
-            disabled={exportando}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border-strong bg-surface px-2.5 py-1.5 text-[12px] font-semibold transition hover:border-brand hover:text-brand disabled:opacity-60"
-          >
-            {exportando ? 'Exportando…' : 'Exportar backup (JSON)'}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={exportarBackup}
+              disabled={exportando}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border-strong bg-surface px-2.5 py-1.5 text-[12px] font-semibold transition hover:border-brand hover:text-brand disabled:opacity-60"
+            >
+              {exportando ? 'Exportando…' : 'Exportar backup (JSON)'}
+            </button>
+            <button
+              type="button"
+              title="Coloca na fila de novo todas as anotações, fichas e etiquetas deste computador (não duplica)"
+              onClick={async () => {
+                const { reenviarTudoLocal } = await import('@/lib/sync');
+                const n = await reenviarTudoLocal();
+                toast.success(`${n} item(ns) na fila para o servidor.`);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border-strong bg-surface px-2.5 py-1.5 text-[12px] font-semibold transition hover:border-brand hover:text-brand"
+            >
+              Reenviar dados locais
+            </button>
+          </div>
         </div>
         <div className="flex justify-end gap-2 pt-1">
             <button type="button" onClick={onClose} className="rounded-md border border-border-strong px-3 py-1.5 text-[13px] font-medium text-text-2 hover:bg-surface-2">

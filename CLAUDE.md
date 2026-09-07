@@ -258,6 +258,13 @@ exclusão lógica por `deleted_at`, e vínculo pasta↔conversa por **número co
   (`db.esvaziarAcervoSincronizado`) e marca `adotado: true` — nada do local sobe, só desce
   o da nova empresa. Antes, a troca zerava o estado e re-adotava: foi assim que a
   BuildClinic nasceu com as 23 pastas da MCA (mesmos nomes, mesmo segundo, 0 conversas).
+  **Nada sai da fila no escuro**: operação que falha fica com `tentativas` e `ultimoErro`,
+  repete a cada ciclo e só é abandonada depois de 50 tentativas. Antes, erro que não fosse
+  de rede descartava a operação com um `console.warn` — foi assim que anotações sumiram sem
+  chegar ao servidor. `reenviarTudoLocal()` (Configurações → "Reenviar dados locais", e
+  uma vez automática por aparelho via `bc2_reenvio_v2`) reenfileira anotações, fichas e
+  vínculos; os upserts são idempotentes. `completarFichasComWhatsApp()` preenche nome e
+  telefone de fichas incompletas com a lista de conversas do WPP (1×/hora).
   **A adoção falhar não derruba o ciclo**: fica para a próxima e o pull continua — senão
   uma recusa ali (permissão, limite do plano) deixaria a pessoa sem licença, sem acervo e
   sem as integrações, com a nuvem riscada. Foi exatamente esse o sintoma do furo das pastas.

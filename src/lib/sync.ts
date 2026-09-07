@@ -8,11 +8,11 @@
 import * as db from './db';
 import { supabase } from './auth';
 import { avaliarLicenca, carregarPerfil, type Perfil } from './auth';
-import { getInfoConta } from './wa';
+import { getInfoConta, listarChats } from './wa';
 import { estadoSync } from './store';
-import type { AcaoDC, CategoriaDC, RespostaDC, TagOpt } from './types';
+import type { AcaoDC, CategoriaDC, FichaContato, RespostaDC, TagOpt } from './types';
 
-type Op =
+type OpSemMeta =
   | { op: 'pasta.upsert'; id: string; nome: string; cor: string; ordem: number }
   | { op: 'pasta.delete'; id: string }
   | { op: 'vinculo.set'; pastaId: string; remoteJid: string; ativo: boolean }
@@ -29,6 +29,8 @@ type Op =
   | { op: 'proposta.criar'; id: string }
   | { op: 'proposta.enviada'; id: string }
   | { op: 'proposta.apagar'; id: string; arquivoPath: string | null };
+/** Toda operação carrega quantas vezes já tentou e o último erro — nada é descartado no escuro. */
+export type Op = OpSemMeta & { tentativas?: number; ultimoErro?: string };
 
 type Estado = {
   /** ISO do último pull bem-sucedido. */
@@ -79,6 +81,33 @@ async function registrarNumeroConectado(): Promise<void> {
   if (error) {
     numeroRegistradoEm.delete(wa); // tenta de novo na próxima
     console.warn('[BuildChat] registrar número:', error.message);
+  }
+}
+
+/**
+ * Contato etiquetado antes de a ficha existir aparece no painel sem nome e sem
+ * telefone. Uma vez por hora, para toda ficha sem `nomeWhatsapp` ou `telefone`,
+ * pega os dois na lista de conversas do WPP e salva — o que enfileira o
+ * contato.upsert e o painel passa a mostrar quem é.
+ */
+let fichasCompletadasEm = 0;
+async function completarFichasComWhatsApp(): Promise<void> {
+  if (Date.now() - fichasCompletadasEm < 3600_000) return;
+  const fichas = await db.mapaFichas();
+  const faltando = Object.entries(fichas).filter(([jid, f]) => jid.includes('@') && (!f.nomeWhatsapp || !f.telefone));
+  if (faltando.length === 0) return;
+  const chats = await listarChats();
+  if (chats.length === 0) return; // ponte ainda não pronta — tenta no próximo ciclo
+  fichasCompletadasEm = Date.now();
+  const porId = new Map(chats.map((c) => [c.chatId, c]));
+  for (const [jid, f] of faltando) {
+    const c = porId.get(jid);
+    if (!c) continue;
+    const patch: Partial<FichaContato> = {};
+    if (!f.nomeWhatsapp && c.nome && c.nome !== jid) patch.nomeWhatsapp = c.nome;
+    const digitos = (c.telefone ?? '').replace(/\D/g, '');
+    if (!f.telefone && digitos) patch.telefone = digitos;
+    if (Object.keys(patch).length) await db.salvarFicha(jid, patch);
   }
 }
 
@@ -153,8 +182,14 @@ export async function sincronizar(): Promise<void> {
     }
 
     await registrarNumeroConectado();
+    // Uma vez por aparelho: recupera o que a versão antiga descartou da fila.
+    if (!(await ler<boolean>('bc2_reenvio_v2', false))) {
+      await gravar('bc2_reenvio_v2', true);
+      await reenviarTudoLocal();
+    }
     await enviarFila(perfil);
     estado.ultimoSync = await puxar(perfil, estado.ultimoSync);
+    await completarFichasComWhatsApp();
 
     await gravar(K_ESTADO, estado);
     estadoSync.set('ok');
@@ -179,6 +214,8 @@ export async function diagnosticoSync() {
     tiposNaFila: [...new Set(fila.map((o) => o.op))],
     ultimoSync: estado.ultimoSync,
     ultimoErro,
+    ultimoErroFila,
+    presasComErro: fila.filter((o) => o.ultimoErro).map((o) => ({ op: o.op, tentativas: o.tentativas, erro: o.ultimoErro })).slice(0, 10),
     estadoAtual: estadoSync.get(),
   };
 }
@@ -355,14 +392,44 @@ async function enviarFila(perfil: Perfil): Promise<void> {
         if (error) throw error;
       }
     } catch (e: any) {
-      // Erro de permissão/validação: descartar (não adianta repetir).
-      // Erro de rede: manter na fila.
-      const rede = /fetch|network|timeout/i.test(e?.message ?? '');
-      if (rede) restantes.push(op);
-      else console.warn('[BuildChat] operação descartada:', op, e?.message);
+      // Antes: erro que não fosse de rede descartava a operação em silêncio —
+      // foi assim que anotações sumiram sem chegar ao servidor. Agora ela fica
+      // na fila com o motivo, é repetida a cada ciclo e só sai depois de
+      // MUITAS tentativas (permissão negada de verdade não vira lixo eterno).
+      const tentativas = (op.tentativas ?? 0) + 1;
+      const mensagem = String(e?.message ?? e).slice(0, 200);
+      ultimoErroFila = `${op.op}: ${mensagem}`;
+      if (tentativas < 50) restantes.push({ ...op, tentativas, ultimoErro: mensagem });
+      else console.warn('[BuildChat] operação abandonada após 50 tentativas:', op, mensagem);
     }
   }
   await gravar(K_OUTBOX, restantes);
+}
+
+let ultimoErroFila: string | null = null;
+
+/**
+ * Reenvia TUDO que existe localmente: anotações, fichas e vínculos. Serve para
+ * recuperar o que ficou preso (a versão antiga descartava operação com erro) e
+ * como botão "Reenviar dados locais" nas Configurações. As operações são
+ * idempotentes no servidor (upsert), então repetir não duplica.
+ */
+export async function reenviarTudoLocal(): Promise<number> {
+  const [notas, fichas, vinculos] = await Promise.all([db.mapaNotas(), db.mapaFichas(), db.mapaTagsContatos()]);
+  const fila = await ler<Op[]>(K_OUTBOX, []);
+  const novas: Op[] = [];
+  for (const [jid, lista] of Object.entries(notas)) {
+    if (jid.startsWith('wa:')) continue;
+    for (const n of lista) novas.push({ op: 'anotacao.upsert', id: n.id, remoteJid: jid });
+  }
+  for (const jid of Object.keys(fichas)) if (!jid.startsWith('wa:')) novas.push({ op: 'contato.upsert', remoteJid: jid });
+  for (const [jid, pastas] of Object.entries(vinculos)) {
+    if (jid.startsWith('wa:')) continue;
+    for (const pastaId of pastas) novas.push({ op: 'vinculo.set', pastaId, remoteJid: jid, ativo: true });
+  }
+  await gravar(K_OUTBOX, [...fila, ...novas]);
+  agendar(300);
+  return novas.length;
 }
 
 /** Registros novos nascem da empresa quando quem cria é admin; senão, pessoais. */
