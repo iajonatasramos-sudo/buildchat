@@ -2,11 +2,13 @@
 
 // Acervo de mensagens padrão, agrupado por categoria.
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { carregarPerfil, supabase, type Perfil } from '@/lib/supabase';
-import { Botao, Cabecalho, Cartao, Vazio } from '@/componentes/ui';
+import { Botao, Cabecalho, CampoTexto, Cartao, Modal, Vazio } from '@/componentes/ui';
+
+const CORES = ['#22c55e', '#3b82f6', '#a855f7', '#ec4899', '#f59e0b', '#ef4444', '#14b8a6', '#6366f1'];
 
 type Acao = { tipo: string };
 type Resposta = {
@@ -33,8 +35,9 @@ export default function Mensagens() {
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [respostas, setRespostas] = useState<Resposta[]>([]);
+  const [criandoCategoria, setCriandoCategoria] = useState(false);
 
-  useEffect(() => {
+  const carregar = useCallback(async () => {
     (async () => {
       setPerfil(await carregarPerfil());
       const [c, r] = await Promise.all([
@@ -49,6 +52,10 @@ export default function Mensagens() {
       setRespostas((r.data as unknown as Resposta[]) ?? []);
     })();
   }, []);
+
+  useEffect(() => {
+    carregar();
+  }, [carregar]);
 
   if (!perfil) return null;
   const ehAdmin = perfil.papel === 'admin';
@@ -70,7 +77,7 @@ export default function Mensagens() {
             ? 'Você escolhe para quem cada uma aparece: todos, equipes ou pessoas.'
             : 'Só você vê e usa estas mensagens. As padrão da clínica aparecem direto na extensão.'
         }
-        acao={<Botao onClick={() => router.push('/painel/mensagens/nova')}>Nova mensagem</Botao>}
+        acao={<MenuCriar onMensagem={() => router.push('/painel/mensagens/nova')} onCategoria={() => setCriandoCategoria(true)} />}
       />
 
       {grupos.length === 0 ? (
@@ -81,7 +88,7 @@ export default function Mensagens() {
               ? 'Crie a primeira mensagem rápida da clínica — por exemplo uma saudação com texto, áudio e o PDF de avaliação — e escolha quem a recebe na extensão.'
               : 'Crie aqui ou direto na extensão — ela sincroniza sozinha e aparece só para você.'
           }
-          acao={<Botao onClick={() => router.push('/painel/mensagens/nova')}>Criar primeira mensagem</Botao>}
+          acao={<MenuCriar onMensagem={() => router.push('/painel/mensagens/nova')} onCategoria={() => setCriandoCategoria(true)} />}
         />
       ) : (
         <div className="flex flex-col gap-[18px]">
@@ -135,6 +142,121 @@ export default function Mensagens() {
           ))}
         </div>
       )}
+
+      {criandoCategoria && perfil && (
+        <CategoriaModal
+          perfil={perfil}
+          ordem={categorias.length}
+          onFechar={() => setCriandoCategoria(false)}
+          onPronto={() => {
+            setCriandoCategoria(false);
+            carregar();
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+// ── "Criar ▾": mensagem rápida ou categoria ──
+function MenuCriar({ onMensagem, onCategoria }: { onMensagem: () => void; onCategoria: () => void }) {
+  const [aberto, setAberto] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!aberto) return;
+    const fora = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setAberto(false);
+    };
+    document.addEventListener('mousedown', fora);
+    return () => document.removeEventListener('mousedown', fora);
+  }, [aberto]);
+  return (
+    <div ref={ref} className="relative">
+      <Botao onClick={() => setAberto((v) => !v)}>Criar ▾</Botao>
+      {aberto && (
+        <div className="cartao absolute right-0 z-20 mt-1.5 w-[220px] overflow-hidden py-1">
+          {[
+            { rotulo: 'Mensagem rápida', dica: 'Sequência de texto, áudio, PDF…', acao: onMensagem },
+            { rotulo: 'Categoria', dica: 'Agrupa as mensagens na extensão', acao: onCategoria },
+          ].map((item) => (
+            <button
+              key={item.rotulo}
+              onClick={() => {
+                setAberto(false);
+                item.acao();
+              }}
+              className="block w-full px-4 py-2.5 text-left transition hover:bg-fundo"
+            >
+              <div className="text-[13.5px] font-medium">{item.rotulo}</div>
+              <div className="text-[12px] text-tinta-4">{item.dica}</div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Nova categoria: da empresa (admin) ou pessoal (atendente) ──
+function CategoriaModal({ perfil, ordem, onFechar, onPronto }: { perfil: Perfil; ordem: number; onFechar: () => void; onPronto: () => void }) {
+  const ehAdmin = perfil.papel === 'admin';
+  const [nome, setNome] = useState('');
+  const [cor, setCor] = useState(CORES[1]);
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  async function salvar() {
+    setSalvando(true);
+    setErro(null);
+    const { error } = await supabase.from('categorias').insert({
+      empresa_id: perfil.empresa.id,
+      nome: nome.trim(),
+      cor,
+      ordem,
+      escopo: ehAdmin ? 'empresa' : 'pessoal',
+      owner_id: ehAdmin ? null : perfil.id,
+    });
+    setSalvando(false);
+    if (error) {
+      setErro(
+        /row-level security/i.test(error.message)
+          ? 'Sem permissão — categoria da empresa exige o plano Pro ou superior.'
+          : error.message,
+      );
+      return;
+    }
+    onPronto();
+  }
+
+  return (
+    <Modal titulo={ehAdmin ? 'Nova categoria da empresa' : 'Nova categoria'} onFechar={onFechar}>
+      <div className="flex flex-col gap-4">
+        <CampoTexto rotulo="Nome" valor={nome} onChange={setNome} placeholder="Ex.: Saudações, Links, Orçamentos" />
+        <div className="flex flex-col gap-2 font-medium">
+          Cor
+          <div className="flex flex-wrap gap-2">
+            {CORES.map((c) => (
+              <button
+                key={c}
+                onClick={() => setCor(c)}
+                className={`h-8 w-8 rounded-controle transition ${cor === c ? 'ring-2 ring-tinta ring-offset-2' : ''}`}
+                style={{ background: c }}
+                aria-label={`Cor ${c}`}
+              />
+            ))}
+          </div>
+        </div>
+        <p className="text-[12.5px] text-tinta-4">
+          {ehAdmin
+            ? 'Categoria da empresa: aparece na extensão de quem tiver alguma mensagem dela liberada.'
+            : 'Categoria pessoal: só você vê, aqui e na extensão.'}
+        </p>
+        {erro && <p className="text-[12.5px] text-perigo">{erro}</p>}
+        <div className="flex justify-end gap-2">
+          <Botao variante="secundario" onClick={onFechar}>Cancelar</Botao>
+          <Botao onClick={salvar} desabilitado={salvando || nome.trim().length < 2}>Criar categoria</Botao>
+        </div>
+      </div>
+    </Modal>
   );
 }
