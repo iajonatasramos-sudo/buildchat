@@ -488,6 +488,7 @@ async function puxar(perfil: Perfil, desde: string | null): Promise<string> {
     // no painel) e é a extensão dele que respeita a escolha de visibilidade.
     const vejo = (p: any) =>
       p.escopo === 'pessoal' ||
+      perfil.papel === 'admin' || // quem criou fica liberado
       p.visivel_todos ||
       (p.visivel_usuarios ?? []).includes(perfil.id) ||
       (p.visivel_equipes ?? []).some((e: string) => minhasEquipes.has(e));

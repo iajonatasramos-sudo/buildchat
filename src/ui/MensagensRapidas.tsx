@@ -164,6 +164,8 @@ export function MensagensRapidasPanel({
       // Minhas mensagens (pessoais) aparecem sempre — inclusive as ainda não
       // sincronizadas, que nem têm os campos de visibilidade.
       if (!r.padrao) return true;
+      // Quem publicou (o admin) fica liberado automaticamente: foi ele quem criou.
+      if (perfil?.papel === 'admin') return true;
       if (r.visivelTodos) return true;
       const eq = r.visivelEquipes ?? [];
       const us = r.visivelUsuarios ?? [];
@@ -222,7 +224,10 @@ export function MensagensRapidasPanel({
       padrao: c.padrao,
       itens: ordenarItens(resps.filter((r) => r.categoriaId === c.id)),
     }));
-    const semCat = resps.filter((r) => !r.categoriaId);
+    // Sem categoria — inclusive a mensagem cuja categoria não chegou aqui (era
+    // pessoal de outro, por exemplo): antes ela não caía em grupo nenhum e sumia.
+    const conhecidas = new Set(data.categorias.map((c) => c.id));
+    const semCat = resps.filter((r) => !r.categoriaId || !conhecidas.has(r.categoriaId));
     if (semCat.length > 0) out.push({ chave: 'sem', nome: 'SEM CATEGORIA', cor: 'azul', padrao: false, itens: ordenarItens(semCat) });
     return out.filter((g) => g.itens.length > 0);
   }, [data, busca, filtro]);

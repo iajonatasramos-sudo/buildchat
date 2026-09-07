@@ -292,6 +292,12 @@ exclusão lógica por `deleted_at`, e vínculo pasta↔conversa por **número co
   `padrao: true` + `visivel_*` e o sync publica com escopo `empresa`; nada marcado → pessoal.
   Exige o recurso `mensagens_empresa` do plano (Pro+), fiscalizado pela RLS. Categoria sem
   nenhuma mensagem visível para o usuário **não aparece** (filtro em `grupos`).
+- **O autor fica liberado**: o admin vê na extensão tudo que publicou (mensagens e pastas
+  padrão), mesmo restrito a outros — `paraMim`/`vejo()` devolvem true para admin.
+- **Categoria acompanha a mensagem** (`0022`): categoria pessoal usada por mensagem da
+  empresa é promovida a `empresa` por trigger — senão a equipe recebia a mensagem sem a
+  categoria e ela sumia da lista. Reforço na extensão: mensagem cuja categoria não chegou vai
+  para "Sem categoria" em vez de desaparecer.
 - **Ficha do contato** (`contatos`, chave `empresa+wa_number+remote_jid`): nome de
   tratamento, interesses e `ultimo_contato`. **O nome da ficha vale em toda tela nossa**:
   `{{nome}}`, proposta, guia Contato, lista da pasta, cabeçalho das anotações e autor das
