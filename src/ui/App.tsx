@@ -501,10 +501,19 @@ function TrilhoLateral() {
         : 'border-transparent bg-surface-2 text-muted hover:border-border-strong hover:text-text',
     );
 
+  // Clique em qualquer ponto livre da barra (fora dos botões) abre as
+  // mensagens rápidas — mesma regra da barra do topo.
+  const cliqueLivre = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('button, a')) return;
+    ir('rapidas');
+  };
+
   return (
     <div
-      className="pointer-events-auto fixed bottom-0 right-0 z-[56] flex flex-col items-center gap-2 border-l border-border bg-surface pt-3"
+      className="pointer-events-auto fixed bottom-0 right-0 z-[56] flex cursor-pointer flex-col items-center gap-2 border-l border-border bg-surface pt-3"
       style={{ top: emPx(ALTURA_TOPBAR), width: emPx(LARGURA_TRILHO) }}
+      onClick={cliqueLivre}
+      title="Abrir mensagens rápidas"
     >
       <button type="button" title="Contato" className={botao(aba === 'cliente')} onClick={() => ir('cliente')}>
         <User size={17} />

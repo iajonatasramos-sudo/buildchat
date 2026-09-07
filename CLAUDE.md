@@ -63,7 +63,8 @@ de um separador, o atalho **Meus contatos**, que abre o painel **já logado**: `
 mesmo mecanismo dos links mágicos do Supabase; o fragmento não vai ao servidor e a página
 `/acesso` grava a sessão e o apaga da URL na hora. Sem sessão, abre o login normal. Abre
 a gaveta na guia certa (`abaGaveta` no store) e some — a gaveta toma o lugar dela; o X da
-gaveta traz a barra de volta. O `#app` cede `LARGURA_TRILHO` px fechada e 353 px aberta
+gaveta traz a barra de volta. **Clicar em qualquer ponto livre da barra (fora dos botões)
+abre a gaveta nas mensagens rápidas**, como na barra do topo. O `#app` cede `LARGURA_TRILHO` px fechada e 353 px aberta
 (estilo injetado em `montarTopBar()`).
 
 **Quatro raízes React**, cada uma em seu shadow root (CSS isolado do WhatsApp):
