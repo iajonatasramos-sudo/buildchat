@@ -39,6 +39,23 @@ src/
   styles/tokens.css       tokens do BuildClinic + temas + zoom + classes .bc-cat-*
 ```
 
+**Barra do topo** (`TopBar.tsx`): marca, chips das pastas (filtro), "+" (Minhas pastas), conta e
+a **engrenagem** das configurações (`modalConfiguracoes` no store — o ⚡ que ficava ali saiu,
+a barra lateral já cobre). **Clicar em qualquer ponto livre da barra abre as mensagens
+rápidas** (o handler ignora cliques dentro de `button/a/input`). O estado do WPP e a nuvem
+do sync saíram da barra: viraram `IndicadoresEstado`, mostrados no **pé da barra lateral**
+(empilhados) e no rodapé da gaveta quando ela está aberta.
+
+**Filtro por várias pastas**: `pastasAtivas` (store) é uma lista; chip clicado entra/sai
+(`alternarPastaAtiva`). Com mais de uma, `PastaPanel` mostra só as conversas que estão em
+**todas** (E, não OU) — o cabeçalho lista os nomes com " + ". O menu "Filtrar conversas" do
+cabeçalho tem caixas de marcar e fica aberto para combinar; "Todas as conversas" limpa.
+
+**Minhas pastas** (`src/ui/Pastas.tsx`, pelo "+" da barra do topo): criar pasta (nome + cor
+da paleta) e apagar, sem passar pelo painel. A criada aqui é pessoal; `db.podeApagarTag()`
+decide o ✕: pessoal = do dono, padrão = só o admin (o usuário comum nem vê o botão; a RLS
+recusaria de qualquer forma).
+
 **Barra lateral** (`TrilhoLateral` em `App.tsx`, como no BuildSales): fixa na borda direita
 **enquanto a gaveta está fechada**, com Contato / Mensagens rápidas / Conta do WhatsApp e, abaixo
 de um separador, o atalho **Meus contatos**, que abre o painel **já logado**: `urlDoPainel()`
@@ -118,8 +135,11 @@ valores de exemplo, a extensão roda 100% local** e o botão "Entrar" nem aparec
 `servidorConfigurado()` é o interruptor.
 
 **Com servidor configurado, o login é obrigatório para usar** (`App.tsx`): sem perfil não há
-barra lateral nem gaveta, e ⚡ do compose, menus do cabeçalho, anotações e proposta abrem o
-login em vez de funcionar. O WhatsApp em si segue livre (a tela do QR precisa funcionar).
+barra lateral nem gaveta, e ⚡ do compose, chips e engrenagem da barra do topo, menus e
+botões do cabeçalho (inclusive fixar), picker `/`, anotações, proposta, transcrição e o
+motor das automações abrem o login em vez de funcionar (`exigirLogin()` nas barras;
+`logadoRef` no picker; `logado()` no motor; `perfilAtual` na transcrição). O WhatsApp em si
+segue livre (a tela do QR precisa funcionar).
 Criar a própria conta dá **7 dias de teste** com os recursos do Pro (`0019`); virar
 assinante muda só o `status` da mesma empresa — nada do teste é apagado (teste em
 `teste-gratis.test.mjs`).
@@ -316,6 +336,13 @@ exclusão lógica por `deleted_at`, e vínculo pasta↔conversa por **número co
   renderização e o observer reaplica; `chrome.storage.onChanged` em `bc2_contatos` refaz o
   mapa quando a ficha muda.
 - `ultimo_contato` é gravado a cada envio pela extensão — é o que alimenta o CRM.
+- **Anotações têm autor** (`0025`): a extensão assina `autor_id` ao criar (`autorId`/`autorNome`
+  na `NotaContato`; o pull traz `usuarios(nome)` embutido) e mostra data **e hora em
+  Brasília** (`formatarDataHora`) com o nome de quem escreveu. **Só o autor e o admin editam
+  ou apagam** — policies separadas (`anotacoes_ver/criar/editar/apagar`); inserir exige
+  `autor_id = auth.uid()`. Por isso o envio da fila faz **update primeiro** (texto) e só
+  insere se a linha não existe e a nota é minha — um upsert do admin trocaria a assinatura.
+  `reenviarTudoLocal` reenfileira só as minhas. A UI esconde Editar/Deletar dos demais.
 - **Todo contato conversado sobe** (regra do CRM): ao abrir uma conversa com conta logada
   (`definirContato` no App) e, 1×/hora, todas as conversas de contato do WhatsApp conectado
   (`registrarTodasConversas`) — com nome do WhatsApp e telefone. Grupos ficam de fora.
@@ -492,3 +519,9 @@ npm i puppeteer-core && npx @puppeteer/browsers install chrome@stable
 O Chrome do usuário **não** carrega a extensão por linha de comando; usar o
 **Chrome for Testing**. Para envio real é preciso escanear o QR. Sem login, ainda dá para
 medir layout, tema, presença das raízes e o estado do WPP (`window.WPP`).
+
+**Cuidado ao logar numa conta real pelo Chrome de teste**: o `dist/` de desenvolvimento
+ainda carrega o `seed/` (o zip não), e um perfil novo do Chrome semeia as 23 pastas do
+Dental Chat — o primeiro login **adota** tudo isso como pastas pessoais da conta no
+servidor. Antes de logar, grave `bc2_seeded: true` e `bc2_sync_estado: { adotado: true }`
+no `chrome.storage.local`, ou apague depois as pastas criadas (já aconteceu com a Patricia).

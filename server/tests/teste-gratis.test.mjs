@@ -50,7 +50,7 @@ describe('virar assinante preserva o que foi feito no teste', () => {
     await h.como(dono, `insert into categorias (empresa_id, escopo, owner_id, nome, cor, ordem) values ($1, 'empresa', null, 'Saudações', '#0c0', 0)`, [empresa]);
     await h.como(dono, `insert into respostas (empresa_id, escopo, owner_id, titulo) values ($1, 'empresa', null, 'Bom dia')`, [empresa]);
     await h.como(dono, `insert into contatos (empresa_id, wa_number, remote_jid, nome) values ($1, '5511900000000', '5511911111111@c.us', 'Paciente')`, [empresa]);
-    await h.como(dono, `insert into anotacoes (empresa_id, wa_number, remote_jid, texto) values ($1, '5511900000000', '5511911111111@c.us', 'Quer implante')`, [empresa]);
+    await h.como(dono, `insert into anotacoes (empresa_id, wa_number, remote_jid, texto, autor_id) values ($1, '5511900000000', '5511911111111@c.us', 'Quer implante', $2)`, [empresa, dono]);
     contagem = await contar();
     assert.deepEqual(contagem, { pastas: 1, categorias: 1, respostas: 1, contatos: 1, anotacoes: 1 });
   });

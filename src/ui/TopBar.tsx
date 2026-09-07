@@ -1,12 +1,27 @@
 // Cabeçalho do BuildChat no topo do WhatsApp Web (largura total, como na
-// referência): marca, chips de pastas/etiquetas com contador e status do WPP.
-// O #app do WhatsApp é empurrado para baixo via CSS injetado no main.tsx.
+// referência): marca, chips de pastas/etiquetas com contador, conta e a
+// engrenagem das configurações. Clicar em qualquer ponto livre da barra abre
+// as mensagens rápidas. O #app do WhatsApp é empurrado para baixo via CSS
+// injetado no main.tsx. O estado do WPP e da nuvem mora em `IndicadoresEstado`,
+// que a barra lateral e o rodapé da gaveta mostram.
 
 import { useEffect, useState } from 'react';
-import { Cloud, CloudOff, Loader2, ShieldAlert, Zap } from 'lucide-react';
+import { Cloud, CloudOff, Loader2, Plus, Settings as SettingsIcon, ShieldAlert } from 'lucide-react';
 import { cn, emPx } from '@/lib/utils';
 import * as db from '@/lib/db';
-import { estadoSync, gavetaAberta, pastaAtiva, type EstadoSync } from '@/lib/store';
+import { servidorConfigurado } from '@/lib/config';
+import {
+  abaGaveta,
+  alternarPastaAtiva,
+  estadoSync,
+  gavetaAberta,
+  modalConfiguracoes,
+  modalConta,
+  modalPastas,
+  pastasAtivas,
+  perfilAtual,
+  type EstadoSync,
+} from '@/lib/store';
 import { bridgeDisponivel } from '@/lib/wa';
 import { ContaBotao } from './Conta';
 import type { TagOpt } from '@/lib/types';
@@ -15,17 +30,24 @@ import type { TagOpt } from '@/lib/types';
  *  mede ALTURA_TOPBAR/ZOOM, pois o .bc-root está ampliado em ZOOM. */
 export const ALTURA_TOPBAR = 50;
 
+/** Sem conta, qualquer recurso leva ao login. Devolve se pode seguir. */
+function exigirLogin(): boolean {
+  if (servidorConfigurado() && !perfilAtual.get()) {
+    modalConta.set(true);
+    return false;
+  }
+  return true;
+}
+
 export function TopBar() {
   const [tags, setTags] = useState<TagOpt[]>([]);
   const [contagem, setContagem] = useState<Record<string, number>>({});
-  const [ativa, setAtiva] = useState<string | null>(pastaAtiva.get());
-  const [wppOk, setWppOk] = useState(bridgeDisponivel());
+  const [ativas, setAtivas] = useState<string[]>(pastasAtivas.get());
   const [gaveta, setGaveta] = useState(gavetaAberta.get());
-  const [sync, setSync] = useState<EstadoSync>(estadoSync.get());
-
-  useEffect(() => estadoSync.subscribe(setSync), []);
+  const [configAberta, setConfigAberta] = useState(modalConfiguracoes.get());
 
   useEffect(() => gavetaAberta.subscribe(setGaveta), []);
+  useEffect(() => modalConfiguracoes.subscribe(setConfigAberta), []);
 
   useEffect(() => {
     const carregar = async () => {
@@ -42,19 +64,27 @@ export function TopBar() {
       if ('bc2_tags' in changes || 'bc2_contact_tags' in changes) carregar();
     };
     chrome.storage.onChanged.addListener(onChange as any);
-    const unsub = pastaAtiva.subscribe(setAtiva);
-    const intervalo = window.setInterval(() => setWppOk(bridgeDisponivel()), 2000);
+    const unsub = pastasAtivas.subscribe(setAtivas);
     return () => {
       chrome.storage.onChanged.removeListener(onChange as any);
       unsub();
-      window.clearInterval(intervalo);
     };
   }, []);
 
+  // Clique em área livre da barra (fora de botões) = abrir as mensagens rápidas.
+  const abrirRapidas = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('button, a, input')) return;
+    if (!exigirLogin()) return;
+    abaGaveta.set('rapidas');
+    gavetaAberta.set(true);
+  };
+
   return (
     <div
-      className="flex items-center gap-2 border-b border-border bg-surface px-3"
+      className="flex cursor-pointer items-center gap-2 border-b border-border bg-surface px-3"
       style={{ height: emPx(ALTURA_TOPBAR) }}
+      onClick={abrirRapidas}
+      title="Abrir mensagens rápidas"
     >
       <span className="inline-flex flex-shrink-0 items-center gap-1.5 text-[13px] font-bold text-text">
         <img
@@ -68,15 +98,17 @@ export function TopBar() {
       <span className="h-5 w-px flex-shrink-0 bg-border" />
 
       <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto py-1 [scrollbar-width:none]">
-        <Chip ativo={ativa === null} onClick={() => pastaAtiva.set(null)}>
+        <Chip ativo={ativas.length === 0} onClick={() => exigirLogin() && pastasAtivas.set([])}>
           Todas
         </Chip>
+        {/* Mais de uma pasta marcada = só as conversas que estão em todas elas. */}
         {tags.map((t) => (
           <Chip
             key={t.id}
-            ativo={ativa === t.id}
+            ativo={ativas.includes(t.id)}
             cor={t.cor}
-            onClick={() => pastaAtiva.set(ativa === t.id ? null : t.id)}
+            onClick={() => exigirLogin() && alternarPastaAtiva(t.id)}
+            titulo={ativas.includes(t.id) ? 'Tirar do filtro' : 'Filtrar por esta pasta (combine com outras)'}
           >
             {t.nome}
             {contagem[t.id] ? (
@@ -84,31 +116,57 @@ export function TopBar() {
             ) : null}
           </Chip>
         ))}
+        <button
+          type="button"
+          onClick={() => exigirLogin() && modalPastas.set(true)}
+          title="Minhas pastas — criar ou apagar"
+          className="grid h-6 w-6 flex-shrink-0 place-items-center rounded-md border border-dashed border-border-strong text-muted transition hover:border-brand hover:text-brand"
+        >
+          <Plus size={13} />
+        </button>
       </div>
-
-      <span
-        className="inline-flex flex-shrink-0 items-center gap-1.5 text-[10.5px] font-semibold text-muted"
-        title={wppOk ? 'Módulo WPP conectado — envio direto ativo' : 'WPP indisponível — envio em modo compatível (texto pela caixa de mensagem)'}
-      >
-        <span className={cn('h-2 w-2 rounded-full', wppOk ? 'bg-success' : 'bg-warning')} />
-        {wppOk ? 'WPP' : 'compat.'}
-      </span>
-
-      <SyncStatus estado={sync} />
 
       <ContaBotao />
 
       <button
         type="button"
-        onClick={() => gavetaAberta.set(!gaveta)}
-        title={gaveta ? 'Fechar mensagens rápidas' : 'Abrir mensagens rápidas'}
+        onClick={() => exigirLogin() && modalConfiguracoes.set(!configAberta)}
+        title="Configurações"
         className={cn(
           'grid h-7 w-7 flex-shrink-0 place-items-center rounded-md transition',
-          gaveta ? 'bg-brand text-white' : 'text-text-2 hover:bg-surface-2',
+          configAberta ? 'bg-brand text-white' : 'text-text-2 hover:bg-surface-2',
+          gaveta && 'opacity-90',
         )}
       >
-        <Zap size={14} />
+        <SettingsIcon size={15} />
       </button>
+    </div>
+  );
+}
+
+/**
+ * Bolinha do WPP e nuvem da sincronização. Ficam na barra lateral (empilhadas,
+ * no rodapé) e no rodapé da gaveta quando ela está aberta.
+ */
+export function IndicadoresEstado({ vertical = false }: { vertical?: boolean }) {
+  const [wppOk, setWppOk] = useState(bridgeDisponivel());
+  const [sync, setSync] = useState<EstadoSync>(estadoSync.get());
+  useEffect(() => estadoSync.subscribe(setSync), []);
+  useEffect(() => {
+    const intervalo = window.setInterval(() => setWppOk(bridgeDisponivel()), 2000);
+    return () => window.clearInterval(intervalo);
+  }, []);
+
+  return (
+    <div className={cn('flex items-center', vertical ? 'flex-col gap-2' : 'gap-2.5')}>
+      <span
+        className={cn('inline-flex items-center gap-1 font-semibold text-muted', vertical ? 'flex-col gap-0.5 text-[8.5px]' : 'text-[10px]')}
+        title={wppOk ? 'Módulo WPP conectado — envio direto ativo' : 'WPP indisponível — envio em modo compatível (texto pela caixa de mensagem)'}
+      >
+        <span className={cn('h-2 w-2 rounded-full', wppOk ? 'bg-success' : 'bg-warning')} />
+        {wppOk ? 'WPP' : 'compat.'}
+      </span>
+      <SyncStatus estado={sync} />
     </div>
   );
 }
@@ -124,7 +182,7 @@ function SyncStatus({ estado }: { estado: EstadoSync }) {
   const { Icone, cor, titulo } = mapa[estado];
   return (
     <span className={cn('flex-shrink-0', cor)} title={titulo}>
-      <Icone size={14} className={estado === 'sincronizando' ? 'animate-spin' : undefined} />
+      <Icone size={15} className={estado === 'sincronizando' ? 'animate-spin' : undefined} />
     </span>
   );
 }
@@ -134,11 +192,13 @@ function Chip({
   ativo,
   cor,
   onClick,
+  titulo,
 }: {
   children: React.ReactNode;
   ativo?: boolean;
   cor?: string;
   onClick?: () => void;
+  titulo?: string;
 }) {
   // Todas as pastas com fundo sólido na própria cor e texto branco (como o
   // chip "Todas"); a ativa ganha um anel branco para se destacar.
@@ -147,6 +207,7 @@ function Chip({
     <button
       type="button"
       onClick={onClick}
+      title={titulo}
       className={cn(
         'inline-flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 py-0.5 text-[11.5px] font-bold text-white transition',
         !cor && 'border-brand bg-brand',

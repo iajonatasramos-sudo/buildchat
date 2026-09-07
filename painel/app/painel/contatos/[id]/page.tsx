@@ -469,9 +469,12 @@ export default function FichaDoLead({ params }: { params: Promise<{ id: string }
                       <span>
                         {formatarData(n.criado_em)} · {nomeDe(n.autor_id)}
                       </span>
-                      <button onClick={() => apagarNota(n)} className="ml-auto font-medium hover:text-perigo">
-                        apagar
-                      </button>
+                      {/* Só quem escreveu e o admin apagam (a RLS garante; aqui só escondemos). */}
+                      {perfil && (n.autor_id === perfil.id || ehAdmin(perfil)) && (
+                        <button onClick={() => apagarNota(n)} className="ml-auto font-medium hover:text-perigo">
+                          apagar
+                        </button>
+                      )}
                     </div>
                   </li>
                 ))}

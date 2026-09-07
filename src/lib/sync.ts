@@ -9,7 +9,7 @@ import * as db from './db';
 import { supabase } from './auth';
 import { avaliarLicenca, carregarPerfil, type Perfil } from './auth';
 import { getInfoConta, listarChats } from './wa';
-import { estadoSync } from './store';
+import { estadoSync, perfilAtual } from './store';
 import type { AcaoDC, CategoriaDC, FichaContato, RespostaDC, TagOpt } from './types';
 
 type OpSemMeta =
@@ -300,17 +300,26 @@ async function enviarFila(perfil: Perfil): Promise<void> {
         if (!wa) { restantes.push(op); continue; }
         const notas = (await db.mapaNotas())[op.remoteJid] ?? [];
         const nota = notas.find((n) => n.id === op.id);
-        if (nota) {
-          const { error } = await sb.from('anotacoes').upsert({
-            id: nota.id,
-            empresa_id: perfil.empresa.id,
-            wa_number: wa,
-            remote_jid: op.remoteJid,
-            texto: nota.conteudo,
-            autor_id: perfil.id,
-            deleted_at: null,
-          });
-          if (error) throw error;
+        // Nota de outro autor: quem sobe é ele (o admin edita pelo update abaixo,
+        // sem trocar a assinatura). Nada a inserir em nome dele.
+        if (nota && (!nota.autorId || nota.autorId === perfil.id || perfil.papel === 'admin')) {
+          // Primeiro tenta alterar (a RLS só deixa o autor e o admin); se a
+          // linha ainda não existe, insere assinando como autor.
+          const { data: alteradas, error: erroUpd } = await sb.from('anotacoes')
+            .update({ texto: nota.conteudo, deleted_at: null }).eq('id', nota.id).select('id');
+          if (erroUpd) throw erroUpd;
+          if (!alteradas?.length && (!nota.autorId || nota.autorId === perfil.id)) {
+            const { error } = await sb.from('anotacoes').insert({
+              id: nota.id,
+              empresa_id: perfil.empresa.id,
+              wa_number: wa,
+              remote_jid: op.remoteJid,
+              texto: nota.conteudo,
+              autor_id: perfil.id,
+              deleted_at: null,
+            });
+            if (error) throw error;
+          }
         }
       } else if (op.op === 'contato.upsert') {
         if (!wa) { restantes.push(op); continue; }
@@ -436,9 +445,11 @@ export async function reenviarTudoLocal(): Promise<number> {
   const [notas, fichas, vinculos] = await Promise.all([db.mapaNotas(), db.mapaFichas(), db.mapaTagsContatos()]);
   const fila = await ler<Op[]>(K_OUTBOX, []);
   const novas: Op[] = [];
+  const eu = perfilAtual.get()?.id ?? null;
   for (const [jid, lista] of Object.entries(notas)) {
     if (jid.startsWith('wa:')) continue;
-    for (const n of lista) novas.push({ op: 'anotacao.upsert', id: n.id, remoteJid: jid });
+    // Só as minhas (ou sem autor, das versões antigas): as dos colegas já estão lá.
+    for (const n of lista) if (!n.autorId || n.autorId === eu) novas.push({ op: 'anotacao.upsert', id: n.id, remoteJid: jid });
   }
   for (const jid of Object.keys(fichas)) if (!jid.startsWith('wa:')) novas.push({ op: 'contato.upsert', remoteJid: jid });
   for (const [jid, pastas] of Object.entries(vinculos)) {
@@ -673,7 +684,7 @@ async function puxar(perfil: Perfil, desde: string | null): Promise<string> {
   if (wa) {
     let qa = sb
       .from('anotacoes')
-      .select('id, remote_jid, texto, criado_em, deleted_at');
+      .select('id, remote_jid, texto, criado_em, deleted_at, autor_id, usuarios(nome)');
     if (desde) qa = qa.gt('atualizado_em', desde);
     const { data: notas, error: erroNotas } = await qa;
     if (erroNotas) throw erroNotas;
@@ -681,7 +692,16 @@ async function puxar(perfil: Perfil, desde: string | null): Promise<string> {
       const mapa = await db.mapaNotas();
       for (const n of notas as any[]) {
         const lista = (mapa[n.remote_jid] ?? []).filter((x) => x.id !== n.id);
-        if (!n.deleted_at) lista.unshift({ id: n.id, conteudo: n.texto, criadoEm: n.criado_em });
+        if (!n.deleted_at) {
+          lista.unshift({
+            id: n.id,
+            conteudo: n.texto,
+            criadoEm: n.criado_em,
+            autorId: n.autor_id ?? null,
+            autorNome: n.usuarios?.nome ?? null,
+          });
+          lista.sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
+        }
         if (lista.length) mapa[n.remote_jid] = lista;
         else delete mapa[n.remote_jid];
       }

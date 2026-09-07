@@ -49,12 +49,12 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { cn, formatarTelefone } from '@/lib/utils';
+import { cn, formatarDataHora, formatarTelefone } from '@/lib/utils';
 import { toast } from './toast';
 import { AutomacoesView } from './Automacoes';
 import * as db from '@/lib/db';
 import { enviarArquivo, getInfoConta } from '@/lib/wa';
-import { abaGaveta, modalProposta, pedirContaWhatsapp, propostasMudaram } from '@/lib/store';
+import { abaGaveta, modalProposta, pedirContaWhatsapp, perfilAtual, propostasMudaram } from '@/lib/store';
 import { TIPOS, brl } from '@/lib/propostas';
 import type { PropostaSalva } from '@/lib/types';
 import { minhasEquipes } from '@/lib/sync';
@@ -1210,6 +1210,10 @@ function ContatoGuia({
   const [tagsContato, setTagsContato] = useState<string[]>([]);
   const [notas, setNotas] = useState<NotaContato[]>([]);
   const [novaNota, setNovaNota] = useState('');
+  // Quem sou: decide se posso apagar cada anotação (autor ou admin) e pasta padrão.
+  const [perfil, setPerfil] = useState(perfilAtual.get());
+  useEffect(() => perfilAtual.subscribe(setPerfil), []);
+  const possoMexerNaNota = (n: NotaContato) => !n.autorId || n.autorId === perfil?.id || perfil?.papel === 'admin';
   const [ficha, setFicha] = useState<FichaContato | null>(null);
   const [editandoNome, setEditandoNome] = useState(false);
   const [nomeRascunho, setNomeRascunho] = useState('');
@@ -1496,7 +1500,7 @@ function ContatoGuia({
                     onClick={() => alternarTag(t.id)}
                     className={cn(
                       'border bg-surface px-2.5 py-0.5 text-[11.5px] font-semibold transition hover:text-white',
-                      t.padrao ? 'rounded-md' : 'rounded-l-md',
+                      db.podeApagarTag(t) ? 'rounded-l-md' : 'rounded-md',
                     )}
                     style={{ borderColor: t.cor, color: t.cor }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = t.cor)}
@@ -1505,13 +1509,13 @@ function ContatoGuia({
                   >
                     {t.nome}
                   </button>
-                  {/* Pasta pessoal: só o dono apaga — e é aqui que ele faz isso. */}
-                  {!t.padrao && (
+                  {/* Pessoal: o dono apaga. Padrão: só o admin (o usuário comum nem vê o ✕). */}
+                  {db.podeApagarTag(t) && (
                     <button
                       type="button"
-                      title="Apagar esta pasta (só você a vê)"
+                      title={t.padrao ? 'Apagar pasta padrão (você é admin)' : 'Apagar esta pasta (só você a vê)'}
                       onClick={() => {
-                        if (!window.confirm(`Apagar a pasta "${t.nome}"? As conversas continuam, só perdem a etiqueta.`)) return;
+                        if (!window.confirm(`Apagar a pasta "${t.nome}"${t.padrao ? ' para toda a clínica' : ''}? As conversas continuam, só perdem a etiqueta.`)) return;
                         db.removerTag(t.id).then(() => {
                           onTagsMudaram();
                           toast.success('Pasta apagada.');
@@ -1638,44 +1642,50 @@ function ContatoGuia({
         </GuiaSecao>
       )}
 
-      <GuiaSecao titulo="Notas" Icon={NotebookPen} cor="var(--green)" contador={notas.length}>
+      <GuiaSecao titulo="Anotações" Icon={NotebookPen} cor="var(--green)" contador={notas.length}>
         <div className="mb-2 flex gap-1.5">
           <input
             value={novaNota}
             onChange={(e) => setNovaNota(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && addNota()}
-            placeholder="Nova nota sobre o contato…"
+            placeholder="Nova anotação sobre o contato…"
             className="h-8 min-w-0 flex-1 rounded-md border border-border-strong bg-surface px-2.5 text-[12px] outline-none focus:border-brand"
           />
           <button
             type="button"
             onClick={addNota}
             className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-md bg-brand text-white hover:opacity-90"
-            title="Adicionar nota"
+            title="Adicionar anotação"
           >
             <Plus size={14} />
           </button>
         </div>
         {notas.length === 0 ? (
-          <span className="text-[12px] text-muted">Nenhuma nota ainda.</span>
+          <span className="text-[12px] text-muted">Nenhuma anotação ainda.</span>
         ) : (
           <div className="space-y-2">
             {notas.map((n) => (
               <div key={n.id} className="group rounded-md border border-border bg-surface-2 p-2">
                 <div className="whitespace-pre-wrap break-words text-[12px] text-text-2">{n.conteudo}</div>
-                <div className="mt-1 flex items-center justify-between text-[10px] text-muted">
-                  {new Date(n.criadoEm).toLocaleDateString('pt-BR')}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      db.removerNota(contato!.chatId, n.id);
-                      setNotas((arr) => arr.filter((x) => x.id !== n.id));
-                    }}
-                    className="opacity-0 transition group-hover:opacity-100 hover:text-danger"
-                    title="Remover nota"
-                  >
-                    <Trash2 size={11} />
-                  </button>
+                {/* Data e hora (Brasília) e quem escreveu; só o autor e o admin apagam. */}
+                <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-muted">
+                  <span className="min-w-0 truncate">
+                    {formatarDataHora(n.criadoEm)}
+                    {n.autorNome && <span> · {n.autorNome}</span>}
+                  </span>
+                  {possoMexerNaNota(n) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        db.removerNota(contato!.chatId, n.id);
+                        setNotas((arr) => arr.filter((x) => x.id !== n.id));
+                      }}
+                      className="flex-shrink-0 opacity-0 transition group-hover:opacity-100 hover:text-danger"
+                      title="Remover anotação"
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

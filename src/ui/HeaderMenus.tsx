@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Check, Loader2, Search, Trash2 } from 'lucide-react';
 import { cn, emPx } from '@/lib/utils';
 import * as db from '@/lib/db';
-import { menuHeader, pastaAtiva, type MenuHeader } from '@/lib/store';
+import { alternarPastaAtiva, menuHeader, pastasAtivas, type MenuHeader } from '@/lib/store';
 import type { ContatoAtivo, TagOpt } from '@/lib/types';
 import type { MsgApagada } from '@/lib/db';
 
@@ -145,11 +145,16 @@ function MenuEtiquetas({ contato }: { contato: ContatoAtivo | null }) {
   );
 }
 
-/** Atalho de filtro: escolhe uma pasta e ativa o filtro global (pastaAtiva). */
+/**
+ * Atalho de filtro: marca pastas no filtro global (pastasAtivas). Dá para
+ * combinar várias — só aparecem as conversas que estão em todas — por isso o
+ * menu fica aberto ao marcar; "Todas as conversas" limpa e fecha.
+ */
 function MenuFiltros({ onEscolher }: { onEscolher: () => void }) {
   const [tags, setTags] = useState<TagOpt[]>([]);
   const [contagem, setContagem] = useState<Record<string, number>>({});
-  const ativa = pastaAtiva.get();
+  const [ativas, setAtivas] = useState<string[]>(pastasAtivas.get());
+  useEffect(() => pastasAtivas.subscribe(setAtivas), []);
 
   useEffect(() => {
     (async () => {
@@ -161,21 +166,21 @@ function MenuFiltros({ onEscolher }: { onEscolher: () => void }) {
     })();
   }, []);
 
-  function escolher(id: string | null) {
-    pastaAtiva.set(id);
+  function limpar() {
+    pastasAtivas.set([]);
     onEscolher();
   }
 
   return (
     <>
-      <Cabecalho titulo="Filtrar conversas" />
+      <Cabecalho titulo={ativas.length > 1 ? `Filtrar conversas · ${ativas.length} pastas combinadas` : 'Filtrar conversas'} />
       <div className="min-h-0 flex-1 overflow-y-auto py-1">
         <button
           type="button"
-          onClick={() => escolher(null)}
+          onClick={limpar}
           className={cn(
             'flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12.5px] font-semibold transition hover:bg-surface-2',
-            ativa === null && 'text-brand',
+            ativas.length === 0 && 'text-brand',
           )}
         >
           Todas as conversas
@@ -184,15 +189,16 @@ function MenuFiltros({ onEscolher }: { onEscolher: () => void }) {
           <button
             key={t.id}
             type="button"
-            onClick={() => escolher(t.id)}
+            onClick={() => alternarPastaAtiva(t.id)}
+            title="Marque mais de uma para ver só quem está em todas"
             className="flex w-full items-center gap-2 px-3 py-1.5 text-left transition hover:bg-surface-2"
           >
+            <span className={cn('grid h-4 w-4 flex-shrink-0 place-items-center rounded border', ativas.includes(t.id) ? 'border-brand bg-brand text-white' : 'border-border-strong')}>
+              {ativas.includes(t.id) && <Check size={11} />}
+            </span>
             <span className="min-w-0 flex-1">
               <span
-                className={cn(
-                  'inline-block max-w-full truncate rounded-md px-2 py-0.5 align-middle text-[12px] font-bold text-white',
-                  ativa === t.id && 'ring-2 ring-white/70',
-                )}
+                className="inline-block max-w-full truncate rounded-md px-2 py-0.5 align-middle text-[12px] font-bold text-white"
                 style={{ background: t.cor }}
               >
                 {t.nome}

@@ -22,8 +22,15 @@ function criarSinal<T>(inicial: T) {
   };
 }
 
-/** Etiqueta (tagId) usada como "pasta" ativa; null = Todas (lista nativa). */
-export const pastaAtiva = criarSinal<string | null>(null);
+/**
+ * Pastas (tagIds) usadas como filtro da lista de conversas; vazio = Todas (lista
+ * nativa). Com mais de uma, só aparecem as conversas que estão em TODAS elas.
+ */
+export const pastasAtivas = criarSinal<string[]>([]);
+export function alternarPastaAtiva(id: string) {
+  const atual = pastasAtivas.get();
+  pastasAtivas.set(atual.includes(id) ? atual.filter((x) => x !== id) : [...atual, id]);
+}
 
 /** Tema atual do WhatsApp Web ('light' | 'dark'). */
 export const tema = criarSinal<'light' | 'dark'>('light');
@@ -43,6 +50,10 @@ export const menuHeader = criarSinal<MenuHeader>(null);
 
 /** Modal de Anotações da conversa aberta. */
 export const modalAnotacoes = criarSinal<boolean>(false);
+/** Modal de Configurações (engrenagem na barra do topo). */
+export const modalConfiguracoes = criarSinal<boolean>(false);
+/** Modal "Minhas pastas" (criar e apagar pastas na própria extensão). */
+export const modalPastas = criarSinal<boolean>(false);
 
 /** Perfil carregado do servidor (null = sem login / modo local). */
 import type { Perfil } from './auth';

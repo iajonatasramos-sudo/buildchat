@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Loader2, MessageSquare, X } from 'lucide-react';
 import { cn, emPx } from '@/lib/utils';
 import * as db from '@/lib/db';
-import { pastaAtiva } from '@/lib/store';
+import { pastasAtivas } from '@/lib/store';
 import { abrirChat, bridgeDisponivel, fotosDosContatos, listarChats, type ChatResumo } from '@/lib/wa';
 import type { TagOpt } from '@/lib/types';
 
@@ -26,8 +26,10 @@ function iniciais(nome: string): string {
   return ((partes[0]?.[0] ?? '') + (partes[1]?.[0] ?? '')).toUpperCase() || '?';
 }
 
-export function PastaPanel({ tagId }: { tagId: string }) {
-  const [tag, setTag] = useState<TagOpt | null>(null);
+/** `tagIds`: uma ou mais pastas; com várias, só entram as conversas que estão em TODAS. */
+export function PastaPanel({ tagIds }: { tagIds: string[] }) {
+  const [tagsFiltro, setTagsFiltro] = useState<TagOpt[]>([]);
+  const chave = tagIds.join(',');
   const [chats, setChats] = useState<ChatResumo[] | null>(null);
   const [fotos, setFotos] = useState<Record<string, string | null>>({});
   const [rect, setRect] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
@@ -60,25 +62,27 @@ export function PastaPanel({ tagId }: { tagId: string }) {
       }
       const [tags, mapa, todos] = await Promise.all([db.listarTags(), db.mapaTagsContatos(), listarChats()]);
       if (!vivo) return;
-      setTag(tags.find((t) => t.id === tagId) ?? null);
+      setTagsFiltro(tagIds.map((id) => tags.find((t) => t.id === id)).filter((t): t is TagOpt => !!t));
       // O contato pode estar registrado pelo id do WPP ("...@c.us") ou por
       // chaves legadas "wa:<nome>" / "wa:<telefone em vários formatos>".
       const soDigitos = (s: string) => s.replace(/\D/g, '');
-      const chavesDaTag: { texto: string; digitos: string }[] = [];
+      const chavesPorTag = new Map<string, { texto: string; digitos: string }[]>(tagIds.map((id) => [id, []]));
       for (const [chave, ids] of Object.entries(mapa)) {
-        if (!ids.includes(tagId)) continue;
         const texto = chave.replace(/^wa:/, '').trim();
-        chavesDaTag.push({ texto, digitos: soDigitos(texto) });
+        const item = { texto, digitos: soDigitos(texto) };
+        for (const id of ids) chavesPorTag.get(id)?.push(item);
       }
-      const temTag = (c: ChatResumo) => {
+      const temTag = (c: ChatResumo, chaves: { texto: string; digitos: string }[]) => {
         const usuario = c.chatId.split('@')[0] ?? '';
         const candidatos = new Set([c.chatId, c.nome.trim(), (c.telefone ?? '').trim()]);
         const candidatosDigitos = new Set([soDigitos(c.telefone ?? ''), soDigitos(usuario)].filter((d) => d.length >= 8));
-        return chavesDaTag.some(
+        return chaves.some(
           (k) => candidatos.has(k.texto) || (k.digitos.length >= 8 && candidatosDigitos.has(k.digitos)),
         );
       };
-      const filtrados = todos.filter(temTag).sort((a, b) => (b.ultimaTs ?? 0) - (a.ultimaTs ?? 0));
+      // E, não OU: a conversa precisa estar em todas as pastas marcadas.
+      const emTodas = (c: ChatResumo) => tagIds.every((id) => temTag(c, chavesPorTag.get(id) ?? []));
+      const filtrados = todos.filter(emTodas).sort((a, b) => (b.ultimaTs ?? 0) - (a.ultimaTs ?? 0));
       // O vínculo é casado pelo nome do WhatsApp (acima); a EXIBIÇÃO usa o nome
       // de tratamento da ficha, quando existe.
       const nomes = await db.nomesDasFichas();
@@ -89,7 +93,9 @@ export function PastaPanel({ tagId }: { tagId: string }) {
     return () => {
       vivo = false;
     };
-  }, [tagId]);
+  }, [chave]);
+
+  const corPrincipal = tagsFiltro[0]?.cor ?? 'var(--brand)';
 
   if (!rect) return null;
 
@@ -99,12 +105,18 @@ export function PastaPanel({ tagId }: { tagId: string }) {
       style={{ left: rect.left, top: rect.top, width: rect.width, height: rect.height }}
     >
       <div className="flex flex-shrink-0 items-center gap-2 border-b border-border bg-surface-2 px-3 py-2">
-        {tag && <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ background: tag.cor }} />}
-        <span className="min-w-0 flex-1 truncate text-[13px] font-bold">{tag?.nome ?? 'Pasta'}</span>
+        <span className="flex flex-shrink-0 items-center -space-x-1">
+          {tagsFiltro.map((t) => (
+            <span key={t.id} className="h-2.5 w-2.5 rounded-full ring-1 ring-surface-2" style={{ background: t.cor }} />
+          ))}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-[13px] font-bold" title={tagsFiltro.map((t) => t.nome).join(' + ')}>
+          {tagsFiltro.length ? tagsFiltro.map((t) => t.nome).join(' + ') : 'Pasta'}
+        </span>
         <span className="text-[11px] text-muted">{chats?.length ?? '…'} conversa(s)</span>
         <button
           type="button"
-          onClick={() => pastaAtiva.set(null)}
+          onClick={() => pastasAtivas.set([])}
           className="grid h-7 w-7 place-items-center rounded-md text-muted transition hover:bg-surface"
           title="Fechar filtro"
         >
@@ -122,7 +134,7 @@ export function PastaPanel({ tagId }: { tagId: string }) {
             <MessageSquare size={20} />
             {bridgeDisponivel() ? (
               <>
-                Nenhuma conversa com esta etiqueta.
+                {tagIds.length > 1 ? 'Nenhuma conversa está em todas essas pastas ao mesmo tempo.' : 'Nenhuma conversa com esta etiqueta.'}
                 <span className="max-w-[240px] text-[11px]">
                   Aplique etiquetas pela guia Contato ou por respostas rápidas com etiqueta.
                 </span>
@@ -156,7 +168,7 @@ export function PastaPanel({ tagId }: { tagId: string }) {
               ) : (
                 <span
                   className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full text-[13px] font-bold text-white"
-                  style={{ background: tag?.cor ?? 'var(--brand)' }}
+                  style={{ background: corPrincipal }}
                 >
                   {iniciais(c.nome)}
                 </span>

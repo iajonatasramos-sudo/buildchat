@@ -68,6 +68,9 @@ export type NotaContato = {
   id: string;
   conteudo: string;
   criadoEm: string;
+  /** Quem escreveu (id do usuário no servidor). Só ele e o admin editam/apagam. */
+  autorId?: string | null;
+  autorNome?: string | null;
 };
 
 /** Ficha do contato — nome de tratamento, interesses e último envio. */

@@ -2,7 +2,7 @@
 // do Saleschat, picker "/" e configurações (webhook / caractere de atalho).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BookUser, Bot, Loader2, Settings as SettingsIcon, Smartphone, User, X, Zap } from 'lucide-react';
+import { BookUser, Bot, Loader2, Smartphone, User, X, Zap } from 'lucide-react';
 import { cn, emPx } from '@/lib/utils';
 import * as db from '@/lib/db';
 import { iniciarMotor } from '@/lib/automacoes/motor';
@@ -15,12 +15,13 @@ import type { ContatoAtivo, RespostaDC, Settings } from '@/lib/types';
 import { MensagensRapidasPanel } from './MensagensRapidas';
 import { QuickPicker } from './QuickPicker';
 import { PastaPanel } from './PastaPanel';
-import { ALTURA_TOPBAR } from './TopBar';
+import { ALTURA_TOPBAR, IndicadoresEstado } from './TopBar';
 import { HeaderMenuOverlay } from './HeaderMenus';
 import { AnotacoesModal } from './Anotacoes';
 import { ContaModal } from './Conta';
 import { PropostaModal } from './Proposta';
-import { gavetaAberta, menuHeader, modalAnotacoes, modalConta, modalProposta, perfilAtual, pastaAtiva, type MenuHeader, abaGaveta, pedirContaWhatsapp, LARGURA_TRILHO } from '@/lib/store';
+import { PastasModal } from './Pastas';
+import { gavetaAberta, menuHeader, modalAnotacoes, modalConfiguracoes, modalConta, modalPastas, modalProposta, perfilAtual, pastasAtivas, type MenuHeader, abaGaveta, pedirContaWhatsapp, LARGURA_TRILHO } from '@/lib/store';
 import { carregarPerfil, observarSessao } from '@/lib/auth';
 import { iniciarSyncPeriodico, sincronizar } from '@/lib/sync';
 import { toast, Toaster } from './toast';
@@ -39,20 +40,25 @@ export function App() {
     if (c && !c.ehGrupo && c.chatId.includes('@')) db.registrarContato(c.chatId, c.nome, c.telefone).catch(() => {});
   };
   const [settings, setSettings] = useState<Settings>({ webhookUrl: '', triggerChar: '/', tema: 'auto' });
-  const [dlgSettings, setDlgSettings] = useState(false);
+  // A engrenagem da barra do topo abre as configurações (sinal no store).
+  const [dlgSettings, setDlgSettingsLocal] = useState(modalConfiguracoes.get());
+  useEffect(() => modalConfiguracoes.subscribe(setDlgSettingsLocal), []);
+  const setDlgSettings = (v: boolean) => modalConfiguracoes.set(v);
   const [enviando, setEnviando] = useState(false);
-  const [pasta, setPasta] = useState<string | null>(pastaAtiva.get());
+  const [pastas, setPastas] = useState<string[]>(pastasAtivas.get());
   const [menu, setMenu] = useState<MenuHeader>(menuHeader.get());
 
   const [anotacoes, setAnotacoes] = useState(modalAnotacoes.get());
   const [conta, setConta] = useState(modalConta.get());
   const [proposta, setProposta] = useState(modalProposta.get());
+  const [pastasModal, setPastasModal] = useState(modalPastas.get());
 
-  useEffect(() => pastaAtiva.subscribe(setPasta), []);
+  useEffect(() => pastasAtivas.subscribe(setPastas), []);
   useEffect(() => menuHeader.subscribe(setMenu), []);
   useEffect(() => modalAnotacoes.subscribe(setAnotacoes), []);
   useEffect(() => modalConta.subscribe(setConta), []);
   useEffect(() => modalProposta.subscribe(setProposta), []);
+  useEffect(() => modalPastas.subscribe(setPastasModal), []);
 
   // Sessão: carrega o perfil ao abrir e acompanha login/logout/refresh.
   useEffect(() => {
@@ -88,9 +94,15 @@ export function App() {
     if (menu !== null) menuHeader.set(null);
     if (anotacoes) modalAnotacoes.set(false);
     if (proposta) modalProposta.set(false);
+    if (pastasModal) modalPastas.set(false);
+    if (dlgSettings) modalConfiguracoes.set(false);
+    if (pastas.length) pastasAtivas.set([]);
     modalConta.set(true);
-  }, [perfil, perfilResolvido, aberto, menu, anotacoes, proposta]);
+  }, [perfil, perfilResolvido, aberto, menu, anotacoes, proposta, pastasModal, dlgSettings, pastas]);
   const logado = !servidorConfigurado() || !!perfil;
+  // O picker "/" lê isto de dentro de um listener antigo — ref, não estado.
+  const logadoRef = useRef(logado);
+  logadoRef.current = logado;
 
   // Migra vínculos antigos de pastas (chaves "wa:") para os ids reais assim
   // que o WPP conecta — os contadores e o filtro passam a bater.
@@ -180,6 +192,11 @@ export function App() {
       const box = DOM.getComposeBox();
       if (!box || !(e.target instanceof Node) || !(e.target === box || box.contains(e.target))) return;
       const texto = (box.textContent ?? '').trim();
+      // Sem login, o picker não abre (nada da extensão funciona deslogado).
+      if (!logadoRef.current) {
+        setQuery(null);
+        return;
+      }
       if (texto.startsWith(settings.triggerChar)) {
         setQuery(texto.slice(settings.triggerChar.length).trim());
         setAtivo(0);
@@ -251,24 +268,23 @@ export function App() {
               onFechar={() => gavetaAberta.set(false)}
             />
           </div>
+          {/* Rodapé: com a gaveta aberta a barra lateral some, então o estado
+              do WPP e da nuvem aparece aqui. */}
           <div className="flex items-center justify-between rounded-lg border border-border bg-surface px-3 py-1.5 shadow-sm">
             <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-muted">
               <Zap size={12} className="text-brand" /> BuildChat
               {enviando && <Loader2 size={11} className="animate-spin" />}
             </span>
-            <button
-              type="button"
-              onClick={() => setDlgSettings(true)}
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-text-2 transition hover:bg-surface-2"
-            >
-              <SettingsIcon size={12} /> Configurações
-            </button>
+            <IndicadoresEstado />
           </div>
         </div>
       )}
 
-      {/* Pasta/filtro de conversas por etiqueta */}
-      {pasta && <PastaPanel tagId={pasta} />}
+      {/* Filtro de conversas por pasta(s) — com várias, só quem está em todas */}
+      {logado && pastas.length > 0 && <PastaPanel tagIds={pastas} />}
+
+      {/* Minhas pastas: criar/apagar na própria extensão */}
+      {pastasModal && <PastasModal />}
 
       {/* Menus da barra do cabeçalho (pastas / filtros / apagadas) */}
       {menu && <HeaderMenuOverlay menu={menu} contato={contato} />}
@@ -527,6 +543,11 @@ function TrilhoLateral() {
       >
         <BookUser size={17} />
       </button>
+
+      {/* Estado do WPP e da nuvem, no pé da barra (saíram da barra do topo). */}
+      <div className="mt-auto pb-3">
+        <IndicadoresEstado vertical />
+      </div>
     </div>
   );
 }

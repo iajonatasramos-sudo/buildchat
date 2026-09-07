@@ -31,3 +31,17 @@ export function formatarTelefone(valor: string | null | undefined): string | nul
   const meio = resto.length > 8 ? resto.slice(0, 5) : resto.slice(0, 4);
   return `+55 ${ddd} ${meio}-${resto.slice(meio.length)}`;
 }
+
+/** "07/09/2026 14:32" no horário de Brasília (UTC−3), para anotações e afins. */
+export function formatarDataHora(iso: string): string {
+  return new Date(iso)
+    .toLocaleString('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+    .replace(',', '');
+}

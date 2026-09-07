@@ -22,7 +22,7 @@ import type {
 } from './types';
 import { CORES_CATEGORIA } from './types';
 import type { PropostaSalva } from './types';
-import { propostasMudaram } from './store';
+import { perfilAtual, propostasMudaram } from './store';
 
 const K = {
   categorias: 'bc2_categorias',
@@ -186,14 +186,19 @@ export async function criarTag(nome: string, cor: string): Promise<TagOpt> {
   return nova;
 }
 
+/** Quem pode apagar a pasta aqui: a pessoal é do dono; a padrão, só o admin. */
+export function podeApagarTag(t: TagOpt): boolean {
+  return !t.padrao || perfilAtual.get()?.papel === 'admin';
+}
+
 /**
- * Apaga uma pasta PESSOAL (a padrão é do admin, pelo painel): some da lista,
- * dos vínculos locais e, pela fila, do servidor.
+ * Apaga uma pasta: some da lista, dos vínculos locais e, pela fila, do servidor.
+ * A pessoal é do dono; a padrão da clínica só o admin apaga (a RLS confere).
  */
 export async function removerTag(id: string): Promise<void> {
   const lista = await get<TagOpt[]>(K.tags, []);
   const alvo = lista.find((t) => t.id === id);
-  if (!alvo || alvo.padrao) return;
+  if (!alvo || !podeApagarTag(alvo)) return;
   await set(K.tags, lista.filter((t) => t.id !== id));
   const mapa = await get<Record<string, string[]>>(K.contactTags, {});
   for (const chave of Object.keys(mapa)) {
@@ -438,7 +443,14 @@ export async function listarNotas(chatId: string): Promise<NotaContato[]> {
 
 export async function criarNota(chatId: string, conteudo: string): Promise<NotaContato> {
   const map = await get<Record<string, NotaContato[]>>(K.notes, {});
-  const nota: NotaContato = { id: crypto.randomUUID(), conteudo, criadoEm: new Date().toISOString() };
+  const perfil = perfilAtual.get();
+  const nota: NotaContato = {
+    id: crypto.randomUUID(),
+    conteudo,
+    criadoEm: new Date().toISOString(),
+    autorId: perfil?.id ?? null,
+    autorNome: perfil?.nome ?? null,
+  };
   map[chatId] = [nota, ...(map[chatId] ?? [])];
   await set(K.notes, map);
   const { enfileirar } = await import('./sync');

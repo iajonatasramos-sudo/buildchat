@@ -13,6 +13,8 @@
 // Semântica das condições e das fases copiada de sales-automacoes.ts.
 
 import * as db from '../db';
+import { servidorConfigurado } from '@/lib/config';
+import { perfilAtual } from '@/lib/store';
 import { aplicarVariaveis } from '../types';
 import { enviarMidia, enviarTexto, getContatoAtivo } from '../wa';
 import { obterFicha } from '../db';
@@ -163,8 +165,14 @@ export type MensagemRecebida = {
   tipo: string | null;
 };
 
+/** Sem conta, o motor fica parado — nada da extensão funciona deslogado. */
+function logado(): boolean {
+  return !servidorConfigurado() || !!perfilAtual.get();
+}
+
 /** Chamado pela ponte a cada mensagem nova. Só o que vem DE FORA, de contato (não grupo). */
 export async function aoReceberMensagem(m: MensagemRecebida): Promise<void> {
+  if (!logado()) return;
   if (!m.chatId || m.deMim || m.chatId.endsWith('@g.us')) return;
   const regras = (await listarAutomacoes()).filter((r) => r.ativo && r.gatilho === 'mensagem');
   if (regras.length === 0) {
@@ -234,7 +242,7 @@ let processando = false;
  * por chamada; o laço periódico chama de novo em seguida.
  */
 export async function processarFila(): Promise<void> {
-  if (processando) return;
+  if (processando || !logado()) return;
   processando = true;
   try {
     const fila = await ler<Execucao[]>(K.execucoes, []);

@@ -15,7 +15,8 @@
 // A lista é virtualizada: a bolha some ao rolar e volta remontada. O observer
 // reinsere o botão e um cache por id devolve o texto já transcrito.
 
-import { tema } from '@/lib/store';
+import { perfilAtual, tema } from '@/lib/store';
+import { servidorConfigurado } from '@/lib/config';
 import { diagnosticarAudio, idsDeAudioDoChat, obterAudioDaMensagem } from '@/lib/wa';
 import { transcrever, transcricaoDisponivel } from '@/lib/transcricao';
 
@@ -273,11 +274,21 @@ export function montarTranscricao() {
   // regra do botão de proposta. O sync pode liberar (ou tirar) a qualquer hora.
   let liberado = false;
   const conferir = () =>
-    transcricaoDisponivel().then((tem) => {
+    transcricaoDisponivel().then((disponivel) => {
+      // Sem login, nada da extensão funciona — o botão nem aparece.
+      const tem = disponivel && (!servidorConfigurado() || !!perfilAtual.get());
       if (tem !== liberado) console.info(`[BuildChat] transcrição ${tem ? 'liberada' : 'indisponível (sem integração)'}.`);
       liberado = tem;
     });
   setInterval(conferir, 60000);
+  perfilAtual.subscribe(() => {
+    conferir().then(() => {
+      if (!liberado) {
+        document.querySelectorAll('.bc-tr').forEach((el) => el.remove());
+        document.querySelectorAll<HTMLElement>('#main [data-id]').forEach((l) => delete l.dataset[MARCA]);
+      } else atualizarIds();
+    });
+  });
 
   // Quais mensagens da conversa são de áudio, segundo o WPP.
   let consultando = false;

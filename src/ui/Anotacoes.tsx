@@ -4,20 +4,11 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Loader2, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatarDataHora } from '@/lib/utils';
 import * as db from '@/lib/db';
-import { modalAnotacoes } from '@/lib/store';
+import { modalAnotacoes, perfilAtual } from '@/lib/store';
 import type { ContatoAtivo, NotaContato } from '@/lib/types';
 import { toast } from './toast';
-
-function dataHora(iso: string): string {
-  const d = new Date(iso);
-  return `${d.toLocaleDateString('pt-BR')} às ${d.toLocaleTimeString('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  })}`;
-}
 
 export function AnotacoesModal({ contato }: { contato: ContatoAtivo | null }) {
   const [nomeContato, setNomeContato] = useState<string | null>(null);
@@ -26,6 +17,10 @@ export function AnotacoesModal({ contato }: { contato: ContatoAtivo | null }) {
   const [rascunho, setRascunho] = useState('');
   const [criando, setCriando] = useState(false);
   const [nova, setNova] = useState('');
+  // Só quem escreveu e o admin editam/apagam (o servidor confere também).
+  const [perfil, setPerfil] = useState(perfilAtual.get());
+  useEffect(() => perfilAtual.subscribe(setPerfil), []);
+  const possoMexer = (n: NotaContato) => !n.autorId || n.autorId === perfil?.id || perfil?.papel === 'admin';
 
   const fechar = () => modalAnotacoes.set(false);
 
@@ -143,7 +138,10 @@ export function AnotacoesModal({ contato }: { contato: ContatoAtivo | null }) {
                 <div className="space-y-4">
                   {notas.map((n) => (
                     <div key={n.id} className="border-b border-border pb-3 last:border-b-0">
-                      <div className="text-[12.5px] font-bold text-text">{dataHora(n.criadoEm)}</div>
+                      <div className="text-[12.5px] font-bold text-text">
+                        {formatarDataHora(n.criadoEm)}
+                        {n.autorNome && <span className="ml-1.5 font-normal text-muted">· {n.autorNome}</span>}
+                      </div>
                       {editando === n.id ? (
                         <>
                           <textarea
@@ -170,8 +168,12 @@ export function AnotacoesModal({ contato }: { contato: ContatoAtivo | null }) {
                           <p className="mt-0.5 whitespace-pre-wrap break-words text-[13px] text-text-2">{n.conteudo}</p>
                           <div className="mt-2 flex justify-end gap-2">
                             <BotaoAcao cor="success" onClick={() => copiar(n.conteudo)}>Copiar</BotaoAcao>
-                            <BotaoAcao cor="warning" onClick={() => { setEditando(n.id); setRascunho(n.conteudo); }}>Editar</BotaoAcao>
-                            <BotaoAcao cor="danger" onClick={() => deletar(n.id)}>Deletar</BotaoAcao>
+                            {possoMexer(n) && (
+                              <>
+                                <BotaoAcao cor="warning" onClick={() => { setEditando(n.id); setRascunho(n.conteudo); }}>Editar</BotaoAcao>
+                                <BotaoAcao cor="danger" onClick={() => deletar(n.id)}>Deletar</BotaoAcao>
+                              </>
+                            )}
                           </div>
                         </>
                       )}

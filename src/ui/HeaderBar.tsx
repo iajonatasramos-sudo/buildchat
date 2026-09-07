@@ -7,13 +7,24 @@ import { useEffect, useState } from 'react';
 import { FolderInput, History, NotebookPen, Pin, Tag } from 'lucide-react';
 import { cn, ZOOM } from '@/lib/utils';
 import * as db from '@/lib/db';
-import { menuHeader, modalAnotacoes, type MenuHeader } from '@/lib/store';
+import { menuHeader, modalAnotacoes, modalConta, perfilAtual, type MenuHeader } from '@/lib/store';
+import { servidorConfigurado } from '@/lib/config';
+
+/** Sem conta, nada da barra funciona: abre o login e devolve false. */
+function exigirLogin(): boolean {
+  if (servidorConfigurado() && !perfilAtual.get()) {
+    modalConta.set(true);
+    return false;
+  }
+  return true;
+}
 import { alternarFixado, getContatoAtivo, observarConversa } from '@/lib/wa';
 import { toast } from './toast';
 
 const LARGURA_MENU = 320;
 
 function abrir(tipo: NonNullable<MenuHeader>['tipo'], e: React.MouseEvent) {
+  if (!exigirLogin()) return;
   const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
   const x = Math.min(r.left, window.innerWidth - LARGURA_MENU * ZOOM - 8);
   const atual = menuHeader.get();
@@ -58,7 +69,7 @@ export function HeaderBar() {
   }, []);
 
   async function fixar() {
-    if (fixando) return;
+    if (fixando || !exigirLogin()) return;
     setFixando(true);
     const novo = await alternarFixado();
     setFixando(false);
@@ -81,7 +92,7 @@ export function HeaderBar() {
       <Botao titulo="Filtrar conversas por pasta" onClick={(e) => abrir('filtros', e)}>
         <Tag size={18} />
       </Botao>
-      <Botao titulo="Anotações desta conversa" onClick={() => modalAnotacoes.set(true)}>
+      <Botao titulo="Anotações desta conversa" onClick={() => exigirLogin() && modalAnotacoes.set(true)}>
         <span className="relative">
           <NotebookPen size={18} />
           {notas > 0 && (
