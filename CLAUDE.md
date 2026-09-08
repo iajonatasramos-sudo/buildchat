@@ -168,7 +168,8 @@ descerem a remoção (`proposta.apagar` na fila).
   `localStorage`: o da página é do WhatsApp), login, cadastro (RPC
   `criar_empresa_e_admin`), convite, perfil e `avaliarLicenca()`.
 - `src/ui/Conta.tsx` — botão de conta na barra do topo + modal entrar/criar conta. O
-  avatar do botão é a **foto do perfil do WhatsApp conectado** (`useMinhaFoto`: `selfInfo` →
+  botão mostra a foto e o **nome de quem está usando** (a clínica fica no menu, abaixo). O
+  avatar é a **foto do perfil do WhatsApp conectado** (`useMinhaFoto`: `selfInfo` →
   `fotos` na ponte, com cache em `bc2_minha_foto`); sem foto, a inicial do nome.
 - Licença tem **tolerância offline de 7 dias** (perfil em cache): sem rede o atendente
   não pode ficar travado.

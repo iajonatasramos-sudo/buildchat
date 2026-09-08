@@ -83,7 +83,8 @@ export function ContaBotao() {
             {perfil.nome.slice(0, 1).toUpperCase()}
           </span>
         )}
-        <span className="max-w-[140px] truncate text-[11.5px] font-semibold">{perfil.empresa.nome}</span>
+        {/* Quem está usando (o nome da clínica fica no menu, abaixo). */}
+        <span className="max-w-[140px] truncate text-[11.5px] font-semibold">{perfil.nome}</span>
         <span
           className={cn(
             'rounded-md px-1.5 text-[9.5px] font-bold',
