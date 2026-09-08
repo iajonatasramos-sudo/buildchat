@@ -10,12 +10,45 @@ import { ALTURA_TOPBAR } from './TopBar';
 import { avaliarLicenca, cadastrar, carregarPerfil, entrar, sair, type Perfil } from '@/lib/auth';
 import { servidorConfigurado } from '@/lib/config';
 import { modalConta, perfilAtual } from '@/lib/store';
+import { fotosDosContatos, getInfoConta } from '@/lib/wa';
 import { toast } from './toast';
 
 /** Botão/estado da conta, mostrado no canto direito da barra do topo. */
+/** Foto do perfil do WhatsApp conectado, para o botão da conta (cache por aparelho). */
+const K_MINHA_FOTO = 'bc2_minha_foto';
+function useMinhaFoto(ativo: boolean): string | null {
+  const [foto, setFoto] = useState<string | null>(null);
+  useEffect(() => {
+    if (!ativo) return;
+    let vivo = true;
+    chrome.storage.local.get(K_MINHA_FOTO, (r) => vivo && r[K_MINHA_FOTO] && setFoto(r[K_MINHA_FOTO]));
+    // O WPP demora a ficar pronto: tenta a cada 3 s até conseguir (no máximo 1 min).
+    let tentativas = 0;
+    const buscar = async () => {
+      const conta = await getInfoConta();
+      if (!conta.id) return false;
+      const url = (await fotosDosContatos([conta.id]))[conta.id] ?? null;
+      if (!vivo) return true;
+      setFoto(url);
+      chrome.storage.local.set({ [K_MINHA_FOTO]: url });
+      return true;
+    };
+    const i = window.setInterval(async () => {
+      if (++tentativas > 20 || (await buscar())) window.clearInterval(i);
+    }, 3000);
+    return () => {
+      vivo = false;
+      window.clearInterval(i);
+    };
+  }, [ativo]);
+  return foto;
+}
+
 export function ContaBotao() {
   const [perfil, setPerfil] = useState<Perfil | null>(perfilAtual.get());
   const [menu, setMenu] = useState(false);
+  const [fotoQuebrada, setFotoQuebrada] = useState(false);
+  const foto = useMinhaFoto(!!perfil);
 
   useEffect(() => perfilAtual.subscribe(setPerfil), []);
 
@@ -42,9 +75,14 @@ export function ContaBotao() {
         title={`${perfil.nome} — ${perfil.empresa.nome}`}
         className="flex items-center gap-1.5 rounded-md px-2 py-0.5 transition hover:bg-surface-2"
       >
-        <span className="grid h-5 w-5 place-items-center rounded-md bg-brand text-[10px] font-bold text-white">
-          {perfil.nome.slice(0, 1).toUpperCase()}
-        </span>
+        {/* Foto do WhatsApp conectado; sem foto (ou expirada), a inicial do nome. */}
+        {foto && !fotoQuebrada ? (
+          <img src={foto} alt="" onError={() => setFotoQuebrada(true)} className="h-[22px] w-[22px] flex-shrink-0 rounded-full object-cover" />
+        ) : (
+          <span className="grid h-5 w-5 place-items-center rounded-full bg-brand text-[10px] font-bold text-white">
+            {perfil.nome.slice(0, 1).toUpperCase()}
+          </span>
+        )}
         <span className="max-w-[140px] truncate text-[11.5px] font-semibold">{perfil.empresa.nome}</span>
         <span
           className={cn(
