@@ -77,6 +77,25 @@ export async function entrar(email: string, senha: string): Promise<{ ok: true }
   return { ok: true };
 }
 
+/**
+ * Troca a senha. A atual é conferida com um login de verdade (o Supabase não
+ * pede a senha antiga no `updateUser`) — sem isso, quem pegasse a máquina
+ * destrancada trocaria a senha da conta.
+ */
+export async function trocarSenha(atual: string, nova: string): Promise<{ ok: true } | { ok: false; erro: string }> {
+  const sb = supabase();
+  if (!sb) return { ok: false, erro: 'Servidor não configurado nesta build.' };
+  if (nova.length < 6) return { ok: false, erro: 'A nova senha precisa ter pelo menos 6 caracteres.' };
+  const { data } = await sb.auth.getUser();
+  const email = data.user?.email;
+  if (!email) return { ok: false, erro: 'Entre na sua conta antes de trocar a senha.' };
+  const conferido = await sb.auth.signInWithPassword({ email, password: atual });
+  if (conferido.error) return { ok: false, erro: 'Senha atual incorreta.' };
+  const { error } = await sb.auth.updateUser({ password: nova });
+  if (error) return { ok: false, erro: traduzir(error.message) };
+  return { ok: true };
+}
+
 const CHAVE_PENDENTE = 'bc2_cadastro_pendente';
 const CHAVE_CONVITE = 'bc2_convite_pendente';
 

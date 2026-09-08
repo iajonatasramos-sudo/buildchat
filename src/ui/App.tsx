@@ -22,8 +22,8 @@ import { ContaModal } from './Conta';
 import { PropostaModal } from './Proposta';
 import { PastasModal } from './Pastas';
 import { progressoExecucao, type ProgressoExecucao, gavetaAberta, menuHeader, modalAnotacoes, modalConfiguracoes, modalConta, modalPastas, modalProposta, perfilAtual, pastasAtivas, type MenuHeader, abaGaveta, pedirContaWhatsapp, LARGURA_TRILHO } from '@/lib/store';
-import { carregarPerfil, observarSessao } from '@/lib/auth';
-import { iniciarSyncPeriodico, sincronizar } from '@/lib/sync';
+import { carregarPerfil, observarSessao, trocarSenha } from '@/lib/auth';
+import { iniciarSyncPeriodico, nomesDasMinhasEquipes, sincronizar } from '@/lib/sync';
 import { toast, Toaster } from './toast';
 
 export function App() {
@@ -338,13 +338,13 @@ function SettingsModal({
   onClose: () => void;
   onSalvo: (s: Settings) => void;
 }) {
-  const [webhookUrl, setWebhookUrl] = useState(settings.webhookUrl);
   const [triggerChar, setTriggerChar] = useState(settings.triggerChar);
   const [temaSel, setTemaSel] = useState(settings.tema ?? 'auto');
 
   async function salvar() {
     const s: Settings = {
-      webhookUrl: webhookUrl.trim(),
+      // O webhook saiu daqui: quem integra usa a guia Automações → Webhook.
+      webhookUrl: settings.webhookUrl,
       triggerChar: triggerChar.trim() || '/',
       tema: temaSel,
     };
@@ -392,20 +392,7 @@ function SettingsModal({
           </button>
         </div>
         <div className="space-y-3 p-4">
-          <label className="block">
-            <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-muted">
-              Webhook (integração com o seu sistema)
-            </span>
-            <input
-              value={webhookUrl}
-              onChange={(e) => setWebhookUrl(e.target.value)}
-              placeholder="https://seusistema.com/api/webhook"
-              className="h-9 w-full rounded-md border border-border-strong bg-surface px-2.5 text-[13px] outline-none focus:border-brand"
-            />
-            <span className="mt-1 block text-[10px] text-muted">
-              Cada envio dispara um POST JSON (evento quick_reply_sent).
-            </span>
-          </label>
+          <MinhaConta />
           <div>
             <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-muted">Tema</span>
             <div className="flex flex-wrap gap-1.5">
@@ -483,6 +470,109 @@ function SettingsModal({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Minha conta: equipes de que faço parte e troca de senha (pede a atual). */
+function MinhaConta() {
+  const [perfil, setPerfil] = useState<Perfil | null>(perfilAtual.get());
+  useEffect(() => perfilAtual.subscribe(setPerfil), []);
+  const [equipes, setEquipes] = useState<string[]>([]);
+  const [abrirSenha, setAbrirSenha] = useState(false);
+  const [atual, setAtual] = useState('');
+  const [nova, setNova] = useState('');
+  const [repetida, setRepetida] = useState('');
+  const [salvando, setSalvando] = useState(false);
+
+  useEffect(() => {
+    nomesDasMinhasEquipes().then(setEquipes);
+  }, [perfil?.id]);
+
+  if (!perfil) return null;
+
+  async function trocar() {
+    if (nova !== repetida) {
+      toast.error('A confirmação não confere com a nova senha.');
+      return;
+    }
+    setSalvando(true);
+    const r = await trocarSenha(atual, nova);
+    setSalvando(false);
+    if (!r.ok) {
+      toast.error(r.erro);
+      return;
+    }
+    setAtual('');
+    setNova('');
+    setRepetida('');
+    setAbrirSenha(false);
+    toast.success('Senha alterada.');
+  }
+
+  const campo = 'h-9 w-full rounded-md border border-border-strong bg-surface px-2.5 text-[13px] outline-none focus:border-brand';
+
+  return (
+    <div className="rounded-md border border-border bg-surface-2 p-2.5">
+      <div className="mb-1 text-[12px] font-bold">Minha conta</div>
+      <div className="text-[11.5px] text-text-2">
+        {perfil.nome} · <span className="text-muted">{perfil.email}</span>
+      </div>
+      <div className="mt-1.5 text-[11px] text-muted">
+        {perfil.papel === 'admin' ? 'Administrador' : 'Usuário'} em {perfil.empresa.nome}
+      </div>
+      {/* Equipes: quem define é o admin, no painel — aqui é só informativo. */}
+      <div className="mt-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+          {equipes.length > 1 ? 'Minhas equipes' : 'Minha equipe'}
+        </span>
+        <div className="mt-1 flex flex-wrap gap-1.5">
+          {equipes.length === 0 ? (
+            <span className="text-[11.5px] text-muted">
+              Você não está em nenhuma equipe. Quem inclui é o administrador da clínica, pelo painel.
+            </span>
+          ) : (
+            equipes.map((nome) => (
+              <span key={nome} className="rounded-md border border-brand/40 bg-brand/10 px-2 py-0.5 text-[11.5px] font-semibold text-brand">
+                {nome}
+              </span>
+            ))
+          )}
+        </div>
+      </div>
+
+      {!abrirSenha ? (
+        <button
+          type="button"
+          onClick={() => setAbrirSenha(true)}
+          className="mt-2.5 inline-flex items-center gap-1.5 rounded-md border border-border-strong bg-surface px-2.5 py-1.5 text-[12px] font-semibold transition hover:border-brand hover:text-brand"
+        >
+          Alterar senha
+        </button>
+      ) : (
+        <div className="mt-2.5 space-y-1.5">
+          <input type="password" autoFocus value={atual} onChange={(e) => setAtual(e.target.value)} placeholder="Senha atual" className={campo} />
+          <input type="password" value={nova} onChange={(e) => setNova(e.target.value)} placeholder="Nova senha (mínimo 6 caracteres)" className={campo} />
+          <input type="password" value={repetida} onChange={(e) => setRepetida(e.target.value)} placeholder="Repita a nova senha" className={campo} onKeyDown={(e) => e.key === 'Enter' && trocar()} />
+          <div className="flex justify-end gap-2 pt-0.5">
+            <button
+              type="button"
+              onClick={() => { setAbrirSenha(false); setAtual(''); setNova(''); setRepetida(''); }}
+              className="rounded-md border border-border-strong px-2.5 py-1 text-[12px] font-semibold text-text-2 transition hover:bg-surface"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={trocar}
+              disabled={salvando || !atual || nova.length < 6 || !repetida}
+              className="rounded-md bg-brand px-3 py-1 text-[12px] font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+            >
+              {salvando ? 'Salvando…' : 'Salvar senha'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

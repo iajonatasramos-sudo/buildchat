@@ -46,6 +46,7 @@ type Estado = {
 const K_OUTBOX = 'bc2_outbox';
 const K_ESTADO = 'bc2_sync_estado';
 const K_EQUIPES = 'bc2_minhas_equipes';
+const K_EQUIPES_NOMES = 'bc2_minhas_equipes_nomes';
 const ESTADO_INICIAL: Estado = { ultimoSync: null, adotado: false, empresaId: null };
 
 const ler = <T>(k: string, padrao: T) =>
@@ -145,6 +146,7 @@ export async function zerarEstadoSync(): Promise<void> {
   await gravar(K_ESTADO, ESTADO_INICIAL);
   await gravar(K_OUTBOX, []);
   await gravar(K_EQUIPES, []);
+  await gravar(K_EQUIPES_NOMES, []);
 }
 
 /** Agenda uma sincronização curta (junta várias alterações seguidas). */
@@ -181,6 +183,7 @@ export async function sincronizar(): Promise<void> {
       await db.esvaziarAcervoSincronizado();
       await gravar(K_OUTBOX, []);
       await gravar(K_EQUIPES, []);
+  await gravar(K_EQUIPES_NOMES, []);
       estado = { ...ESTADO_INICIAL, adotado: true };
     }
     estado.empresaId = perfil.empresa.id;
@@ -569,6 +572,14 @@ async function puxar(perfil: Perfil, desde: string | null): Promise<string> {
   const { data: minhasLinhas } = await sb.from('equipe_usuarios').select('equipe_id').eq('usuario_id', perfil.id);
   const minhasEquipes = new Set<string>((minhasLinhas ?? []).map((e: any) => e.equipe_id));
   await gravar(K_EQUIPES, [...minhasEquipes]);
+  // Os NOMES são só para mostrar em Configurações — consulta à parte, porque
+  // falhar aqui não pode zerar os ids (é deles que depende a visibilidade).
+  if (minhasEquipes.size) {
+    const { data: nomes } = await sb.from('equipes').select('nome').in('id', [...minhasEquipes]);
+    if (nomes) await gravar(K_EQUIPES_NOMES, nomes.map((e: any) => e.nome).filter(Boolean));
+  } else {
+    await gravar(K_EQUIPES_NOMES, []);
+  }
 
   let q = sb
     .from('pastas')
@@ -923,4 +934,9 @@ export type { TagOpt };
 /** Equipes de que o usuário faz parte (preenchido pela sincronização). */
 export async function minhasEquipes(): Promise<string[]> {
   return ler<string[]>(K_EQUIPES, []);
+}
+
+/** Nomes das equipes de que faço parte (para mostrar em Configurações). */
+export async function nomesDasMinhasEquipes(): Promise<string[]> {
+  return ler<string[]>(K_EQUIPES_NOMES, []);
 }

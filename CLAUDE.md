@@ -149,6 +149,13 @@ assinante muda só o `status` da mesma empresa — nada do teste é apagado (tes
 acervo sincronizado e a fila e desce o do novo login; `sair()` faz o mesmo na hora. Só o que
 é do aparelho (conversas capturadas, mídia recebida, preferências) fica.
 
+**Configurações** (engrenagem da barra do topo): **Minha conta** (nome, e-mail, papel,
+**as equipes de que a pessoa faz parte** — `nomesDasMinhasEquipes()`, gravadas pelo pull em
+`bc2_minhas_equipes_nomes`; quem inclui é o admin, no painel — e **Alterar senha**), tema,
+atalho do picker e backup. **A senha só troca com a atual**: o Supabase não a pede no
+`updateUser`, então `trocarSenha()` confere fazendo `signInWithPassword` antes. O campo de
+webhook saiu daqui — quem integra usa Automações → Webhook.
+
 **Backup**: Configurações → "Exportar backup (JSON)" (`db.exportarBackup`): pastas, vínculos,
 categorias, mensagens (com a mídia local em base64), anotações, fichas, propostas
 (metadados) e preferências. Conversas e mídia recebida nunca entram.
