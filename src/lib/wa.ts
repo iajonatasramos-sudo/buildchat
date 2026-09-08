@@ -502,7 +502,17 @@ export type ResultadoExecucao = { ok: true } | { ok: false; erro: string };
  * espera o delay de cada ação, substitui variáveis, envia texto/mídia,
  * aplica a etiqueta configurada e dispara o webhook.
  */
-export async function executarResposta(resposta: RespostaDC): Promise<ResultadoExecucao> {
+/** Cada passo da sequência avisa quem chamou: "atividade 2/3 — enviando imagem". */
+export type AoProgredir = (p: { atual: number; total: number; rotulo: string }) => void;
+
+const ROTULO_TIPO: Record<string, string> = {
+  imagem: 'enviando imagem',
+  audio: 'enviando áudio',
+  video: 'enviando vídeo',
+  documento: 'enviando documento',
+};
+
+export async function executarResposta(resposta: RespostaDC, aoProgredir?: AoProgredir): Promise<ResultadoExecucao> {
   const contatoWa = await getContatoAtivo();
   if (!contatoWa) return { ok: false, erro: 'Abra uma conversa antes de enviar.' };
 
@@ -510,8 +520,16 @@ export async function executarResposta(resposta: RespostaDC): Promise<ResultadoE
   const ficha = await obterFicha(contatoWa.chatId);
   const contato = { ...contatoWa, nome: ficha.nome?.trim() || contatoWa.nome };
 
+  // Atividades = ações com conteúdo + a pasta (se a mensagem etiqueta o contato).
+  const acoes = resposta.acoes.filter((a) => a.midiaPath || a.texto.trim() || a.delaySegundos > 0);
+  const total = acoes.length + (resposta.tagId ? 1 : 0);
+  let atual = 0;
+  const avisar = (rotulo: string) => aoProgredir?.({ atual: ++atual, total, rotulo });
+
   try {
-    for (const acao of resposta.acoes) {
+    for (const acao of acoes) {
+      const rotulo = acao.midiaPath ? ROTULO_TIPO[acao.tipo] ?? 'enviando mídia' : acao.texto.trim() ? 'enviando mensagem' : 'aguardando';
+      avisar(acao.delaySegundos > 0 ? `aguardando ${acao.delaySegundos}s · ${rotulo}` : rotulo);
       if (acao.delaySegundos > 0) await aguardar(acao.delaySegundos * 1000);
       if (acao.midiaPath) {
         await enviarMidia(
@@ -533,7 +551,10 @@ export async function executarResposta(resposta: RespostaDC): Promise<ResultadoE
   registrarUso(resposta.id).catch(() => {});
   // Alimenta o CRM do painel: data do último envio para esta conversa.
   registrarUltimoContato(contatoWa.chatId, contatoWa.nome).catch(() => {});
-  if (resposta.tagId) aplicarTagContato(contato.chatId, resposta.tagId).catch(() => {});
+  if (resposta.tagId) {
+    avisar(`adicionando à pasta "${resposta.tagNome ?? ''}"`.replace(' ""', ''));
+    await aplicarTagContato(contato.chatId, resposta.tagId).catch(() => {});
+  }
   try {
     chrome.runtime.sendMessage({
       type: 'bc:webhook',

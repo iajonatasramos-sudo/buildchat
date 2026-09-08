@@ -21,7 +21,7 @@ import { AnotacoesModal } from './Anotacoes';
 import { ContaModal } from './Conta';
 import { PropostaModal } from './Proposta';
 import { PastasModal } from './Pastas';
-import { gavetaAberta, menuHeader, modalAnotacoes, modalConfiguracoes, modalConta, modalPastas, modalProposta, perfilAtual, pastasAtivas, type MenuHeader, abaGaveta, pedirContaWhatsapp, LARGURA_TRILHO } from '@/lib/store';
+import { progressoExecucao, type ProgressoExecucao, gavetaAberta, menuHeader, modalAnotacoes, modalConfiguracoes, modalConta, modalPastas, modalProposta, perfilAtual, pastasAtivas, type MenuHeader, abaGaveta, pedirContaWhatsapp, LARGURA_TRILHO } from '@/lib/store';
 import { carregarPerfil, observarSessao } from '@/lib/auth';
 import { iniciarSyncPeriodico, sincronizar } from '@/lib/sync';
 import { toast, Toaster } from './toast';
@@ -166,7 +166,9 @@ export function App() {
     async (r: RespostaDC) => {
       if (enviando) return;
       setEnviando(true);
-      const res = await executarResposta(r);
+      // Faixa "Executando atividade 2/3" no topo da conversa enquanto a sequência roda.
+      const res = await executarResposta(r, (p) => progressoExecucao.set({ titulo: r.titulo, ...p }));
+      progressoExecucao.set(null);
       setEnviando(false);
       if (res.ok) toast.success(`"${r.titulo}" enviada.`);
       else toast.error(res.erro);
@@ -279,6 +281,9 @@ export function App() {
           </div>
         </div>
       )}
+
+      {/* Andamento da mensagem rápida (faixa sobre a conversa) */}
+      <BannerExecucao />
 
       {/* Filtro de conversas por pasta(s) — com várias, só quem está em todas */}
       {logado && pastas.length > 0 && <PastaPanel tagIds={pastas} />}
@@ -477,6 +482,49 @@ function SettingsModal({
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Faixa "Executando atividade 1/3" logo abaixo do cabeçalho da conversa ──
+function BannerExecucao() {
+  const [p, setP] = useState<ProgressoExecucao | null>(progressoExecucao.get());
+  useEffect(() => progressoExecucao.subscribe(setP), []);
+  const [pos, setPos] = useState<{ left: number; top: number; width: number } | null>(null);
+
+  // Mede o #main (a conversa) enquanto a faixa está visível — o layout muda sem evento.
+  useEffect(() => {
+    if (!p) return;
+    const medir = () => {
+      const main = document.querySelector('#main');
+      const header = document.querySelector('#main header');
+      if (!main) return setPos(null);
+      const r = main.getBoundingClientRect();
+      const topo = header ? header.getBoundingClientRect().bottom : r.top;
+      setPos({ left: emPx(r.left), top: emPx(topo + 8), width: emPx(r.width) });
+    };
+    medir();
+    const i = window.setInterval(medir, 500);
+    window.addEventListener('resize', medir);
+    return () => {
+      window.clearInterval(i);
+      window.removeEventListener('resize', medir);
+    };
+  }, [!!p]);
+
+  if (!p || !pos) return null;
+  return (
+    <div className="pointer-events-none fixed z-[58] flex justify-center" style={{ left: pos.left, top: pos.top, width: pos.width }}>
+      <div className="bc-anim-pop pointer-events-auto flex items-center gap-2.5 rounded-lg border border-brand/40 bg-surface px-3.5 py-2 text-[12.5px] shadow-lg">
+        <Loader2 size={14} className="animate-spin text-brand" />
+        <span className="font-bold text-text">
+          Executando atividade {p.atual}/{p.total}
+        </span>
+        <span className="text-muted">
+          · {p.rotulo}
+          <span className="ml-1.5 text-[11px]">({p.titulo})</span>
+        </span>
       </div>
     </div>
   );

@@ -164,6 +164,14 @@ descerem a remoção (`proposta.apagar` na fila).
 - Licença tem **tolerância offline de 7 dias** (perfil em cache): sem rede o atendente
   não pode ficar travado.
 
+## Executar mensagem rápida
+
+`executarResposta(resposta, aoProgredir)` (wa.ts) roda a sequência e avisa a cada passo;
+o `App` mostra a faixa **"Executando atividade 2/3 · enviando imagem"** (`BannerExecucao`,
+sinal `progressoExecucao`) logo abaixo do cabeçalho da conversa. **Atividade** = ação com
+conteúdo (texto, mídia ou espera) **+ a pasta**, se a mensagem etiqueta o contato — a
+etiqueta agora é aplicada com `await`, no fim, contando como o último passo.
+
 ## Gerar proposta (`src/lib/propostas.ts` + `src/ui/Proposta.tsx`)
 
 Réplica da tela do BuildClinic. **O PDF não é montado aqui**: a extensão manda os dados

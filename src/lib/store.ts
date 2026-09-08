@@ -66,6 +66,10 @@ export const modalConta = criarSinal<boolean>(false);
 export type EstadoSync = 'local' | 'sincronizando' | 'ok' | 'erro' | 'bloqueado';
 export const estadoSync = criarSinal<EstadoSync>('local');
 
+/** Andamento da mensagem rápida em execução (faixa no topo da conversa); null = parada. */
+export type ProgressoExecucao = { titulo: string; atual: number; total: number; rotulo: string };
+export const progressoExecucao = criarSinal<ProgressoExecucao | null>(null);
+
 /** Modal "Gerar proposta" (usa o contato da conversa aberta). */
 export const modalProposta = criarSinal<boolean>(false);
 /** Incrementa quando uma proposta é criada/enviada — a guia Contato recarrega a lista. */
