@@ -19,6 +19,7 @@ import {
   parseValor,
   type DadosProposta,
   type TipoProposta,
+  nomeDoArquivoDaProposta,
 } from '@/lib/propostas';
 import type { ContatoAtivo, PropostaSalva } from '@/lib/types';
 import { toast } from './toast';
@@ -155,8 +156,7 @@ export function PropostaModal({ contato }: { contato: ContatoAtivo | null }) {
   async function anexar() {
     if (!pdf) return;
     setAnexando(true);
-    const arquivo = `proposta-${nome.trim().split(/\s+/)[0]?.toLowerCase() || 'cliente'}.pdf`;
-    const res = await enviarArquivo(pdf.blob, arquivo);
+    const res = await enviarArquivo(pdf.blob, nomeDoArquivoDaProposta(nome));
     setAnexando(false);
     if (res.ok) {
       if (salva) db.marcarPropostaEnviada(salva.id).catch(() => {});

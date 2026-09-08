@@ -135,3 +135,21 @@ export async function gerarProposta(dados: DadosProposta, tipo: TipoProposta): P
 
   return resposta.blob();
 }
+
+/**
+ * Nome do arquivo enviado na conversa: "Proposta- Dr. Fulano de Tal.pdf".
+ * Vai o nome COMPLETO como está na ficha (com o tratamento). Antes ia só a
+ * primeira palavra em minúsculas — "Dra. Maria" virava `proposta-dra..pdf`.
+ * Tira só o que o sistema de arquivos não aceita e o ponto do fim (que
+ * grudaria na extensão).
+ */
+export function nomeDoArquivoDaProposta(nome: string | null | undefined): string {
+  const limpo = (nome ?? '')
+    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\.+$/, '')
+    .trim()
+    .slice(0, 80);
+  return `Proposta- ${limpo || 'Cliente'}.pdf`;
+}

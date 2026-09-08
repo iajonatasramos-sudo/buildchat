@@ -55,7 +55,7 @@ import { AutomacoesView } from './Automacoes';
 import * as db from '@/lib/db';
 import { enviarArquivo, getInfoConta } from '@/lib/wa';
 import { abaGaveta, modalProposta, pedirContaWhatsapp, perfilAtual, propostasMudaram } from '@/lib/store';
-import { TIPOS, brl } from '@/lib/propostas';
+import { TIPOS, brl, nomeDoArquivoDaProposta } from '@/lib/propostas';
 import type { PropostaSalva } from '@/lib/types';
 import { minhasEquipes } from '@/lib/sync';
 import { carregarPerfil, supabase } from '@/lib/auth';
@@ -1266,8 +1266,8 @@ function ContatoGuia({
         toast.error('PDF indisponível agora — verifique a conexão.');
         return;
       }
-      const primeiroNome = (p.contatoNome ?? '').trim().split(/\s+/)[0]?.toLowerCase() || 'cliente';
-      const res = await enviarArquivo(blob, `proposta-${primeiroNome}.pdf`);
+      // O nome da ficha manda; se a proposta foi salva sem nome, vale o do contato aberto.
+      const res = await enviarArquivo(blob, nomeDoArquivoDaProposta(p.contatoNome || ficha?.nome || contato?.nome));
       if (!res.ok) {
         toast.error(res.erro);
         return;

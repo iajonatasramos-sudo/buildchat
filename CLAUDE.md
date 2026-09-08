@@ -203,7 +203,10 @@ para `POST https://app.buildclinic.com.br/api/propostas/gerar?token=…` e receb
 - Depois do `await` o clique deixa de valer como gesto do usuário e o Chrome pode bloquear a
   aba do PDF — por isso o botão “Abrir para revisão” fica destacado quando isso acontece.
 - Anexar na conversa usa `enviarArquivo()` (WPP, com o fluxo de anexo do WhatsApp como
-  reserva) e registra o último contato no CRM.
+  reserva) e registra o último contato no CRM. O arquivo vai como
+  **`Proposta- <nome completo>.pdf`** (`nomeDoArquivoDaProposta`, com o tratamento: "Dr.",
+  "Dra."). Antes ia só a primeira palavra em minúsculas — "Dra. Maria" virava
+  `proposta-dra..pdf`.
 - `host_permissions` precisa de `https://app.buildclinic.com.br/*`.
 - **Toda proposta gerada fica no servidor** (`propostas`, `0015_propostas.sql`; PDF no bucket
   `midias` em `<empresa>/propostas/<id>.pdf`). Offline-first como o resto: `db.registrarProposta`
