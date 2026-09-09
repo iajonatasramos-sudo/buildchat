@@ -6,6 +6,7 @@
 
 import { obterIntegracao } from './db';
 
+import { MARCA } from './marca';
 export const API_PROPOSTAS = 'https://app.buildclinic.com.br/api/propostas/gerar';
 
 export type TipoProposta = 'EXEC_SP' | 'INT_SP' | 'EXEC_BR' | 'INT_BR' | 'VIGILANCIA';
@@ -100,7 +101,7 @@ async function credenciais(): Promise<{ url: string; token: string }> {
   const token = integracao?.token?.trim();
   if (!token) {
     throw new Error(
-      'A API de propostas ainda não foi configurada. Peça ao gestor do BuildChat para cadastrá-la em API.',
+      `A API de propostas ainda não foi configurada. Peça ao gestor do ${MARCA.nome} para cadastrá-la em API.`,
     );
   }
   return { url: integracao?.url?.trim() || API_PROPOSTAS, token };

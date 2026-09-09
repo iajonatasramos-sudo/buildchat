@@ -56,6 +56,7 @@ import * as db from '@/lib/db';
 import { enviarArquivo, getInfoConta } from '@/lib/wa';
 import { abaGaveta, modalProposta, pedirContaWhatsapp, perfilAtual, propostasMudaram } from '@/lib/store';
 import { TIPOS, brl, nomeDoArquivoDaProposta } from '@/lib/propostas';
+import { temRecurso } from '@/lib/marca';
 import type { PropostaSalva } from '@/lib/types';
 import { minhasEquipes } from '@/lib/sync';
 import { carregarPerfil, supabase } from '@/lib/auth';
@@ -284,9 +285,11 @@ export function MensagensRapidasPanel({
           <button type="button" data-ativo={view === 'rapidas' ? 1 : 0} onClick={() => setView('rapidas')} title="Mensagens rápidas">
             <Zap size={14} />
           </button>
-          <button type="button" data-ativo={view === 'automacoes' ? 1 : 0} onClick={() => setView('automacoes')} title="Automações">
-            <Bot size={14} />
-          </button>
+          {temRecurso('automacoes') && (
+            <button type="button" data-ativo={view === 'automacoes' ? 1 : 0} onClick={() => setView('automacoes')} title="Automações">
+              <Bot size={14} />
+            </button>
+          )}
           <button type="button" data-ativo={0} onClick={() => setDlgConta(true)} title="Conta de WhatsApp em uso">
             <Smartphone size={14} />
           </button>
@@ -310,7 +313,7 @@ export function MensagensRapidasPanel({
         <ContatoGuia contato={contato} tags={data?.tags ?? []} onTagsMudaram={carregar} />
       )}
 
-      {view === 'automacoes' && <AutomacoesView />}
+      {view === 'automacoes' && temRecurso('automacoes') && <AutomacoesView />}
 
       {view === 'rapidas' && (
         <>
@@ -1281,6 +1284,9 @@ function ContatoGuia({
 
   useEffect(() => {
     let vivo = true;
+    // Duas travas: a marca precisa ter o recurso E o gestor precisa ter
+    // cadastrado a integração para a clínica.
+    if (!temRecurso('propostas')) return;
     db.integracaoDisponivel('propostas').then((tem) => vivo && setTemPropostas(tem));
     return () => {
       vivo = false;

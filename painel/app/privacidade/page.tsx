@@ -2,24 +2,32 @@
 // Descreve exatamente o que o produto faz hoje; revise com seu jurídico antes
 // de vender, e ajuste os dados do controlador abaixo.
 
+import { headers } from 'next/headers';
+import { marcaPorHost } from '@/lib/marca';
+
 const CONTATO = 'contato@buildclinic.com.br';
 const EMPRESA = 'BuildClinic';
 const ATUALIZADO = '4 de setembro de 2026';
 
-export const metadata = { title: 'Política de privacidade — BuildChat' };
+export async function generateMetadata() {
+  const marca = marcaPorHost((await headers()).get('host'));
+  return { title: `Política de privacidade — ${marca.nome}` };
+}
 
-export default function Privacidade() {
+// A política é a mesma para os dois produtos; só o nome acompanha o domínio.
+export default async function Privacidade() {
+  const marca = marcaPorHost((await headers()).get('host'));
   return (
     <main className="mx-auto max-w-[720px] px-6 py-14">
       <div className="mb-10 flex items-center gap-2 text-[18px] font-extrabold">
-        <span className="text-[20px] text-marca">⚡</span>BuildChat
+        <span className="text-[20px] text-marca">{marca.simbolo}</span>{marca.nome}
       </div>
 
       <h1 className="mb-2 text-[30px] font-extrabold">Política de privacidade</h1>
       <p className="mb-10 text-tinta-3">Atualizada em {ATUALIZADO}.</p>
 
       <Secao titulo="Resumo">
-        O BuildChat é uma extensão de navegador que ajuda equipes a atender pelo WhatsApp Web.
+        O {marca.nome} é uma extensão de navegador que ajuda equipes a atender pelo WhatsApp Web.
         <strong className="text-tinta"> As conversas, os áudios e os arquivos recebidos dos seus
         contatos permanecem no computador de cada usuário</strong> e não são enviados aos nossos
         servidores. Sincronizamos apenas o que a equipe cria para trabalhar: mensagens rápidas,

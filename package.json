@@ -8,7 +8,10 @@
     "dev": "vite build --watch",
     "prebuild": "cp node_modules/@wppconnect/wa-js/dist/wppconnect-wa.js public/vendor/wppconnect-wa.js",
     "build": "vite build",
-    "pacote": "npm run build && node scripts/pacote-loja.mjs"
+    "pacote": "npm run build && node scripts/pacote-loja.mjs",
+    "build:anamni": "npm run prebuild && MARCA=anamni vite build",
+    "pacote:anamni": "npm run build:anamni && MARCA=anamni node scripts/pacote-loja.mjs",
+    "pacote:tudo": "npm run pacote:anamni && npm run pacote"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",

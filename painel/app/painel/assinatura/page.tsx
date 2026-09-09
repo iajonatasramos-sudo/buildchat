@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { avaliarLicenca, carregarPerfil, moeda, supabase, type Perfil } from '@/lib/supabase';
 import { Botao, Cabecalho, Cartao } from '@/componentes/ui';
 
+import { useMarca } from '../../marca-cliente';
 const PRECO_POR_ASSENTO = 49.8;
 
 type MeuPlano = {
@@ -22,6 +23,7 @@ type MeuPlano = {
 };
 
 export default function Assinatura() {
+  const marca = useMarca();
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [ativos, setAtivos] = useState(0);
 
@@ -127,7 +129,7 @@ export default function Assinatura() {
             })}
           </div>
           <p className="mt-3 text-[12.5px] text-tinta-4">
-            Para mudar de nível, fale com o suporte do BuildChat.
+            Para mudar de nível, fale com o suporte do {marca.nome}.
           </p>
         </Cartao>
       )}

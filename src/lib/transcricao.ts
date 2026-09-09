@@ -7,6 +7,7 @@
 
 import { obterIntegracao } from './db';
 
+import { MARCA, temRecurso } from './marca';
 export const API_TRANSCRICAO = 'https://app.buildclinic.com.br/api/transcrever';
 
 /** 25 MB é o teto da API; barramos antes para não gastar upload à toa. */
@@ -22,7 +23,7 @@ async function credenciais(): Promise<{ url: string; token: string }> {
   const token = propria?.token?.trim() || (await obterIntegracao('propostas'))?.token?.trim();
   if (!token) {
     throw new Error(
-      'A API de transcrição ainda não foi configurada. Peça ao gestor do BuildChat para cadastrá-la em API.',
+      `A API de transcrição ainda não foi configurada. Peça ao gestor do ${MARCA.nome} para cadastrá-la em API.`,
     );
   }
   return { url: propria?.url?.trim() || API_TRANSCRICAO, token };
@@ -30,6 +31,7 @@ async function credenciais(): Promise<{ url: string; token: string }> {
 
 /** Já há transcrição disponível para esta conta? (esconde o botão de quem não tem) */
 export async function transcricaoDisponivel(): Promise<boolean> {
+  if (!temRecurso('transcricao')) return false; // marca sem o recurso
   const propria = await obterIntegracao('transcricao');
   return !!(propria?.token?.trim() || (await obterIntegracao('propostas'))?.token?.trim());
 }

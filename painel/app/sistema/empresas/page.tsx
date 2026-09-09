@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { formatarData, formatarDia, moeda, supabase } from '@/lib/supabase';
 import { Botao, Cabecalho, CampoSenha, CampoTexto, Cartao, Modal, Vazio } from '@/componentes/ui';
 
+import { MARCAS, type IdMarca } from '@/lib/marca';
 type Ciclo = 'mensal' | 'trimestral' | 'anual' | 'vitalicio';
 type Status = 'trial' | 'ativa' | 'inadimplente' | 'cancelada';
 
@@ -30,6 +31,7 @@ type Empresa = {
   faturas_abertas: number;
   aberto_centavos: number;
   plano_slug: 'start' | 'pro' | 'master';
+  marca: IdMarca;
 };
 
 type Plano = { slug: string; nome: string; preco_mensal_centavos: number; assentos_inclusos: number };
@@ -66,6 +68,8 @@ export default function EmpresasSistema() {
   const [criando, setCriando] = useState(false);
   const [planos, setPlanos] = useState<Plano[]>([]);
   const [busca, setBusca] = useState('');
+  // Dois produtos na mesma base: dá para ver só um deles.
+  const [filtroMarca, setFiltroMarca] = useState<'' | IdMarca>('');
 
   const carregar = useCallback(async () => {
     const [{ data }, { data: pl }] = await Promise.all([
@@ -81,15 +85,17 @@ export default function EmpresasSistema() {
   }, [carregar]);
 
   const lista = empresas.filter((e) => {
+    if (filtroMarca && e.marca !== filtroMarca) return false;
     const q = busca.trim().toLowerCase();
     return !q || e.nome.toLowerCase().includes(q) || (e.admin_email ?? '').toLowerCase().includes(q);
   });
+  const porMarca = (m: IdMarca) => empresas.filter((e) => e.marca === m).length;
 
   return (
     <div>
       <Cabecalho
         titulo="Empresas"
-        subtitulo={`${empresas.length} clínica(s) usando o BuildChat.`}
+        subtitulo={`${empresas.length} clínica(s) — ${porMarca('buildchat')} no BuildChat e ${porMarca('anamni')} no Anamni.`}
         acao={<Botao onClick={() => setCriando(true)}>Nova clínica</Botao>}
       />
 
@@ -101,18 +107,29 @@ export default function EmpresasSistema() {
         />
       ) : (
         <>
-          <input
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar por nome ou e-mail do administrador"
-            className="mb-3.5 h-10 w-full max-w-[420px] rounded-controle border border-borda bg-white px-3.5 text-[13.5px] outline-none focus:border-marca"
-          />
+          <div className="mb-3.5 flex flex-wrap items-center gap-2">
+            <input
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar por nome ou e-mail do administrador"
+              className="h-10 w-full max-w-[420px] rounded-controle border border-borda bg-white px-3.5 text-[13.5px] outline-none focus:border-marca"
+            />
+            <select
+              value={filtroMarca}
+              onChange={(e) => setFiltroMarca(e.target.value as '' | IdMarca)}
+              className="h-10 rounded-controle border border-borda bg-white px-3 text-[13.5px] outline-none focus:border-marca"
+            >
+              <option value="">Os dois produtos</option>
+              <option value="buildchat">Só BuildChat</option>
+              <option value="anamni">Só Anamni</option>
+            </select>
+          </div>
 
           <Cartao className="overflow-hidden">
             <table className="w-full border-collapse">
               <thead>
                 <tr className="bg-fundo text-left">
-                  {['CLÍNICA', 'SITUAÇÃO', 'ASSENTOS', 'ASSINATURA', 'COBRANÇA', 'ÚLTIMO USO', ''].map((h) => (
+                  {['CLÍNICA', 'PRODUTO', 'SITUAÇÃO', 'ASSENTOS', 'ASSINATURA', 'COBRANÇA', 'ÚLTIMO USO', ''].map((h) => (
                     <th key={h} className="rotulo border-b border-borda px-[18px] py-3">
                       {h}
                     </th>
@@ -129,6 +146,11 @@ export default function EmpresasSistema() {
                       <td className="border-b border-linha px-[18px] py-3.5">
                         <div className="font-medium">{e.nome}</div>
                         <div className="text-[12px] text-tinta-4">{e.admin_email ?? 'sem admin'}</div>
+                      </td>
+                      <td className="border-b border-linha px-[18px] py-3.5">
+                        <span className={`rounded-chip px-2 py-[3px] text-[12px] font-medium ${e.marca === 'anamni' ? 'bg-marca-suave text-marca-hover' : 'bg-linha text-tinta-2'}`}>
+                          {MARCAS[e.marca]?.nome ?? e.marca}
+                        </span>
                       </td>
                       <td className="border-b border-linha px-[18px] py-3.5">
                         <span className={`rounded-chip px-2 py-[3px] text-[12px] font-medium ${CORES[e.status]}`}>
@@ -229,6 +251,9 @@ function NovaEmpresaModal({
   onPronto: () => void;
 }) {
   const [nome, setNome] = useState('');
+  // De qual produto é esta clínica — decide o painel que ela usa e a extensão
+  // que a equipe instala.
+  const [marca, setMarca] = useState<IdMarca>('buildchat');
   const [planoSlug, setPlanoSlug] = useState('start');
   const [status, setStatus] = useState<'trial' | 'ativa'>('trial');
   const [trialDias, setTrialDias] = useState('14');
@@ -279,6 +304,7 @@ function NovaEmpresaModal({
       p_trial_dias: Number(trialDias) || 14,
       p_ciclo: ciclo,
       p_valor_centavos: emCentavos(valorExibido),
+      p_marca: marca,
     });
 
     setSalvando(false);
@@ -310,7 +336,7 @@ function NovaEmpresaModal({
               variante="secundario"
               onClick={() =>
                 navigator.clipboard.writeText(
-                  `BuildChat — ${nome}\nPainel: https://chat.buildclinic.com.br/entrar\nE-mail: ${email}\nSenha: ${senha}`,
+                  `${MARCAS[marca].nome} — ${nome}\nPainel: ${MARCAS[marca].url}/entrar\nE-mail: ${email}\nSenha: ${senha}`,
                 )
               }
             >
@@ -329,6 +355,22 @@ function NovaEmpresaModal({
     <Modal titulo="Nova clínica" onFechar={onFechar}>
       <div className="flex flex-col gap-4">
         <CampoTexto rotulo="Nome da clínica" valor={nome} onChange={setNome} placeholder="Odonto Sorriso" />
+
+        <label className="flex flex-col gap-1.5 font-medium">
+          Produto
+          <select
+            value={marca}
+            onChange={(e) => setMarca(e.target.value as IdMarca)}
+            className="campo focus:campo-foco font-normal"
+          >
+            <option value="buildchat">BuildChat — grupo BuildClinic</option>
+            <option value="anamni">Anamni — consultórios</option>
+          </select>
+          <span className="text-[12px] font-normal text-tinta-4">
+            Define o painel que a clínica acessa ({MARCAS[marca].url.replace('https://', '')}) e a
+            extensão que a equipe instala.
+          </span>
+        </label>
 
         <label className="flex flex-col gap-1.5 font-medium">
           Nível do cliente

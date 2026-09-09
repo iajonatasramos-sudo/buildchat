@@ -67,3 +67,15 @@
   border-color: var(--color-marca);
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
 }
+
+/* ── Marca Anamni ────────────────────────────────────────────────────────────
+   O painel é um só: o layout põe `data-marca` no <html> a partir do domínio
+   acessado, e aqui trocamos apenas as cores da marca. As utilities do Tailwind
+   leem estas variáveis, então tudo acompanha sem mais nenhuma mudança. */
+html[data-marca='anamni'] {
+  --color-marca: #0D9488;
+  --color-marca-hover: #0F766E;
+  --color-marca-suave: #E4F5F2;
+  --color-lateral: #10322F;
+  --color-lateral-claro: #5EEAD4;
+}

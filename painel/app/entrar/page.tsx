@@ -7,7 +7,9 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { carregarPerfil, supabase } from '@/lib/supabase';
 
+import { useMarca } from '../marca-cliente';
 export default function Entrar() {
+  const marca = useMarca();
   const router = useRouter();
   const [modo, setModo] = useState<'entrar' | 'criar'>('entrar');
   const [empresa, setEmpresa] = useState('');
@@ -34,9 +36,11 @@ export default function Entrar() {
           setCarregando(false);
           return;
         }
+        // A clínica nasce com a marca do painel em que a pessoa se cadastrou.
         const { error: erroRpc } = await supabase.rpc('criar_empresa_e_admin', {
           p_empresa: empresa.trim(),
           p_nome: nome.trim(),
+          p_marca: marca.id,
         });
         if (erroRpc) throw erroRpc;
       }
@@ -57,7 +61,7 @@ export default function Entrar() {
     <div className="grid min-h-screen lg:grid-cols-2">
       <div className="flex flex-col justify-center border-r border-borda bg-white px-8 py-16 lg:px-20">
         <div className="mb-12 flex items-center gap-2 text-[18px] font-extrabold">
-          <span className="text-[20px] text-marca">⚡</span>BuildChat
+          <span className="text-[20px] text-marca">{marca.simbolo}</span>{marca.nome}
         </div>
 
         <form onSubmit={enviar} className="w-full max-w-[400px]">

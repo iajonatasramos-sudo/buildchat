@@ -2,30 +2,39 @@
 // O arquivo fica em painel/public/ e é gerado por `npm run pacote` na raiz.
 
 import Link from 'next/link';
+import { headers } from 'next/headers';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { marcaPorHost } from '@/lib/marca';
 
-// Preencha quando a extensão estiver publicada na Chrome Web Store.
-const LINK_LOJA = '';
-const ARQUIVO = '/buildchat-extensao.zip';
+// Preencha quando cada extensão estiver publicada na Chrome Web Store.
+const LINK_LOJA: Record<string, string> = { buildchat: '', anamni: '' };
 
-export const metadata = { title: 'Instalar o BuildChat' };
+export async function generateMetadata() {
+  const marca = marcaPorHost((await headers()).get('host'));
+  return { title: `Instalar o ${marca.nome}` };
+}
 
-function versaoAtual(): string {
+function versaoAtual(arquivo: string): string {
   try {
-    return readFileSync(join(process.cwd(), 'public', 'versao-extensao.txt'), 'utf8').trim();
+    return readFileSync(join(process.cwd(), 'public', arquivo), 'utf8').trim();
   } catch {
     return '';
   }
 }
 
-export default function Instalar() {
-  const versao = versaoAtual();
+// A página serve a extensão da marca do domínio: quem chega pelo painel do
+// Anamni baixa o Anamni, quem chega pelo da BuildClinic baixa o BuildChat.
+export default async function Instalar() {
+  const marca = marcaPorHost((await headers()).get('host'));
+  const ARQUIVO = marca.arquivoExtensao;
+  const LOJA = LINK_LOJA[marca.id] ?? '';
+  const versao = versaoAtual(marca.arquivoVersao);
 
   return (
     <main className="mx-auto max-w-[680px] px-6 py-14">
       <div className="mb-10 flex items-center gap-2 text-[18px] font-extrabold">
-        <span className="text-[20px] text-marca">⚡</span>BuildChat
+        <span className="text-[20px] text-marca">{marca.simbolo}</span>{marca.nome}
       </div>
 
       <h1 className="mb-2 text-[30px] font-extrabold">Instalar a extensão</h1>
@@ -34,11 +43,11 @@ export default function Instalar() {
         dois minutos.
       </p>
 
-      {LINK_LOJA ? (
+      {LOJA ? (
         <section className="cartao mb-6 px-6 py-6">
           <Passo n={1} titulo="Instale pela Chrome Web Store" ultimo>
             <a
-              href={LINK_LOJA}
+              href={LOJA}
               target="_blank"
               rel="noreferrer"
               className="mt-3 inline-block rounded-controle bg-marca px-[18px] py-[11px] text-[13.5px] font-semibold text-white transition hover:bg-marca-hover"
@@ -54,7 +63,7 @@ export default function Instalar() {
               <div className="min-w-0">
                 <div className="font-extrabold">Arquivo da extensão</div>
                 <div className="text-[12.5px] text-tinta-3">
-                  buildchat-extensao.zip{versao && ` · versão ${versao}`}
+                  {ARQUIVO.replace('/', '')}{versao && ` · versão ${versao}`}
                 </div>
               </div>
               <a
@@ -92,12 +101,12 @@ export default function Instalar() {
       )}
 
       <section className="cartao mb-6 px-6 py-6">
-        <Passo n={LINK_LOJA ? 2 : 5} titulo="Abra o WhatsApp Web e entre na sua conta">
+        <Passo n={LOJA ? 2 : 5} titulo="Abra o WhatsApp Web e entre na sua conta">
           Acesse <span className="font-mono text-[13px]">web.whatsapp.com</span>. No topo da tela
-          aparece a barra do BuildChat — clique em <strong>Entrar</strong> e use o e-mail e a senha
+          aparece a barra do {marca.nome} — clique em <strong>Entrar</strong> e use o e-mail e a senha
           que a clínica cadastrou para você.
         </Passo>
-        <Passo n={LINK_LOJA ? 3 : 6} titulo="Pronto" ultimo>
+        <Passo n={LOJA ? 3 : 6} titulo="Pronto" ultimo>
           Suas mensagens rápidas, pastas e anotações aparecem automaticamente, em qualquer computador
           onde você entrar com a mesma conta.
         </Passo>

@@ -37,6 +37,11 @@
   --font-mono: var(--ff-mono);
 }
 
+/* Cor da marca Anamni (verde-azulado). O `data-marca` é posto nas raízes por
+   main.tsx a partir de MARCA.id — o BuildChat segue com o índigo abaixo.
+   Vem ANTES do bloco padrão? Não: precisa vir depois, para vencer. Ver o fim
+   deste arquivo. */
+
 :host,
 .bc-root {
   --brand: oklch(54% 0.18 264);
@@ -241,4 +246,18 @@
   .bc-anim-pop { animation: bc-pop 0.14s ease-out; }
   .bc-anim-slide { animation: bc-slide-in 0.18s ease-out; }
   .bc-anim-fade { animation: bc-fade-in 0.14s ease-out; }
+}
+
+
+/* ── Marca Anamni ────────────────────────────────────────────────────────────
+   Mesma interface, outra cor. Fica no fim do arquivo para vencer o bloco
+   padrão sem precisar de !important; vale em todos os temas, porque só troca
+   a família da marca. */
+.bc-root[data-marca='anamni'] {
+  --brand: oklch(60% 0.11 185);
+  --brand-600: oklch(53% 0.11 185);
+  --brand-500: oklch(60% 0.11 185);
+  --brand-400: oklch(70% 0.10 185);
+  --brand-100: oklch(94% 0.04 185);
+  --brand-50: oklch(97% 0.02 185);
 }

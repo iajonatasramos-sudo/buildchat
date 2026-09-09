@@ -8,6 +8,7 @@
 import { createClient, type SupabaseClient, type Session } from '@supabase/supabase-js';
 import { PAINEL_URL, SUPABASE_ANON_KEY, SUPABASE_URL, servidorConfigurado } from './config';
 
+import { MARCA } from './marca';
 export type Empresa = {
   id: string;
   nome: string;
@@ -134,6 +135,7 @@ async function finalizarCadastroPendente(): Promise<boolean> {
   const { error } = await sb.rpc('criar_empresa_e_admin', {
     p_empresa: pendente.empresa,
     p_nome: pendente.nome,
+    p_marca: MARCA.id, // a clínica nasce com a marca da extensão usada
   });
   await new Promise<void>((r) => chrome.storage.local.remove(CHAVE_PENDENTE, () => r()));
   if (error) {
@@ -164,7 +166,7 @@ export async function cadastrar(
   if (!data.session) return { ok: true };
   await new Promise<void>((r) => chrome.storage.local.remove(CHAVE_PENDENTE, () => r()));
 
-  const { error } = await sb.rpc('criar_empresa_e_admin', { p_empresa: empresa, p_nome: nome });
+  const { error } = await sb.rpc('criar_empresa_e_admin', { p_empresa: empresa, p_nome: nome, p_marca: MARCA.id });
   if (error) return { ok: false, erro: traduzir(error.message) };
   return { ok: true };
 }

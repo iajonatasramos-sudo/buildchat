@@ -2,6 +2,47 @@ import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'node:path';
+import { copyFileSync, existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { MARCAS, type IdMarca } from './src/lib/marca';
+
+/** Marca deste build: `MARCA=anamni npm run build`. Sem nada, é o BuildChat. */
+const MARCA_ID: IdMarca = process.env.MARCA === 'anamni' ? 'anamni' : 'buildchat';
+
+/**
+ * Aplica a marca ao pacote: nome e ícones do manifesto, e os domínios que a
+ * extensão pode chamar. O `public/manifest.json` é o do BuildChat e serve de
+ * modelo; o Vite já o copiou para `dist/` quando este passo roda.
+ */
+function marcaNoPacote(): Plugin {
+  const marca = MARCAS[MARCA_ID];
+  return {
+    name: 'bc-marca',
+    apply: 'build',
+    closeBundle() {
+      const dist = path.resolve(__dirname, 'dist');
+      const arquivo = path.join(dist, 'manifest.json');
+      const manifesto = JSON.parse(readFileSync(arquivo, 'utf8'));
+      manifesto.name = marca.nomeNaLoja;
+      manifesto.description = marca.descricao;
+      manifesto.action.default_title = marca.nome;
+      manifesto.host_permissions = [
+        'https://web.whatsapp.com/*',
+        'https://*.supabase.co/*',
+        ...marca.dominios,
+      ];
+      writeFileSync(arquivo, JSON.stringify(manifesto, null, 2) + '\n');
+
+      // Ícones próprios da marca sobrescrevem os do BuildChat.
+      const pasta = path.resolve(__dirname, 'public', 'marcas', marca.id, 'icons');
+      if (existsSync(pasta)) {
+        for (const nome of readdirSync(pasta)) {
+          copyFileSync(path.join(pasta, nome), path.join(dist, 'icons', nome));
+        }
+      }
+      console.log(`marca do pacote: ${marca.nome} (painel ${marca.painelUrl})`);
+    },
+  };
+}
 
 /**
  * Tailwind v4 dentro de shadow DOM: `@property` não vale aqui.
@@ -50,7 +91,8 @@ function valoresIniciaisDoTailwind(): Plugin {
 //  - background-> service worker (module) apontado direto no manifest
 //  - wa-bridge -> injetado no contexto da PÁGINA (web.whatsapp.com) p/ falar com o WPP
 export default defineConfig({
-  plugins: [react(), tailwindcss(), valoresIniciaisDoTailwind()],
+  plugins: [react(), tailwindcss(), valoresIniciaisDoTailwind(), marcaNoPacote()],
+  define: { __MARCA__: JSON.stringify(MARCA_ID) },
   resolve: {
     alias: { '@': path.resolve(__dirname, 'src') },
   },

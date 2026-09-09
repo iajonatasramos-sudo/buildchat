@@ -18,22 +18,26 @@ if (!existsSync(dist)) {
   process.exit(1);
 }
 
+// A marca do pacote vem do build (MARCA=anamni). Cada uma vira um .zip
+// próprio, para virar uma listagem própria na Chrome Web Store.
+const marca = process.env.MARCA === 'anamni' ? 'anamni' : 'buildchat';
 const versao = JSON.parse(readFileSync(join(dist, 'manifest.json'), 'utf8')).version;
-const temp = mkdtempSync(join(tmpdir(), 'buildchat-loja-'));
+const temp = mkdtempSync(join(tmpdir(), `${marca}-loja-`));
 cpSync(dist, temp, { recursive: true });
 rmSync(join(temp, 'seed'), { recursive: true, force: true });
 
-const saida = join(raiz, `buildchat-extensao-${versao}.zip`);
+const saida = join(raiz, `${marca}-extensao-${versao}.zip`);
 rmSync(saida, { force: true });
 execSync(`cd "${temp}" && zip -r -q "${saida}" .`);
 rmSync(temp, { recursive: true, force: true });
 
-// Publica também no painel, para a equipe baixar em /instalar.
-const noPainel = join(raiz, 'painel', 'public', 'buildchat-extensao.zip');
+// Publica também no painel, para a equipe baixar em /instalar — um arquivo
+// por marca; a página serve o da marca do domínio acessado.
+const noPainel = join(raiz, 'painel', 'public', `${marca}-extensao.zip`);
 cpSync(saida, noPainel);
-writeFileSync(join(raiz, 'painel', 'public', 'versao-extensao.txt'), versao + '\n');
+writeFileSync(join(raiz, 'painel', 'public', `versao-${marca}.txt`), versao + '\n');
 
 const tamanho = execSync(`du -h "${saida}"`).toString().split('\t')[0];
 console.log(`pacote pronto: ${saida} (${tamanho})`);
-console.log(`publicado no painel: painel/public/buildchat-extensao.zip (versão ${versao})`);
+console.log(`publicado no painel: painel/public/${marca}-extensao.zip (versão ${versao})`);
 console.log('conteúdo sem a pasta seed/ — nenhum dado pessoal embarcado.');

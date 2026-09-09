@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { avaliarLicenca, carregarPerfil, ehAdmin, iniciais, SO_ADMIN, supabase, type Perfil } from '@/lib/supabase';
 
+import { useMarca } from '../marca-cliente';
 // O usuário comum não administra a clínica: sem usuários, equipes, acervo da
 // empresa nem assinatura. Fica com o que é dele — visão geral, pastas e os
 // contatos dos números que conectou.
@@ -27,6 +28,7 @@ const MENU_USUARIO = [
 ];
 
 export default function LayoutPainel({ children }: { children: React.ReactNode }) {
+  const marca = useMarca();
   const router = useRouter();
   const caminho = usePathname();
   const [perfil, setPerfil] = useState<Perfil | null>(null);
@@ -66,7 +68,7 @@ export default function LayoutPainel({ children }: { children: React.ReactNode }
     <div className="flex min-h-screen">
       <aside className="flex w-[244px] flex-none flex-col bg-lateral px-4 py-6">
         <div className="flex items-center gap-2 px-2 pb-[26px] text-[17px] font-extrabold text-white">
-          <span className="text-[18px] text-lateral-claro">⚡</span>BuildChat
+          <span className="text-[18px] text-lateral-claro">{marca.simbolo}</span>{marca.nome}
         </div>
 
         <nav className="flex flex-col gap-0.5">

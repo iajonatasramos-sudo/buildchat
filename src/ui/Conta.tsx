@@ -11,6 +11,7 @@ import { avaliarLicenca, cadastrar, carregarPerfil, entrar, sair, type Perfil } 
 import { servidorConfigurado } from '@/lib/config';
 import { modalConta, perfilAtual } from '@/lib/store';
 import { fotosDosContatos, getInfoConta } from '@/lib/wa';
+import { MARCA } from '@/lib/marca';
 import { toast } from './toast';
 
 /** Botão/estado da conta, mostrado no canto direito da barra do topo. */
@@ -190,7 +191,7 @@ export function ContaModal() {
             <X size={15} />
           </button>
           <div className="mb-2.5 inline-flex items-center gap-1.5 rounded-md bg-white/15 px-2 py-1 text-[11px] font-bold text-white">
-            <Zap size={12} /> BuildChat
+            <Zap size={12} /> {MARCA.nome}
           </div>
           <h3 className="text-[19px] font-extrabold leading-tight tracking-tight text-white">
             {criando ? 'Criar conta da clínica' : 'Entrar na sua conta'}

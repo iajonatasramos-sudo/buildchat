@@ -8,6 +8,7 @@ import * as db from '@/lib/db';
 import { iniciarMotor } from '@/lib/automacoes/motor';
 import type { Perfil } from '@/lib/auth';
 import { servidorConfigurado } from '@/lib/config';
+import { MARCA, temRecurso } from '@/lib/marca';
 import { urlDoPainel } from '@/lib/auth';
 import { DOM, executarResposta, getContatoAtivo, observarConversa } from '@/lib/wa';
 import { inserirTextoNoCompose, reconciliarTagsContatos } from '@/lib/wa';
@@ -274,7 +275,7 @@ export function App() {
               do WPP e da nuvem aparece aqui. */}
           <div className="flex items-center justify-between rounded-lg border border-border bg-surface px-3 py-1.5 shadow-sm">
             <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-muted">
-              <Zap size={12} className="text-brand" /> BuildChat
+              <Zap size={12} className="text-brand" /> {MARCA.nome}
               {enviando && <Loader2 size={11} className="animate-spin" />}
             </span>
             <IndicadoresEstado />
@@ -300,8 +301,8 @@ export function App() {
       {/* Entrar / criar conta */}
       {conta && <ContaModal />}
 
-      {/* Gerar proposta (PDF vem da API do BuildClinic) */}
-      {proposta && <PropostaModal contato={contato} />}
+      {/* Gerar proposta (PDF vem da API do BuildClinic) — só na marca que tem o recurso */}
+      {proposta && temRecurso('propostas') && <PropostaModal contato={contato} />}
 
       {/* Picker "/" */}
       {query !== null && (
@@ -659,9 +660,11 @@ function TrilhoLateral() {
       <button type="button" title="Mensagens rápidas" className={botao(aba === 'rapidas')} onClick={() => ir('rapidas')}>
         <Zap size={17} />
       </button>
-      <button type="button" title="Automações" className={botao(aba === 'automacoes')} onClick={() => ir('automacoes')}>
-        <Bot size={17} />
-      </button>
+      {temRecurso('automacoes') && (
+        <button type="button" title="Automações" className={botao(aba === 'automacoes')} onClick={() => ir('automacoes')}>
+          <Bot size={17} />
+        </button>
+      )}
       <button
         type="button"
         title="Conta de WhatsApp em uso"
@@ -678,7 +681,7 @@ function TrilhoLateral() {
           nasce ANTES do await (o clique ainda vale como gesto) e recebe o endereço depois. */}
       <button
         type="button"
-        title="Meus contatos no painel BuildChat"
+        title={`Meus contatos no painel ${MARCA.nome}`}
         className={botao(false)}
         onClick={() => {
           const aba = window.open('', '_blank');

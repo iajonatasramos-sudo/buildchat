@@ -5,10 +5,37 @@ CRM leve ao **WhatsApp Web**. Reescrita independente inspirada no Dental Chat (W
 com a UI portada do **Saleschat/BuildClinic**. Hoje é 100% local; está evoluindo para um
 **produto SaaS multiempresa** — ver [PLANEJAMENTO-SERVIDOR.md](PLANEJAMENTO-SERVIDOR.md).
 
+## Duas marcas: BuildChat e Anamni
+
+O mesmo código é distribuído como **dois produtos**: **BuildChat** (uso do grupo BuildClinic) e
+**Anamni** (comercial, para os doutores, painel em `painel.anamni.com.br`). **Servidor, banco e
+painel são ÚNICOS** — cada clínica já é isolada pela RLS; o que muda é a casca e a lista de
+recursos.
+
+- **Extensão**: a marca é escolhida NA COMPILAÇÃO (`MARCA=anamni`), nunca em tempo de execução.
+  `src/lib/marca.ts` tem nome, painel, domínios liberados e **`recursos`** (o interruptor por
+  produto: hoje `propostas` só no BuildChat). O plugin `marcaNoPacote()` em `vite.config.ts`
+  reescreve `dist/manifest.json` (nome, descrição, `host_permissions`) e troca os ícones por
+  `public/marcas/<marca>/icons/`. A cor vem de `data-marca` na raiz (ver fim de `tokens.css`).
+  **Duas listagens na Chrome Web Store, dois ids, armazenamento separado.**
+- **Painel**: um repositório, um deploy, um banco. A marca vem do **domínio da requisição**
+  (`painel/lib/marca.ts` + `marcaPorHost`); o layout põe `data-marca` no `<html>` (troca a cor em
+  `globals.css`) e passa a marca aos componentes de cliente pelo `MarcaProvider`
+  (`useMarca()`). `/instalar` serve o .zip da marca do domínio.
+- **Banco** (`0026`): `empresas.marca` (`buildchat` | `anamni`). Quem se cadastra sozinho manda a
+  marca do painel/extensão que usou (`criar_empresa_e_admin(p_empresa, p_nome, p_marca)`); o
+  gestor escolhe na tela (`sistema_criar_empresa(..., p_marca)`), corrige depois com
+  `sistema_definir_marca`, e `/sistema/empresas` mostra a coluna PRODUTO e filtra por ela.
+- **Para tirar ou devolver uma função a um produto**, mexa só em `recursos` de `src/lib/marca.ts`.
+
 ## Comandos
 
 ```bash
-npm run build     # gera dist/ (é a pasta que se carrega no Chrome)
+npm run build     # gera dist/ (é a pasta que se carrega no Chrome) — marca BuildChat
+npm run build:anamni  # o mesmo código com a marca Anamni
+npm run pacote        # .zip do BuildChat (e publica em painel/public/)
+npm run pacote:anamni # .zip do Anamni
+npm run pacote:tudo   # os dois; termina deixando dist/ no BuildChat
 npm run dev       # rebuild automático (recarregar a extensão e a aba após cada build)
 npx tsc --noEmit  # checagem de tipos (rodar sempre antes de dar por pronto)
 ```

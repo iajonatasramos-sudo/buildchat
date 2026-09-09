@@ -1,3 +1,5 @@
+import { MARCA } from './marca';
+
 // Credenciais do projeto Supabase (públicas — podem ir no bundle da extensão).
 // A service_role NUNCA entra aqui: ela ignora toda a RLS.
 //
@@ -11,5 +13,6 @@ export function servidorConfigurado(): boolean {
   return !SUPABASE_URL.includes('SEU-PROJETO') && !SUPABASE_ANON_KEY.startsWith('COLE_AQUI');
 }
 
-/** Painel web (Next.js) — os atalhos da extensão abrem páginas dele. */
-export const PAINEL_URL = 'https://chat.buildclinic.com.br';
+/** Painel web (Next.js) — os atalhos da extensão abrem páginas dele.
+ *  O endereço vem da marca compilada (BuildChat ou Anamni). */
+export const PAINEL_URL = MARCA.painelUrl;

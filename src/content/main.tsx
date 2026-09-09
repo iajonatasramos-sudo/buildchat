@@ -10,6 +10,7 @@ import { HeaderBar } from '@/ui/HeaderBar';
 import { injetarBridge } from '@/lib/wa';
 import { getSettings } from '@/lib/db';
 import { gavetaAberta, LARGURA_TRILHO, modalConta, perfilAtual, tema } from '@/lib/store';
+import { MARCA } from '@/lib/marca';
 import { servidorConfigurado } from '@/lib/config';
 import '@/styles/tokens.css';
 
@@ -31,6 +32,8 @@ function criarRaiz(host: HTMLElement): HTMLElement {
 
   const container = document.createElement('div');
   container.className = 'bc-root';
+  // Cor da marca deste pacote (ver tokens.css). BuildChat não precisa marcar.
+  if (MARCA.id !== 'buildchat') container.dataset.marca = MARCA.id;
   shadow.appendChild(container);
   containers.push(container);
   return container;
@@ -141,8 +144,8 @@ function montarBotaoCompose() {
     const btn = document.createElement('button');
     btn.id = BTN_ID;
     btn.type = 'button';
-    btn.title = 'BuildChat — mensagens rápidas';
-    btn.setAttribute('aria-label', 'BuildChat');
+    btn.title = `${MARCA.nome} — mensagens rápidas`;
+    btn.setAttribute('aria-label', MARCA.nome);
     btn.innerHTML = ZAP_SVG;
     btn.style.cssText =
       'background:none;border:0;padding:10px;margin:0;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;';

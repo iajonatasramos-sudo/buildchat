@@ -8,6 +8,7 @@ import * as db from '@/lib/db';
 import { alternarPastaAtiva, menuHeader, pastasAtivas, type MenuHeader } from '@/lib/store';
 import type { ContatoAtivo, TagOpt } from '@/lib/types';
 import type { MsgApagada } from '@/lib/db';
+import { MARCA } from '@/lib/marca';
 
 export function HeaderMenuOverlay({ menu, contato }: { menu: NonNullable<MenuHeader>; contato: ContatoAtivo | null }) {
   const fechar = () => menuHeader.set(null);
@@ -246,7 +247,7 @@ function MenuApagadas({ contato }: { contato: ContatoAtivo | null }) {
             <Trash2 size={18} />
             Nenhuma mensagem apagada capturada aqui.
             <span className="max-w-[240px] text-[11px]">
-              A captura acontece enquanto o WhatsApp Web está aberto com o BuildChat ativo.
+              A captura acontece enquanto o WhatsApp Web está aberto com o {MARCA.nome} ativo.
             </span>
           </div>
         ) : (

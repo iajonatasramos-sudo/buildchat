@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { iniciais, supabase } from '@/lib/supabase';
 
+import { useMarca } from '../marca-cliente';
 type Eu = { nome: string; email: string };
 
 const MENU = [
@@ -18,6 +19,7 @@ const MENU = [
 ];
 
 export default function LayoutSistema({ children }: { children: React.ReactNode }) {
+  const marca = useMarca();
   const router = useRouter();
   const caminho = usePathname();
   const [estado, setEstado] = useState<'verificando' | 'liberado' | 'negado'>('verificando');
@@ -54,7 +56,7 @@ export default function LayoutSistema({ children }: { children: React.ReactNode 
         <div className="max-w-[420px] text-center">
           <h1 className="mb-2 text-[22px] font-extrabold">Área restrita</h1>
           <p className="mb-6 leading-relaxed text-tinta-3">
-            Esta área é do gestor do BuildChat. Sua conta administra uma clínica — use o painel dela.
+            Esta área é do gestor do sistema. Sua conta administra uma clínica — use o painel dela.
           </p>
           <Link
             href="/painel"
@@ -71,7 +73,7 @@ export default function LayoutSistema({ children }: { children: React.ReactNode 
     <div className="flex min-h-screen">
       <aside className="flex w-[244px] flex-none flex-col bg-[#0F1020] px-4 py-6">
         <div className="flex items-center gap-2 px-2 pb-1 text-[17px] font-extrabold text-white">
-          <span className="text-[18px] text-lateral-claro">⚡</span>BuildChat
+          <span className="text-[18px] text-lateral-claro">{marca.simbolo}</span>{marca.nome}
         </div>
         <div className="mb-5 px-2 text-[11px] font-bold uppercase tracking-wide text-white/40">
           Gestão do sistema

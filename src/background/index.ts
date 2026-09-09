@@ -1,4 +1,5 @@
-// Service worker — roteia eventos da extensão para o webhook configurado.
+
+import { CABECALHO_SEGREDO } from '@/lib/marca';// Service worker — roteia eventos da extensão para o webhook configurado.
 
 type MsgWebhook = { type: 'bc:webhook'; event: string; payload: unknown };
 
@@ -56,7 +57,7 @@ chrome.runtime.onMessage.addListener((msg: MsgWebhookAuto, _sender, sendResponse
     try {
       const res = await fetch(msg.url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(msg.segredo ? { 'X-BuildChat-Secret': msg.segredo } : {}) },
+        headers: { 'Content-Type': 'application/json', ...(msg.segredo ? { [CABECALHO_SEGREDO]: msg.segredo } : {}) },
         body: JSON.stringify({ source: 'buildchat', event: msg.event, payload: msg.payload }),
       });
       sendResponse({ ok: res.ok, status: res.status });

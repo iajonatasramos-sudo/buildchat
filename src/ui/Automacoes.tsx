@@ -17,6 +17,7 @@ import {
 } from '@/lib/automacoes/tipos';
 import { toast } from './toast';
 
+import { CABECALHO_SEGREDO } from '@/lib/marca';
 type SubAba = 'bots' | 'campanhas' | 'notificacoes' | 'webhook';
 const SUBABAS: { id: SubAba; rotulo: string; Icone: typeof Bot }[] = [
   { id: 'bots', rotulo: 'Bots', Icone: Bot },
@@ -523,7 +524,7 @@ function Webhook() {
         <p className="mb-2 text-[11px] leading-snug text-muted">POST com JSON <code>{'{ source, event, payload }'}</code> para a URL abaixo quando um evento marcado acontece.</p>
         <label className="flex items-center gap-2 text-[12px] font-semibold"><input type="checkbox" checked={w.ativo} onChange={(e) => setW({ ...w, ativo: e.target.checked })} /> Ativo</label>
         <label className="mt-2 block"><span className={rotulo}>URL</span><input value={w.url} onChange={(e) => setW({ ...w, url: e.target.value })} className={campo} placeholder="https://…" /></label>
-        <label className="mt-2 block"><span className={rotulo}>Segredo (cabeçalho X-BuildChat-Secret)</span><input value={w.segredo} onChange={(e) => setW({ ...w, segredo: e.target.value })} className={campo} placeholder="opcional" /></label>
+        <label className="mt-2 block"><span className={rotulo}>Segredo (cabeçalho {CABECALHO_SEGREDO})</span><input value={w.segredo} onChange={(e) => setW({ ...w, segredo: e.target.value })} className={campo} placeholder="opcional" /></label>
         <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
           {EVENTOS_WEBHOOK.map((ev) => (
             <label key={ev} className="flex items-center gap-1 text-[11px]">

@@ -32,7 +32,7 @@ export default function VisaoGeralSistema() {
     <div>
       <Cabecalho
         titulo="Visão geral do sistema"
-        subtitulo="Como está a base de clínicas do BuildChat."
+        subtitulo="Como está a base de clínicas dos dois produtos."
         acao={
           <Link
             href="/sistema/empresas"

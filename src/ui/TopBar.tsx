@@ -23,6 +23,7 @@ import {
   type EstadoSync,
 } from '@/lib/store';
 import { bridgeDisponivel } from '@/lib/wa';
+import { MARCA } from '@/lib/marca';
 import { ContaBotao } from './Conta';
 import type { TagOpt } from '@/lib/types';
 
@@ -92,7 +93,7 @@ export function TopBar() {
           alt=""
           className="h-6 w-6 rounded-md bg-white object-contain"
         />
-        BuildChat
+        {MARCA.nome}
       </span>
 
       <span className="h-5 w-px flex-shrink-0 bg-border" />
