@@ -15,8 +15,9 @@ recursos.
 - **Extensão**: a marca é escolhida NA COMPILAÇÃO (`MARCA=anamni`), nunca em tempo de execução.
   `src/lib/marca.ts` tem nome, painel, domínios liberados e **`recursos`** (o interruptor por
   produto: hoje `propostas` só no BuildChat). O plugin `marcaNoPacote()` em `vite.config.ts`
-  reescreve `dist/manifest.json` (nome, descrição, `host_permissions`) e troca os ícones por
-  `public/marcas/<marca>/icons/`. A cor vem de `data-marca` na raiz (ver fim de `tokens.css`).
+  reescreve o `manifest.json` (nome, descrição, `host_permissions`) e troca os ícones por
+  `public/marcas/<marca>/icons/`. **Cada marca tem a sua pasta**: `dist/` é o BuildChat e
+  `dist-anamni/` é o Anamni — compilar um não derruba o outro no `chrome://extensions`. A cor vem de `data-marca` na raiz (ver fim de `tokens.css`).
   **Duas listagens na Chrome Web Store, dois ids, armazenamento separado.**
 - **Painel**: um repositório, um deploy, um banco. A marca vem do **domínio da requisição**
   (`painel/lib/marca.ts` + `marcaPorHost`); o layout põe `data-marca` no `<html>` (troca a cor em
@@ -32,7 +33,7 @@ recursos.
 
 ```bash
 npm run build     # gera dist/ (é a pasta que se carrega no Chrome) — marca BuildChat
-npm run build:anamni  # o mesmo código com a marca Anamni
+npm run build:anamni  # o mesmo código com a marca Anamni, em dist-anamni/
 npm run pacote        # .zip do BuildChat (e publica em painel/public/)
 npm run pacote:anamni # .zip do Anamni
 npm run pacote:tudo   # os dois; termina deixando dist/ no BuildChat

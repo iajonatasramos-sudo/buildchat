@@ -11,7 +11,7 @@
     "pacote": "npm run build && node scripts/pacote-loja.mjs",
     "build:anamni": "npm run prebuild && MARCA=anamni vite build",
     "pacote:anamni": "npm run build:anamni && MARCA=anamni node scripts/pacote-loja.mjs",
-    "pacote:tudo": "npm run pacote:anamni && npm run pacote"
+    "pacote:tudo": "npm run pacote && npm run pacote:anamni"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",

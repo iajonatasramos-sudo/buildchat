@@ -9,6 +9,13 @@ import { MARCAS, type IdMarca } from './src/lib/marca';
 const MARCA_ID: IdMarca = process.env.MARCA === 'anamni' ? 'anamni' : 'buildchat';
 
 /**
+ * Cada marca tem a SUA pasta: `dist/` é o BuildChat e `dist-anamni/` é o
+ * Anamni. Assim compilar um não derruba o outro — o `dist/` carregado no
+ * Chrome do dia a dia continua onde está.
+ */
+export const PASTA_SAIDA = MARCA_ID === 'anamni' ? 'dist-anamni' : 'dist';
+
+/**
  * Aplica a marca ao pacote: nome e ícones do manifesto, e os domínios que a
  * extensão pode chamar. O `public/manifest.json` é o do BuildChat e serve de
  * modelo; o Vite já o copiou para `dist/` quando este passo roda.
@@ -19,7 +26,7 @@ function marcaNoPacote(): Plugin {
     name: 'bc-marca',
     apply: 'build',
     closeBundle() {
-      const dist = path.resolve(__dirname, 'dist');
+      const dist = path.resolve(__dirname, PASTA_SAIDA);
       const arquivo = path.join(dist, 'manifest.json');
       const manifesto = JSON.parse(readFileSync(arquivo, 'utf8'));
       manifesto.name = marca.nomeNaLoja;
@@ -97,7 +104,7 @@ export default defineConfig({
     alias: { '@': path.resolve(__dirname, 'src') },
   },
   build: {
-    outDir: 'dist',
+    outDir: PASTA_SAIDA,
     emptyOutDir: true,
     target: 'es2022',
     // manter legível ajuda a depurar dentro do WhatsApp Web

@@ -11,16 +11,17 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const raiz = new URL('..', import.meta.url).pathname;
-const dist = join(raiz, 'dist');
+// Cada marca tem a sua pasta de saída (ver vite.config.ts).
+const marca = process.env.MARCA === 'anamni' ? 'anamni' : 'buildchat';
+const pasta = marca === 'anamni' ? 'dist-anamni' : 'dist';
+const dist = join(raiz, pasta);
 
 if (!existsSync(dist)) {
-  console.error('dist/ não existe — rode `npm run build` antes.');
+  console.error(`${pasta}/ não existe — rode \`npm run build${marca === 'anamni' ? ':anamni' : ''}\` antes.`);
   process.exit(1);
 }
 
-// A marca do pacote vem do build (MARCA=anamni). Cada uma vira um .zip
-// próprio, para virar uma listagem própria na Chrome Web Store.
-const marca = process.env.MARCA === 'anamni' ? 'anamni' : 'buildchat';
+// Cada marca vira um .zip próprio, para uma listagem própria na Chrome Web Store.
 const versao = JSON.parse(readFileSync(join(dist, 'manifest.json'), 'utf8')).version;
 const temp = mkdtempSync(join(tmpdir(), `${marca}-loja-`));
 cpSync(dist, temp, { recursive: true });
