@@ -453,7 +453,7 @@ function Editor({
         )}
 
         <label className="flex flex-col gap-1.5 font-medium">
-          O que
+          Atividade
           <input
             autoFocus
             disabled={!podeMexer}

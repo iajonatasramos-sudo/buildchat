@@ -539,7 +539,7 @@ export function EditorAgendamento({
         )}
 
         <label className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-muted">
-          O que
+          Atividade
           <input autoFocus disabled={!meu} value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Ex.: Retornar para a Dra. Ana" className={cn(campo, 'mt-1 font-normal normal-case tracking-normal')} />
         </label>
 
