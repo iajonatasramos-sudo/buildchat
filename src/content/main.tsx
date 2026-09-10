@@ -5,6 +5,7 @@ import { createRoot } from 'react-dom/client';
 import { App } from '@/ui/App';
 import { montarTranscricao } from './transcrever';
 import { montarNomes } from './nomes';
+import { montarApagadas } from './apagadas';
 import { TopBar, ALTURA_TOPBAR } from '@/ui/TopBar';
 import { HeaderBar } from '@/ui/HeaderBar';
 import { injetarBridge } from '@/lib/wa';
@@ -207,6 +208,7 @@ function montarUi() {
   montarHeaderBar();
   montarTranscricao();
   montarNomes();
+  montarApagadas();
 
   observarTemaEscolhido();
   detectarTema();

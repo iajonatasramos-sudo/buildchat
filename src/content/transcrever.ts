@@ -20,18 +20,10 @@ import { servidorConfigurado } from '@/lib/config';
 import { diagnosticarAudio, idsDeAudioDoChat, obterAudioDaMensagem } from '@/lib/wa';
 import { transcrever, transcricaoDisponivel } from '@/lib/transcricao';
 
+import { acharBolha, hashDoId } from './dom-bolha';
 const MARCA = 'bcTr'; // dataset.bcTr — evita duplicar o bloco na mesma mensagem
 const cache = new Map<string, string>(); // msgId -> texto já transcrito
 let idsAudio = new Set<string>(); // HASHES dos áudios da conversa aberta, segundo o WPP
-
-/**
- * `false_5511@c.us_3EB0ABC` → `3EB0ABC`. O `data-id` do DOM e o id do WPP
- * podem divergir no remetente (`@lid` × `@c.us`); o hash é o que coincide.
- */
-const hashDoId = (id: string) => {
-  const partes = id.split('_');
-  return partes.length >= 3 ? partes[2] : id;
-};
 
 function injetarEstilo() {
   if (document.getElementById('bc-tr-estilo')) return;
@@ -107,33 +99,6 @@ function pareceAudio(linha: HTMLElement): boolean {
     if (rotulo.includes('voice message') || rotulo.includes('mensagem de voz') || rotulo.includes('áudio')) return true;
   }
   return false;
-}
-
-/**
- * A bolha da mensagem — é dentro dela que o botão entra, centralizado.
- *
- * Procurar por classe não vale (o WhatsApp renomeia a cada versão), então
- * achamos pela aparência: o elemento mais externo, dentro da linha, que tem
- * fundo próprio e é mais estreito que a linha. É exatamente o que desenha o
- * balão. Sem isso o bloco caía na linha inteira e encostava na borda esquerda.
- */
-function acharBolha(linha: HTMLElement): HTMLElement {
-  const larguraLinha = linha.getBoundingClientRect().width || 1;
-  const fila: HTMLElement[] = [...linha.children].filter((n): n is HTMLElement => n instanceof HTMLElement);
-
-  while (fila.length) {
-    const el = fila.shift()!;
-    const caixa = el.getBoundingClientRect();
-    const fundo = getComputedStyle(el).backgroundColor;
-    const opaco = fundo && !/rgba\(0, 0, 0, 0\)|transparent/.test(fundo);
-    if (opaco && caixa.width > 60 && caixa.width < larguraLinha * 0.95) return el;
-    fila.push(...([...el.children].filter((n): n is HTMLElement => n instanceof HTMLElement)));
-  }
-  return (
-    linha.querySelector<HTMLElement>('[class*="message-in"], [class*="message-out"]') ??
-    linha.querySelector<HTMLElement>('.copyable-text') ??
-    linha
-  );
 }
 
 const PADRAO_HORA = /^\d{1,2}:\d{2}(\s?[AP]M)?$/i;

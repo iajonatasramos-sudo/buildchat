@@ -282,6 +282,23 @@ Botão **Transcrever** em cada mensagem de áudio. A transcrição é feita pela
 - **A lista é virtualizada**: a bolha some ao rolar e volta remontada. O observer reinsere o
   botão e um cache por id de mensagem devolve o texto já transcrito, sem repagar a API.
 
+## Mensagens apagadas (`src/content/apagadas.ts`)
+
+Anti-revoke em duas camadas, tudo local — nada disso sobe para servidor nenhum.
+
+- **Captura**: `chat.new_message` do WPP alimenta `bc2_msg_cache` (últimas 200 por conversa);
+  `chat.msg_revoke` move o texto para `bc2_apagadas` (`registrarRevogada` em `db.ts`), junto com
+  o **id da mensagem original** — é ele que casa com a bolha no DOM.
+- **Botão na bolha** (como no Dental Chat): onde o WhatsApp escreveu "Esta mensagem foi apagada"
+  nasce **"Ver mensagem apagada"**, e o clique revela o texto com a hora do apagamento. Mora no
+  DOM do WhatsApp (folha própria, prefixo `bc-ap-`), casa pelo **hash** do id (o DOM traz `@lid` e
+  o WPP `@c.us` — mesma lição da transcrição) e reusa `acharBolha()`/`hashDoId()` de
+  `src/content/dom-bolha.ts`. A lista é virtualizada: o observer reinsere, e um conjunto guarda
+  o que já foi revelado. Diagnóstico: `__bcApagadas()` (no contexto da extensão).
+- **Lista da conversa**: o ícone de relógio no cabeçalho abre todas as apagadas capturadas, agora
+  com **contador** no ícone.
+- **Só captura com a aba aberta e a extensão ativa** — o que foi apagado antes disso não existe.
+
 ## Automações (`src/lib/automacoes/` + `src/ui/Automacoes.tsx`)
 
 Guia da gaveta com **Bots | Campanhas | Notificações | Webhook**, espelhando o Sales

@@ -37,6 +37,8 @@ export function HeaderBar() {
   const [qtde, setQtde] = useState(0);
   // Quantas anotações a conversa tem — badge no ícone de anotações.
   const [notas, setNotas] = useState(0);
+  // Quantas mensagens apagadas foram capturadas nesta conversa.
+  const [apagadas, setApagadas] = useState(0);
 
   useEffect(() => {
     let chatId: string | null = null;
@@ -44,11 +46,17 @@ export function HeaderBar() {
       if (!chatId) {
         setQtde(0);
         setNotas(0);
+        setApagadas(0);
         return;
       }
-      const [tags, anot] = await Promise.all([db.tagsDoContato(chatId), db.listarNotas(chatId)]);
+      const [tags, anot, apag] = await Promise.all([
+        db.tagsDoContato(chatId),
+        db.listarNotas(chatId),
+        db.listarApagadas(chatId),
+      ]);
       setQtde(tags.length);
       setNotas(anot.length);
+      setApagadas(apag.length);
     };
     getContatoAtivo().then((c) => {
       chatId = c?.chatId ?? null;
@@ -59,7 +67,7 @@ export function HeaderBar() {
       atualizar();
     });
     const onChange = (changes: Record<string, unknown>) => {
-      if ('bc2_contact_tags' in changes || 'bc2_notes' in changes) atualizar();
+      if ('bc2_contact_tags' in changes || 'bc2_notes' in changes || 'bc2_apagadas' in changes) atualizar();
     };
     chrome.storage.onChanged.addListener(onChange as any);
     return () => {
@@ -103,7 +111,14 @@ export function HeaderBar() {
         </span>
       </Botao>
       <Botao titulo="Mensagens apagadas desta conversa" onClick={(e) => abrir('apagadas', e)}>
-        <History size={18} />
+        <span className="relative">
+          <History size={18} />
+          {apagadas > 0 && (
+            <span className="absolute -right-2.5 -top-2 grid h-4 min-w-4 place-items-center rounded-full bg-danger px-1 text-[9.5px] font-bold leading-none text-white">
+              {apagadas}
+            </span>
+          )}
+        </span>
       </Botao>
       <Botao titulo="Fixar/desafixar conversa" onClick={fixar}>
         <Pin size={18} className={cn(fixando && 'animate-pulse')} />

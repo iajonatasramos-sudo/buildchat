@@ -776,7 +776,9 @@ export type MsgCapturada = {
   ts: number | null;
   deMim: boolean;
 };
-export type MsgApagada = Omit<MsgCapturada, 'id'> & { apagadaEm: number };
+// O `id` da mensagem original vem junto: é ele que casa com o `data-id` da
+// bolha no DOM (pelo hash), para mostrar o texto no lugar onde ela estava.
+export type MsgApagada = Omit<MsgCapturada, 'id'> & { apagadaEm: number; id: string | null };
 
 const MAX_CACHE_POR_CHAT = 200;
 const MAX_APAGADAS_POR_CHAT = 100;
@@ -808,6 +810,7 @@ export async function registrarRevogada(m: {
   const alvo = arr.find((x) => (m.refId && x.id === m.refId) || (m.id && x.id === m.id)) ?? null;
   const lista = apag[m.chatId] ?? [];
   lista.unshift({
+    id: alvo?.id ?? m.refId ?? m.id ?? null,
     texto: alvo?.texto ?? null,
     tipo: alvo?.tipo ?? null,
     autor: m.autor ?? alvo?.autor ?? null,
