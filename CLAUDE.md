@@ -67,7 +67,8 @@ src/
   styles/tokens.css       tokens do BuildClinic + temas + zoom + classes .bc-cat-*
 ```
 
-**Barra do topo** (`TopBar.tsx`): marca, chips das pastas (filtro), "+" (Minhas pastas), conta e
+**Barra do topo** (`TopBar.tsx`): marca, chips das pastas (filtro), "+" (Minhas pastas —
+**fora da faixa que rola**, ao lado da conta, para não sumir quando há muitas pastas), conta e
 a **engrenagem** das configurações (`modalConfiguracoes` no store — o ⚡ que ficava ali saiu,
 a barra lateral já cobre). **Clicar em qualquer ponto livre da barra abre as mensagens
 rápidas** (o handler ignora cliques dentro de `button/a/input`). O estado do WPP e a nuvem

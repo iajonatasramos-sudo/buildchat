@@ -117,15 +117,18 @@ export function TopBar() {
             ) : null}
           </Chip>
         ))}
-        <button
-          type="button"
-          onClick={() => exigirLogin() && modalPastas.set(true)}
-          title="Minhas pastas — criar ou apagar"
-          className="grid h-6 w-6 flex-shrink-0 place-items-center rounded-md border border-dashed border-border-strong text-muted transition hover:border-brand hover:text-brand"
-        >
-          <Plus size={13} />
-        </button>
       </div>
+
+      {/* FORA da faixa que rola: com muitas pastas, o "+" ficava lá no fim e
+          era preciso rolar tudo para achá-lo. Aqui ele está sempre à vista. */}
+      <button
+        type="button"
+        onClick={() => exigirLogin() && modalPastas.set(true)}
+        title="Minhas pastas — criar ou apagar"
+        className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-md border border-dashed border-border-strong text-muted transition hover:border-brand hover:text-brand"
+      >
+        <Plus size={14} />
+      </button>
 
       <ContaBotao />
 
