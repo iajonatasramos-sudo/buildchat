@@ -293,6 +293,9 @@ conversa aparece no painel no sync seguinte, e vice-versa.
   chip "Todas"** (`modalAgenda` no store); a tela ocupa a área abaixo da barra. Na guia Contato há
   a seção **Agendamentos**, logo abaixo de Interesses, com "+ Marcar retorno" — é o caminho
   natural: falei com o cliente, marco o retorno ali mesmo.
+- **Vincular contato**: o popup aberto pelo calendário tem "Contato (opcional)" — busca por nome
+  ou telefone (fichas locais na extensão, tabela `contatos` no painel) e um ✕ para desvincular.
+  Aberto pela guia Contato, já nasce vinculado.
 - **O compromisso é do contato**: guarda `remote_jid` + `contato_nome` (aparece na ficha do
   painel, em `/painel/contatos/[id]`) e **quem marcou** (`criado_por`), além do **responsável**
   (`responsavel_id`, que nasce igual ao autor por trigger). Dá para marcar algo solto, sem contato.

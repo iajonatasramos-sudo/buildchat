@@ -8,7 +8,7 @@
 // responde pelo compromisso ou do admin (a RLS confere).
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { carregarPerfil, supabase, ehAdmin, type Perfil } from '@/lib/supabase';
+import { carregarPerfil, supabase, ehAdmin, formatarTelefone, type Perfil } from '@/lib/supabase';
 import { Botao, Cabecalho, Cartao, Modal } from '@/componentes/ui';
 import {
   COR_STATUS, DIAS_CURTOS, MINUTOS_PADRAO, type Agendamento, type Visao,
@@ -21,11 +21,14 @@ const HORA_FIM = 22;
 const ALTURA_HORA = 46;
 
 type Usuario = { id: string; nome: string };
+type ContatoLeve = { remote_jid: string; nome: string | null; nome_whatsapp: string | null; telefone: string | null };
 
 export default function Agenda() {
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [todos, setTodos] = useState<Agendamento[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  // Para vincular o compromisso a um cliente direto do calendário.
+  const [contatos, setContatos] = useState<ContatoLeve[]>([]);
   const [visao, setVisao] = useState<Visao>('semana');
   // "Minha agenda" × "Equipe". O servidor já limita à equipe (RLS); aqui a
   // pessoa escolhe se quer ver só o que é dela.
@@ -38,7 +41,7 @@ export default function Agenda() {
   const { de, ate } = periodo(visao, foco);
 
   const carregar = useCallback(async () => {
-    const [{ data }, { data: us }] = await Promise.all([
+    const [{ data }, { data: us }, { data: ct }] = await Promise.all([
       supabase
         .from('agendamentos')
         .select('id, remote_jid, contato_nome, titulo, descricao, inicio, fim, dia_inteiro, status, criado_por, responsavel_id')
@@ -47,9 +50,18 @@ export default function Agenda() {
         .lt('inicio', ate.toISOString())
         .order('inicio'),
       supabase.from('usuarios').select('id, nome').eq('ativo', true).order('nome'),
+      supabase.from('contatos').select('remote_jid, nome, nome_whatsapp, telefone').is('deleted_at', null).limit(2000),
     ]);
     setTodos((data as Agendamento[]) ?? []);
     setUsuarios((us as Usuario[]) ?? []);
+    // Um contato pode ter uma linha por WhatsApp da equipe: junta por remote_jid.
+    const porJid = new Map<string, ContatoLeve>();
+    for (const c of ((ct as ContatoLeve[]) ?? [])) {
+      const atual = porJid.get(c.remote_jid);
+      if (!atual) porJid.set(c.remote_jid, c);
+      else porJid.set(c.remote_jid, { ...atual, nome: atual.nome ?? c.nome, nome_whatsapp: atual.nome_whatsapp ?? c.nome_whatsapp, telefone: atual.telefone ?? c.telefone });
+    }
+    setContatos([...porJid.values()]);
     setCarregando(false);
   }, [de.getTime(), ate.getTime()]);
 
@@ -143,6 +155,7 @@ export default function Agenda() {
         <Editor
           valor={editando}
           usuarios={usuarios}
+          contatos={contatos}
           podeMexer={podeMexer(editando)}
           autor={nomeDe(editando.criado_por ?? null)}
           perfil={perfil}
@@ -309,10 +322,11 @@ function GradeMes({
 }
 
 function Editor({
-  valor, usuarios, podeMexer, autor, perfil, onFechar, onSalvo, onErro,
+  valor, usuarios, contatos, podeMexer, autor, perfil, onFechar, onSalvo, onErro,
 }: {
   valor: Partial<Agendamento>;
   usuarios: Usuario[];
+  contatos: ContatoLeve[];
   podeMexer: boolean;
   autor: string | null;
   perfil: Perfil | null;
@@ -329,6 +343,17 @@ function Editor({
       : MINUTOS_PADRAO,
   );
   const [responsavel, setResponsavel] = useState(valor.responsavel_id ?? perfil?.id ?? '');
+  const [jid, setJid] = useState<string | null>(valor.remote_jid ?? null);
+  const [nomeContato, setNomeContato] = useState<string | null>(valor.contato_nome ?? null);
+  const [buscaContato, setBuscaContato] = useState('');
+
+  const rotuloContato = (c: ContatoLeve) =>
+    c.nome?.trim() || c.nome_whatsapp?.trim() || (c.telefone ? formatarTelefone(c.telefone) : null) || c.remote_jid.split('@')[0];
+  const semAcento = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const termo = semAcento(buscaContato.trim());
+  const sugestoes = termo
+    ? contatos.filter((c) => semAcento(rotuloContato(c)).includes(termo) || (c.telefone ?? '').includes(termo)).slice(0, 6)
+    : [];
   const [salvando, setSalvando] = useState(false);
   const existente = !!valor.id;
 
@@ -344,14 +369,14 @@ function Editor({
       fim: new Date(ini.getTime() + duracao * 60000).toISOString(),
       status: valor.status ?? 'pendente',
       responsavel_id: responsavel || null,
+      remote_jid: jid,
+      contato_nome: nomeContato,
     };
     const { error } = existente
       ? await supabase.from('agendamentos').update(linha).eq('id', valor.id!)
       : await supabase.from('agendamentos').insert({
           ...linha,
           empresa_id: perfil.empresa.id,
-          remote_jid: valor.remote_jid ?? null,
-          contato_nome: valor.contato_nome ?? null,
           criado_por: perfil.id,
         });
     setSalvando(false);
@@ -376,10 +401,55 @@ function Editor({
   return (
     <Modal titulo={existente ? 'Compromisso' : 'Novo compromisso'} onFechar={onFechar}>
       <div className="flex flex-col gap-4">
-        {valor.contato_nome && (
-          <div className="text-[13px] text-tinta-3">
-            Contato: <span className="font-medium text-tinta">{valor.contato_nome}</span>
+        {/* Contato vinculado: mostra o escolhido, ou deixa procurar um. */}
+        {jid ? (
+          <div className="flex items-center gap-2 rounded-controle border border-borda bg-fundo px-3.5 py-2.5 text-[13px]">
+            <span className="min-w-0 flex-1 truncate">
+              <span className="text-tinta-3">Contato: </span>
+              <span className="font-medium text-tinta">{nomeContato ?? jid.split('@')[0]}</span>
+            </span>
+            {podeMexer && (
+              <button
+                onClick={() => { setJid(null); setNomeContato(null); }}
+                title="Desvincular o contato"
+                className="flex-none text-tinta-4 hover:text-perigo"
+              >
+                ✕
+              </button>
+            )}
           </div>
+        ) : (
+          podeMexer && (
+            <label className="flex flex-col gap-1.5 font-medium">
+              Contato (opcional)
+              <input
+                value={buscaContato}
+                onChange={(e) => setBuscaContato(e.target.value)}
+                placeholder="Procure pelo nome ou telefone…"
+                className="campo focus:campo-foco font-normal"
+              />
+              {sugestoes.length > 0 && (
+                <ul className="max-h-40 overflow-y-auto rounded-controle border border-borda">
+                  {sugestoes.map((c) => (
+                    <li key={c.remote_jid}>
+                      <button
+                        onClick={() => { setJid(c.remote_jid); setNomeContato(rotuloContato(c)); setBuscaContato(''); }}
+                        className="flex w-full items-center gap-2 px-3.5 py-2 text-left font-normal transition hover:bg-fundo"
+                      >
+                        <span className="min-w-0 flex-1 truncate text-[13px]">{rotuloContato(c)}</span>
+                        {c.telefone && <span className="flex-none text-[12px] text-tinta-4">{formatarTelefone(c.telefone)}</span>}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {termo && sugestoes.length === 0 && (
+                <span className="text-[12.5px] font-normal text-tinta-4">
+                  Nenhum contato com esse nome. O compromisso pode ficar sem contato.
+                </span>
+              )}
+            </label>
+          )
         )}
 
         <label className="flex flex-col gap-1.5 font-medium">

@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Loader2, Trash2, X } from 'lucide-react';
-import { cn, emPx } from '@/lib/utils';
+import { cn, emPx, formatarTelefone } from '@/lib/utils';
 import * as db from '@/lib/db';
 import { modalAgenda, perfilAtual } from '@/lib/store';
 import { ALTURA_TOPBAR } from './TopBar';
@@ -386,6 +386,12 @@ export function EditorAgendamento({
 }) {
   const [titulo, setTitulo] = useState(valor.titulo ?? '');
   const [descricao, setDescricao] = useState(valor.descricao ?? '');
+  // Contato vinculado. Vem preenchido quando o compromisso nasce na guia
+  // Contato; marcado pelo calendário, dá para escolher aqui.
+  const [jid, setJid] = useState<string | null>(valor.remoteJid ?? null);
+  const [nomeContato, setNomeContato] = useState<string | null>(valor.contatoNome ?? null);
+  const [buscaContato, setBuscaContato] = useState('');
+  const [conhecidos, setConhecidos] = useState<{ jid: string; nome: string; telefone: string | null }[]>([]);
   const [inicio, setInicio] = useState(paraCampoLocal(new Date(valor.inicio ?? Date.now())));
   const [duracao, setDuracao] = useState(() => {
     if (!valor.inicio || !valor.fim) return MINUTOS_PADRAO;
@@ -393,6 +399,32 @@ export function EditorAgendamento({
   });
   const [salvando, setSalvando] = useState(false);
   const existente = !!valor.id;
+
+  // Contatos que já conversaram com a clínica (as fichas locais).
+  useEffect(() => {
+    let vivo = true;
+    db.mapaFichas().then((mapa) => {
+      if (!vivo) return;
+      const lista = Object.entries(mapa)
+        .filter(([chatId]) => chatId.includes('@') && !chatId.endsWith('@g.us'))
+        .map(([chatId, f]) => ({
+          jid: chatId,
+          nome: (f.nome?.trim() || f.nomeWhatsapp?.trim() || formatarTelefone(f.telefone) || chatId.split('@')[0])!,
+          telefone: formatarTelefone(f.telefone),
+        }))
+        .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+      setConhecidos(lista);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  const semAcento = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const termo = semAcento(buscaContato.trim());
+  const sugestoes = termo
+    ? conhecidos.filter((c) => semAcento(c.nome).includes(termo) || (c.telefone ?? '').includes(termo)).slice(0, 6)
+    : [];
   const meu = !existente || db.podeMexerNoAgendamento(valor as Agendamento);
 
   async function salvar() {
@@ -403,8 +435,8 @@ export function EditorAgendamento({
     try {
       await db.salvarAgendamento({
         id: valor.id,
-        remoteJid: valor.remoteJid ?? null,
-        contatoNome: valor.contatoNome ?? null,
+        remoteJid: jid,
+        contatoNome: nomeContato,
         titulo: t,
         descricao: descricao.trim() || null,
         inicio: ini.toISOString(),
@@ -446,8 +478,64 @@ export function EditorAgendamento({
           </button>
         </div>
 
-        {valor.contatoNome && (
-          <p className="mb-2 text-[11.5px] text-muted">Contato: <span className="font-semibold text-text-2">{valor.contatoNome}</span></p>
+        {/* Contato vinculado: mostra o escolhido, ou deixa procurar um. */}
+        {jid ? (
+          <div className="mb-2 flex items-center gap-2 rounded-md border border-border bg-surface-2 px-2.5 py-1.5">
+            <span className="min-w-0 flex-1 truncate text-[12px]">
+              <span className="text-muted">Contato: </span>
+              <span className="font-semibold text-text">{nomeContato ?? jid.split('@')[0]}</span>
+            </span>
+            {meu && (
+              <button
+                type="button"
+                onClick={() => {
+                  setJid(null);
+                  setNomeContato(null);
+                }}
+                title="Desvincular o contato"
+                className="flex-shrink-0 text-[11px] text-muted transition hover:text-danger"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        ) : (
+          meu && (
+            <label className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-muted">
+              Contato (opcional)
+              <input
+                value={buscaContato}
+                onChange={(e) => setBuscaContato(e.target.value)}
+                placeholder="Procure pelo nome ou telefone…"
+                className={cn(campo, 'mt-1 font-normal normal-case tracking-normal')}
+              />
+              {sugestoes.length > 0 && (
+                <ul className="mt-1 max-h-32 overflow-y-auto rounded-md border border-border bg-surface">
+                  {sugestoes.map((c) => (
+                    <li key={c.jid}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setJid(c.jid);
+                          setNomeContato(c.nome);
+                          setBuscaContato('');
+                        }}
+                        className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left transition hover:bg-surface-2"
+                      >
+                        <span className="min-w-0 flex-1 truncate text-[12px] font-normal normal-case tracking-normal text-text">{c.nome}</span>
+                        {c.telefone && <span className="flex-shrink-0 text-[10.5px] font-normal text-muted">{c.telefone}</span>}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {termo && sugestoes.length === 0 && (
+                <span className="mt-1 block text-[11px] font-normal normal-case tracking-normal text-muted">
+                  Nenhum contato com esse nome. O compromisso pode ficar sem contato.
+                </span>
+              )}
+            </label>
+          )
         )}
 
         <label className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-muted">
