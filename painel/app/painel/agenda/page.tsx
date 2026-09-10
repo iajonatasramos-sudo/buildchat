@@ -10,8 +10,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { carregarPerfil, supabase, ehAdmin, formatarTelefone, type Perfil } from '@/lib/supabase';
 import { Botao, Cabecalho, Cartao, Modal } from '@/componentes/ui';
+import { useMarca } from '../../marca-cliente';
 import {
-  COR_STATUS, DIAS_CURTOS, MINUTOS_PADRAO, type Agendamento, type Visao,
+  COR_STATUS, DIAS_CURTOS, MINUTOS_PADRAO, corDoCompromisso, estaAtrasada, type Agendamento, type Visao,
   diasDaSemana, diasDoMes, ehHoje, fimEfetivo, hhmm, inicioDoDia, mesmoDia,
   paraCampoLocal, periodo, rotuloDoPeriodo, somarDias, somarMeses,
 } from '@/lib/agenda';
@@ -33,6 +34,11 @@ export default function Agenda() {
   // "Minha agenda" × "Equipe". O servidor já limita à equipe (RLS); aqui a
   // pessoa escolhe se quer ver só o que é dela.
   const [soMinha, setSoMinha] = useState(true);
+  // Filtros: etiqueta, atrasadas e busca no texto da atividade.
+  const [etiqueta, setEtiqueta] = useState<string | null>(null);
+  const [soAtrasadas, setSoAtrasadas] = useState(false);
+  const [busca, setBusca] = useState('');
+  const marca = useMarca();
   const [foco, setFoco] = useState(new Date());
   const [editando, setEditando] = useState<Partial<Agendamento> | null>(null);
   const [carregando, setCarregando] = useState(true);
@@ -44,7 +50,7 @@ export default function Agenda() {
     const [{ data }, { data: us }, { data: ct }] = await Promise.all([
       supabase
         .from('agendamentos')
-        .select('id, remote_jid, contato_nome, titulo, descricao, inicio, fim, dia_inteiro, status, criado_por, responsavel_id')
+        .select('id, remote_jid, contato_nome, titulo, descricao, inicio, fim, dia_inteiro, status, etiqueta, criado_por, responsavel_id')
         .is('deleted_at', null)
         .gte('inicio', de.toISOString())
         .lt('inicio', ate.toISOString())
@@ -73,9 +79,22 @@ export default function Agenda() {
   }, [carregar]);
 
   const nomeDe = (id: string | null) => usuarios.find((u) => u.id === id)?.nome ?? null;
-  const meu = (a: Agendamento) => !perfil || a.criado_por === perfil.id || a.responsavel_id === perfil.id;
-  const itens = useMemo(() => (soMinha ? todos.filter(meu) : todos), [todos, soMinha, perfil?.id]);
+  const meu = (a: Agendamento) =>
+    !perfil || a.criado_por === perfil.id || a.responsavel_id === perfil.id || (!a.criado_por && !a.responsavel_id);
+  const semAcento = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const itens = useMemo(() => {
+    const termo = semAcento(busca.trim());
+    return todos.filter((a) => {
+      if (soMinha && !meu(a)) return false;
+      if (etiqueta && a.etiqueta !== etiqueta) return false;
+      if (soAtrasadas && !estaAtrasada(a)) return false;
+      if (termo && !semAcento(`${a.titulo} ${a.descricao ?? ''} ${a.contato_nome ?? ''}`).includes(termo)) return false;
+      return true;
+    });
+  }, [todos, soMinha, perfil?.id, etiqueta, soAtrasadas, busca]);
   const deOutros = todos.length - todos.filter(meu).length;
+  const atrasadas = todos.filter((a) => estaAtrasada(a) && (!soMinha || meu(a))).length;
+  const cor = (a: Agendamento) => corDoCompromisso(a, marca.etiquetasAgenda);
   const podeMexer = (a: Partial<Agendamento>) =>
     !a.id || !perfil || a.criado_por === perfil.id || a.responsavel_id === perfil.id || ehAdmin(perfil);
 
@@ -136,15 +155,40 @@ export default function Agenda() {
         </span>
       </div>
 
+      {/* Etiqueta, atrasadas e busca no texto da atividade. */}
+      <div className="mb-3.5 flex flex-wrap items-center gap-2">
+        <input
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          placeholder="Buscar na atividade…"
+          className="h-9 w-[240px] rounded-controle border border-borda bg-white px-3 text-[13px] outline-none focus:border-marca"
+        />
+        <Pilula ativa={etiqueta === null} onClick={() => setEtiqueta(null)}>Todas</Pilula>
+        {marca.etiquetasAgenda.map((e) => (
+          <Pilula key={e.nome} cor={e.cor} ativa={etiqueta === e.nome} onClick={() => setEtiqueta(etiqueta === e.nome ? null : e.nome)}>
+            {e.nome}
+          </Pilula>
+        ))}
+        <button
+          onClick={() => setSoAtrasadas((v) => !v)}
+          title="Atividades pendentes cujo horário já passou"
+          className={`rounded-controle border px-3 py-1.5 text-[13px] font-medium transition ${soAtrasadas ? 'border-perigo bg-perigo text-white' : 'border-borda bg-white text-tinta-3 hover:border-perigo hover:text-perigo'}`}
+        >
+          Atrasadas{atrasadas > 0 && <span className="ml-1.5 opacity-80">{atrasadas}</span>}
+        </button>
+        <span className="ml-auto text-[13px] text-tinta-4">{itens.length} no período</span>
+      </div>
+
       <Cartao className="overflow-x-auto">
         {carregando ? (
           <div className="px-5 py-10 text-tinta-4">Carregando…</div>
         ) : visao === 'mes' ? (
-          <GradeMes foco={foco} itens={itens} onDia={(d) => { setFoco(d); setVisao('dia'); }} onAbrir={setEditando} />
+          <GradeMes foco={foco} itens={itens} cor={cor} onDia={(d) => { setFoco(d); setVisao('dia'); }} onAbrir={setEditando} />
         ) : (
           <GradeHoras
             dias={visao === 'dia' ? [inicioDoDia(foco)] : diasDaSemana(foco)}
             itens={itens}
+            cor={cor}
             onVago={novo}
             onAbrir={setEditando}
           />
@@ -156,6 +200,7 @@ export default function Agenda() {
           valor={editando}
           usuarios={usuarios}
           contatos={contatos}
+          etiquetas={marca.etiquetasAgenda}
           podeMexer={podeMexer(editando)}
           autor={nomeDe(editando.criado_por ?? null)}
           perfil={perfil}
@@ -179,10 +224,11 @@ function proximaHoraCheia(): Date {
 }
 
 function GradeHoras({
-  dias, itens, onVago, onAbrir,
+  dias, itens, cor, onVago, onAbrir,
 }: {
   dias: Date[];
   itens: Agendamento[];
+  cor: (a: Agendamento) => string;
   onVago: (d: Date) => void;
   onAbrir: (a: Agendamento) => void;
 }) {
@@ -239,7 +285,8 @@ function GradeHoras({
                     style={{
                       top: Math.max(0, (minutos / 60) * ALTURA_HORA),
                       height: altura,
-                      background: COR_STATUS[a.status],
+                      background: cor(a),
+                      opacity: a.status === 'concluido' ? 0.7 : 1,
                       textDecoration: a.status === 'cancelado' ? 'line-through' : undefined,
                     }}
                   >
@@ -268,10 +315,11 @@ function GradeHoras({
 }
 
 function GradeMes({
-  foco, itens, onDia, onAbrir,
+  foco, itens, cor, onDia, onAbrir,
 }: {
   foco: Date;
   itens: Agendamento[];
+  cor: (a: Agendamento) => string;
   onDia: (d: Date) => void;
   onAbrir: (a: Agendamento) => void;
 }) {
@@ -302,7 +350,7 @@ function GradeMes({
                     onClick={() => onAbrir(a)}
                     title={`${hhmm(a.inicio)} · ${a.titulo}`}
                     className="truncate rounded px-1.5 py-0.5 text-left text-[11px] font-medium text-white"
-                    style={{ background: COR_STATUS[a.status] }}
+                    style={{ background: cor(a), opacity: a.status === 'concluido' ? 0.65 : 1 }}
                   >
                     {hhmm(a.inicio)} {a.titulo}
                   </button>
@@ -322,11 +370,12 @@ function GradeMes({
 }
 
 function Editor({
-  valor, usuarios, contatos, podeMexer, autor, perfil, onFechar, onSalvo, onErro,
+  valor, usuarios, contatos, etiquetas, podeMexer, autor, perfil, onFechar, onSalvo, onErro,
 }: {
   valor: Partial<Agendamento>;
   usuarios: Usuario[];
   contatos: ContatoLeve[];
+  etiquetas: { nome: string; cor: string }[];
   podeMexer: boolean;
   autor: string | null;
   perfil: Perfil | null;
@@ -343,6 +392,7 @@ function Editor({
       : MINUTOS_PADRAO,
   );
   const [responsavel, setResponsavel] = useState(valor.responsavel_id ?? perfil?.id ?? '');
+  const [etiqueta, setEtiqueta] = useState<string | null>(valor.etiqueta ?? null);
   const [jid, setJid] = useState<string | null>(valor.remote_jid ?? null);
   const [nomeContato, setNomeContato] = useState<string | null>(valor.contato_nome ?? null);
   const [buscaContato, setBuscaContato] = useState('');
@@ -368,6 +418,7 @@ function Editor({
       inicio: ini.toISOString(),
       fim: new Date(ini.getTime() + duracao * 60000).toISOString(),
       status: valor.status ?? 'pendente',
+      etiqueta,
       responsavel_id: responsavel || null,
       remote_jid: jid,
       contato_nome: nomeContato,
@@ -452,6 +503,36 @@ function Editor({
           )
         )}
 
+        <div className="flex flex-col gap-1.5 font-medium">
+          Etiqueta
+          <div className="flex flex-wrap gap-1.5">
+            {etiquetas.map((e) => (
+              <button
+                key={e.nome}
+                disabled={!podeMexer}
+                onClick={() => setEtiqueta(etiqueta === e.nome ? null : e.nome)}
+                className="rounded-chip border px-3 py-1 text-[12.5px] font-medium transition disabled:opacity-50"
+                style={{
+                  borderColor: e.cor,
+                  color: etiqueta === e.nome ? '#fff' : e.cor,
+                  background: etiqueta === e.nome ? e.cor : 'transparent',
+                }}
+              >
+                {e.nome}
+              </button>
+            ))}
+            {etiqueta && !etiquetas.some((e) => e.nome === etiqueta) && (
+              <button
+                disabled={!podeMexer}
+                onClick={() => setEtiqueta(null)}
+                className="rounded-chip border border-borda px-3 py-1 text-[12.5px] font-medium text-tinta-3"
+              >
+                {etiqueta} ✕
+              </button>
+            )}
+          </div>
+        </div>
+
         <label className="flex flex-col gap-1.5 font-medium">
           Atividade
           <input
@@ -521,5 +602,27 @@ function Editor({
         </div>
       </div>
     </Modal>
+  );
+}
+
+/** Pílula de etiqueta usada nos filtros da agenda. */
+function Pilula({
+  children, ativa, cor, onClick,
+}: {
+  children: React.ReactNode;
+  ativa: boolean;
+  cor?: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-controle border px-3 py-1.5 text-[13px] font-medium transition ${
+        cor ? '' : ativa ? 'border-marca bg-marca text-white' : 'border-borda bg-white text-tinta-3 hover:border-marca'
+      }`}
+      style={cor ? { borderColor: cor, color: ativa ? '#fff' : cor, background: ativa ? cor : '#fff' } : undefined}
+    >
+      {children}
+    </button>
   );
 }

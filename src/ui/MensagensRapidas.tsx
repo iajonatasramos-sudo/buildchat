@@ -1601,6 +1601,7 @@ function ContatoGuia({
               contatoNome: nomeExibido,
               diaInteiro: false,
               status: 'pendente',
+              etiqueta: null,
             });
           }}
           className="mb-2 w-full rounded-md border border-dashed border-border-strong py-1.5 text-[12px] font-semibold text-text-2 transition hover:border-brand hover:text-brand"

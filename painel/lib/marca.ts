@@ -22,6 +22,8 @@ export type Marca = {
   arquivoVersao: string;
   /** Trecho do domínio que identifica a marca na requisição. */
   hosts: string[];
+  /** Etiquetas oferecidas na agenda — cada produto tem a sua lista. */
+  etiquetasAgenda: { nome: string; cor: string }[];
 };
 
 export const MARCAS: Record<IdMarca, Marca> = {
@@ -33,6 +35,12 @@ export const MARCAS: Record<IdMarca, Marca> = {
     arquivoExtensao: '/buildchat-extensao.zip',
     arquivoVersao: 'versao-buildchat.txt',
     hosts: ['chat.buildclinic.com.br', 'buildclinic'],
+    etiquetasAgenda: [
+      { nome: 'Follow-up', cor: '#2563EB' },
+      { nome: 'Reunião', cor: '#7C3AED' },
+      { nome: 'Cobrar', cor: '#D97706' },
+      { nome: 'Urgente', cor: '#DC2626' },
+    ],
   },
   anamni: {
     id: 'anamni',
@@ -42,6 +50,12 @@ export const MARCAS: Record<IdMarca, Marca> = {
     arquivoExtensao: '/anamni-extensao.zip',
     arquivoVersao: 'versao-anamni.txt',
     hosts: ['anamni.com.br', 'anamni'],
+    etiquetasAgenda: [
+      { nome: 'Follow-up', cor: '#2563EB' },
+      { nome: 'Consulta', cor: '#0D9488' },
+      { nome: 'Retorno', cor: '#7C3AED' },
+      { nome: 'Urgente', cor: '#DC2626' },
+    ],
   },
 };
 

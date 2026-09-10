@@ -117,3 +117,25 @@ describe('sincronização', () => {
     assert.ok(new Date(depois.atualizado_em) > new Date(antes.atualizado_em));
   });
 });
+
+describe('etiqueta da atividade', () => {
+  test('guarda a etiqueta escolhida e deixa ficar sem nenhuma', async () => {
+    const { rows: [com] } = await h.como(A.usuario,
+      `insert into agendamentos (empresa_id, titulo, inicio, criado_por, etiqueta)
+       values ($1, 'Cobrar a proposta', now(), $2, 'Cobrar') returning id, etiqueta`, [A.id, A.usuario]);
+    assert.equal(com.etiqueta, 'Cobrar');
+    const { rows: [sem] } = await h.como(A.usuario,
+      `insert into agendamentos (empresa_id, titulo, inicio, criado_por) values ($1, 'Sem etiqueta', now(), $2) returning etiqueta`,
+      [A.id, A.usuario]);
+    assert.equal(sem.etiqueta, null);
+  });
+
+  test('a lista de etiquetas é da extensão: o banco aceita qualquer texto', async () => {
+    // Cada marca tem a sua; trocar a lista não pode exigir migração nem
+    // deixar compromisso antigo inválido.
+    const { rows } = await h.como(A.usuario,
+      `insert into agendamentos (empresa_id, titulo, inicio, criado_por, etiqueta)
+       values ($1, 'Consulta da Anamni', now(), $2, 'Consulta') returning etiqueta`, [A.id, A.usuario]);
+    assert.equal(rows[0].etiqueta, 'Consulta');
+  });
+});

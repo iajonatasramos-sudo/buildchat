@@ -342,6 +342,7 @@ async function enviarFila(perfil: Perfil): Promise<void> {
             fim: item.fim,
             dia_inteiro: item.diaInteiro,
             status: item.status,
+            etiqueta: item.etiqueta,
             responsavel_id: item.responsavelId,
             deleted_at: null,
           };
@@ -759,7 +760,7 @@ async function puxar(perfil: Perfil, desde: string | null): Promise<string> {
   {
     let qg = sb
       .from('agendamentos')
-      .select('id, remote_jid, contato_nome, titulo, descricao, inicio, fim, dia_inteiro, status, criado_por, responsavel_id, deleted_at, usuarios!agendamentos_criado_por_fkey(nome)');
+      .select('id, remote_jid, contato_nome, titulo, descricao, inicio, fim, dia_inteiro, status, etiqueta, criado_por, responsavel_id, deleted_at, usuarios!agendamentos_criado_por_fkey(nome)');
     if (desde) qg = qg.gt('atualizado_em', desde);
     const { data: agenda, error: erroAgenda } = await qg;
     if (erroAgenda) throw erroAgenda;
@@ -778,6 +779,7 @@ async function puxar(perfil: Perfil, desde: string | null): Promise<string> {
             fim: g.fim,
             diaInteiro: !!g.dia_inteiro,
             status: g.status,
+            etiqueta: g.etiqueta ?? null,
             autorId: g.criado_por,
             autorNome: g.usuarios?.nome ?? null,
             responsavelId: g.responsavel_id,

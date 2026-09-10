@@ -14,6 +14,9 @@ export type Recurso = 'propostas' | 'transcricao' | 'automacoes';
 
 export type IdMarca = 'buildchat' | 'anamni';
 
+/** Etiqueta da atividade na agenda (o nome é o que vai para o banco). */
+export type EtiquetaAgenda = { nome: string; cor: string };
+
 export type Marca = {
   id: IdMarca;
   /** Nome curto, o que aparece na interface. */
@@ -26,6 +29,8 @@ export type Marca = {
   /** Domínios extras liberados no manifesto (APIs que a extensão chama). */
   dominios: string[];
   recursos: Record<Recurso, boolean>;
+  /** Etiquetas oferecidas ao marcar uma atividade — cada produto tem a sua lista. */
+  etiquetasAgenda: EtiquetaAgenda[];
 };
 
 export const MARCAS: Record<IdMarca, Marca> = {
@@ -37,6 +42,12 @@ export const MARCAS: Record<IdMarca, Marca> = {
     painelUrl: 'https://chat.buildclinic.com.br',
     dominios: ['https://app.buildclinic.com.br/*'],
     recursos: { propostas: true, transcricao: true, automacoes: true },
+    etiquetasAgenda: [
+      { nome: 'Follow-up', cor: '#2563EB' },
+      { nome: 'Reunião', cor: '#7C3AED' },
+      { nome: 'Cobrar', cor: '#D97706' },
+      { nome: 'Urgente', cor: '#DC2626' },
+    ],
   },
   anamni: {
     id: 'anamni',
@@ -50,6 +61,12 @@ export const MARCAS: Record<IdMarca, Marca> = {
     // Gerar proposta é a proposta de arquitetura da BuildClinic — não faz
     // sentido no consultório do doutor.
     recursos: { propostas: false, transcricao: true, automacoes: true },
+    etiquetasAgenda: [
+      { nome: 'Follow-up', cor: '#2563EB' },
+      { nome: 'Consulta', cor: '#0D9488' },
+      { nome: 'Retorno', cor: '#7C3AED' },
+      { nome: 'Urgente', cor: '#DC2626' },
+    ],
   },
 };
 
@@ -72,3 +89,9 @@ export function temRecurso(r: Recurso): boolean {
  * quem integra com o Anamni recebe `X-Anamni-Secret`.
  */
 export const CABECALHO_SEGREDO = `X-${MARCA.nome}-Secret`;
+
+/** Cor da etiqueta (a de outra marca, ou uma que saiu da lista, vem neutra). */
+export function corDaEtiqueta(nome: string | null | undefined): string | null {
+  if (!nome) return null;
+  return MARCA.etiquetasAgenda.find((e) => e.nome === nome)?.cor ?? '#64748B';
+}

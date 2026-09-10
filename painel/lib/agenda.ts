@@ -64,6 +64,7 @@ export type Agendamento = {
   fim: string | null;
   dia_inteiro: boolean;
   status: 'pendente' | 'concluido' | 'cancelado';
+  etiqueta: string | null;
   criado_por: string | null;
   responsavel_id: string | null;
 };
@@ -73,3 +74,13 @@ export const COR_STATUS: Record<Agendamento['status'], string> = {
   concluido: '#15803D',
   cancelado: '#8A8B9C',
 };
+
+/** Atrasada = ainda pendente e o horário já passou. */
+export const estaAtrasada = (a: Agendamento) =>
+  a.status === 'pendente' && new Date(a.inicio).getTime() < Date.now();
+
+/** Cor do bloco: a etiqueta manda; sem etiqueta, vale a situação. */
+export function corDoCompromisso(a: Agendamento, etiquetas: { nome: string; cor: string }[]): string {
+  if (a.status === 'cancelado') return COR_STATUS.cancelado;
+  return etiquetas.find((e) => e.nome === a.etiqueta)?.cor ?? (a.etiqueta ? '#64748B' : COR_STATUS[a.status]);
+}

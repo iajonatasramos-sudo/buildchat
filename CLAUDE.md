@@ -304,6 +304,14 @@ conversa aparece no painel no sync seguinte, e vice-versa.
   **o de quem divide equipe com ela** (`app.mesma_equipe`); o admin vê a clínica inteira. É regra
   de banco, não de tela. Em cima disso, o filtro **Minha × Equipe** (Clínica, para o admin) decide
   o que aparece no calendário — começa em "Minha".
+- **Etiqueta da atividade** (`0029`): a lista é **de cada marca** (`etiquetasAgenda` em
+  `src/lib/marca.ts` e `painel/lib/marca.ts`) — BuildChat: Follow-up, Reunião, Cobrar, Urgente;
+  Anamni: Follow-up, Consulta, Retorno, Urgente. O banco guarda só o **texto**: mudar a lista não
+  exige migração e compromisso antigo nunca fica órfão (etiqueta fora da lista aparece em cinza,
+  com ✕ para tirar). A etiqueta manda na **cor do bloco**; sem etiqueta, vale a situação.
+- **Filtros do calendário** (segunda linha da barra, nas duas telas): **busca no texto** (título,
+  observação e nome do contato, sem acento), **etiqueta** e **Atrasadas** (pendente com horário
+  já vencido, com contador). Somam-se ao Minha × Equipe.
 - **Quem mexe**: autor, responsável ou admin (`db.podeMexerNoAgendamento` e a RLS).
 - Situações: `pendente` (cor da marca), `concluido` (verde) e `cancelado` (cinza, riscado).
 - Datas no fuso do computador; o que trafega é ISO com fuso, então o horário vale para a equipe

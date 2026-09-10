@@ -153,6 +153,8 @@ export type Agendamento = {
   fim: string | null;
   diaInteiro: boolean;
   status: 'pendente' | 'concluido' | 'cancelado';
+  /** Etiqueta da atividade (a lista vem da marca; o banco guarda o texto). */
+  etiqueta: string | null;
   autorId: string | null;
   autorNome: string | null;
   responsavelId: string | null;
