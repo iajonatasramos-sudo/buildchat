@@ -71,7 +71,8 @@ src/
 **fora da faixa que rola**, ao lado da conta, para não sumir quando há muitas pastas), conta e
 a **engrenagem** das configurações (`modalConfiguracoes` no store — o ⚡ que ficava ali saiu,
 a barra lateral já cobre). **Clicar em qualquer ponto livre da barra abre as mensagens
-rápidas** (o handler ignora cliques dentro de `button/a/input`). O estado do WPP e a nuvem
+rápidas** (o handler ignora cliques dentro de `button/a/input`). **A marca é a "home"**: clicar
+nela fecha agenda, gaveta, modais, menus e o filtro de pastas, devolvendo o WhatsApp limpo. O estado do WPP e a nuvem
 do sync saíram da barra: viraram `IndicadoresEstado`, mostrados no **pé da barra lateral**
 (empilhados) e no rodapé da gaveta quando ela está aberta.
 

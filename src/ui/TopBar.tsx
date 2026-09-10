@@ -15,9 +15,12 @@ import {
   alternarPastaAtiva,
   estadoSync,
   gavetaAberta,
+  menuHeader,
   modalAgenda,
+  modalAnotacoes,
   modalConfiguracoes,
   modalConta,
+  modalProposta,
   modalPastas,
   pastasAtivas,
   perfilAtual,
@@ -73,6 +76,18 @@ export function TopBar() {
     };
   }, []);
 
+  /** A marca é a "home": fecha tudo que a extensão abriu e devolve o WhatsApp. */
+  const voltarAoWhatsapp = () => {
+    modalAgenda.set(false);
+    gavetaAberta.set(false);
+    modalPastas.set(false);
+    modalConfiguracoes.set(false);
+    modalAnotacoes.set(false);
+    modalProposta.set(false);
+    menuHeader.set(null);
+    pastasAtivas.set([]); // o painel da pasta cobre a lista de conversas
+  };
+
   // Clique em área livre da barra (fora de botões) = abrir as mensagens rápidas.
   const abrirRapidas = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button, a, input')) return;
@@ -88,14 +103,19 @@ export function TopBar() {
       onClick={abrirRapidas}
       title="Abrir mensagens rápidas"
     >
-      <span className="inline-flex flex-shrink-0 items-center gap-1.5 text-[13px] font-bold text-text">
+      <button
+        type="button"
+        onClick={voltarAoWhatsapp}
+        title="Voltar ao WhatsApp"
+        className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-md px-1 py-0.5 text-[13px] font-bold text-text transition hover:bg-surface-2"
+      >
         <img
           src={chrome.runtime.getURL('icons/icon48.png')}
           alt=""
           className="h-6 w-6 rounded-md bg-white object-contain"
         />
         {MARCA.nome}
-      </span>
+      </button>
 
       {/* Agenda: fica ao lado da marca, antes das pastas, e abre o calendário. */}
       <button
