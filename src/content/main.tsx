@@ -6,6 +6,7 @@ import { App } from '@/ui/App';
 import { montarTranscricao } from './transcrever';
 import { montarNomes } from './nomes';
 import { montarApagadas } from './apagadas';
+import { montarMenus } from './menus';
 import { TopBar, ALTURA_TOPBAR } from '@/ui/TopBar';
 import { HeaderBar } from '@/ui/HeaderBar';
 import { injetarBridge } from '@/lib/wa';
@@ -209,6 +210,7 @@ function montarUi() {
   montarTranscricao();
   montarNomes();
   montarApagadas();
+  montarMenus();
 
   observarTemaEscolhido();
   detectarTema();

@@ -309,6 +309,20 @@ conversa aparece no painel no sync seguinte, e vice-versa.
   toda. As contas de calendário ficam em `src/lib/agenda.ts` e `painel/lib/agenda.ts` (a semana
   começa no domingo, como no Google Agenda em português).
 
+## Menus do WhatsApp que a nossa UI cortava (`src/content/menus.ts`)
+
+O menu de mensagem do WhatsApp (Responder, Encaminhar, Baixar…) se posiciona pela largura da
+JANELA, mas a extensão encolhe o `#app` para caber a barra lateral (ou a gaveta) — então, nas
+mensagens da direita (as suas), ele abria por baixo da nossa barra e ficava cortado.
+
+- A **borda direita da área útil** é o `right` do `#app` (já vem encolhido por nós).
+- Passou disso: mensagem **sua** (`data-id` começa com `true_`) abre à **esquerda do balão**; a do
+  contato só encosta dentro da área útil. Coube, não mexemos.
+- O menu é reconhecido por **geometria** (elemento posicionado, tamanho de menu, nascido logo
+  após um clique numa mensagem) — nada de classe do WhatsApp, que muda a cada versão.
+- O reposicionamento **aplica e corrige pelo erro medido**, porque o WhatsApp ora usa `left`, ora
+  `transform`, e `left` vale em relação ao pai. Diagnóstico: `__bcMenus()`.
+
 ## Mensagens apagadas (`src/content/apagadas.ts`)
 
 Anti-revoke em duas camadas, tudo local — nada disso sobe para servidor nenhum.
