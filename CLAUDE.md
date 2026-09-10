@@ -283,6 +283,29 @@ Botão **Transcrever** em cada mensagem de áudio. A transcrição é feita pela
 - **A lista é virtualizada**: a bolha some ao rolar e volta remontada. O observer reinsere o
   botão e um cache por id de mensagem devolve o texto já transcrito, sem repagar a API.
 
+## Agenda (`src/ui/Agenda.tsx` + `painel/app/painel/agenda/`)
+
+Calendário da clínica, com **dia / semana / mês** — **semana é o padrão**, nas duas telas. A
+extensão e o painel leem a MESMA tabela (`agendamentos`, `0027`): o retorno marcado durante a
+conversa aparece no painel no sync seguinte, e vice-versa.
+
+- **Onde fica na extensão**: ícone de calendário na barra do topo, **ao lado da marca e antes do
+  chip "Todas"** (`modalAgenda` no store); a tela ocupa a área abaixo da barra. Na guia Contato há
+  a seção **Agendamentos**, logo abaixo de Interesses, com "+ Marcar retorno" — é o caminho
+  natural: falei com o cliente, marco o retorno ali mesmo.
+- **O compromisso é do contato**: guarda `remote_jid` + `contato_nome` (aparece na ficha do
+  painel, em `/painel/contatos/[id]`) e **quem marcou** (`criado_por`), além do **responsável**
+  (`responsavel_id`, que nasce igual ao autor por trigger). Dá para marcar algo solto, sem contato.
+- **Quem vê** (`0028`): cada pessoa enxerga o que marcou, o que está sob a responsabilidade dela e
+  **o de quem divide equipe com ela** (`app.mesma_equipe`); o admin vê a clínica inteira. É regra
+  de banco, não de tela. Em cima disso, o filtro **Minha × Equipe** (Clínica, para o admin) decide
+  o que aparece no calendário — começa em "Minha".
+- **Quem mexe**: autor, responsável ou admin (`db.podeMexerNoAgendamento` e a RLS).
+- Situações: `pendente` (cor da marca), `concluido` (verde) e `cancelado` (cinza, riscado).
+- Datas no fuso do computador; o que trafega é ISO com fuso, então o horário vale para a equipe
+  toda. As contas de calendário ficam em `src/lib/agenda.ts` e `painel/lib/agenda.ts` (a semana
+  começa no domingo, como no Google Agenda em português).
+
 ## Mensagens apagadas (`src/content/apagadas.ts`)
 
 Anti-revoke em duas camadas, tudo local — nada disso sobe para servidor nenhum.

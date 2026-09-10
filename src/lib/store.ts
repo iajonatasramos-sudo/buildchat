@@ -54,6 +54,8 @@ export const modalAnotacoes = criarSinal<boolean>(false);
 export const modalConfiguracoes = criarSinal<boolean>(false);
 /** Modal "Minhas pastas" (criar e apagar pastas na própria extensão). */
 export const modalPastas = criarSinal<boolean>(false);
+/** Tela do calendário (agenda da clínica). */
+export const modalAgenda = criarSinal<boolean>(false);
 
 /** Perfil carregado do servidor (null = sem login / modo local). */
 import type { Perfil } from './auth';

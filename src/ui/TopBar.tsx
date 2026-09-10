@@ -6,7 +6,7 @@
 // que a barra lateral e o rodapé da gaveta mostram.
 
 import { useEffect, useState } from 'react';
-import { Cloud, CloudOff, Loader2, Plus, Settings as SettingsIcon, ShieldAlert } from 'lucide-react';
+import { CalendarDays, Cloud, CloudOff, Loader2, Plus, Settings as SettingsIcon, ShieldAlert } from 'lucide-react';
 import { cn, emPx } from '@/lib/utils';
 import * as db from '@/lib/db';
 import { servidorConfigurado } from '@/lib/config';
@@ -15,6 +15,7 @@ import {
   alternarPastaAtiva,
   estadoSync,
   gavetaAberta,
+  modalAgenda,
   modalConfiguracoes,
   modalConta,
   modalPastas,
@@ -95,6 +96,16 @@ export function TopBar() {
         />
         {MARCA.nome}
       </span>
+
+      {/* Agenda: fica ao lado da marca, antes das pastas, e abre o calendário. */}
+      <button
+        type="button"
+        onClick={() => exigirLogin() && modalAgenda.set(!modalAgenda.get())}
+        title="Agenda — compromissos da clínica"
+        className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-md text-text-2 transition hover:bg-surface-2 hover:text-brand"
+      >
+        <CalendarDays size={16} />
+      </button>
 
       <span className="h-5 w-px flex-shrink-0 bg-border" />
 

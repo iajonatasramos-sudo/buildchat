@@ -22,7 +22,8 @@ import { AnotacoesModal } from './Anotacoes';
 import { ContaModal } from './Conta';
 import { PropostaModal } from './Proposta';
 import { PastasModal } from './Pastas';
-import { progressoExecucao, type ProgressoExecucao, gavetaAberta, menuHeader, modalAnotacoes, modalConfiguracoes, modalConta, modalPastas, modalProposta, perfilAtual, pastasAtivas, type MenuHeader, abaGaveta, pedirContaWhatsapp, LARGURA_TRILHO } from '@/lib/store';
+import { AgendaModal } from './Agenda';
+import { modalAgenda, progressoExecucao, type ProgressoExecucao, gavetaAberta, menuHeader, modalAnotacoes, modalConfiguracoes, modalConta, modalPastas, modalProposta, perfilAtual, pastasAtivas, type MenuHeader, abaGaveta, pedirContaWhatsapp, LARGURA_TRILHO } from '@/lib/store';
 import { carregarPerfil, observarSessao, trocarSenha } from '@/lib/auth';
 import { iniciarSyncPeriodico, nomesDasMinhasEquipes, sincronizar } from '@/lib/sync';
 import { toast, Toaster } from './toast';
@@ -53,6 +54,7 @@ export function App() {
   const [conta, setConta] = useState(modalConta.get());
   const [proposta, setProposta] = useState(modalProposta.get());
   const [pastasModal, setPastasModal] = useState(modalPastas.get());
+  const [agenda, setAgenda] = useState(modalAgenda.get());
 
   useEffect(() => pastasAtivas.subscribe(setPastas), []);
   useEffect(() => menuHeader.subscribe(setMenu), []);
@@ -60,6 +62,7 @@ export function App() {
   useEffect(() => modalConta.subscribe(setConta), []);
   useEffect(() => modalProposta.subscribe(setProposta), []);
   useEffect(() => modalPastas.subscribe(setPastasModal), []);
+  useEffect(() => modalAgenda.subscribe(setAgenda), []);
 
   // Sessão: carrega o perfil ao abrir e acompanha login/logout/refresh.
   useEffect(() => {
@@ -96,10 +99,11 @@ export function App() {
     if (anotacoes) modalAnotacoes.set(false);
     if (proposta) modalProposta.set(false);
     if (pastasModal) modalPastas.set(false);
+    if (agenda) modalAgenda.set(false);
     if (dlgSettings) modalConfiguracoes.set(false);
     if (pastas.length) pastasAtivas.set([]);
     modalConta.set(true);
-  }, [perfil, perfilResolvido, aberto, menu, anotacoes, proposta, pastasModal, dlgSettings, pastas]);
+  }, [perfil, perfilResolvido, aberto, menu, anotacoes, proposta, pastasModal, dlgSettings, pastas, agenda]);
   const logado = !servidorConfigurado() || !!perfil;
   // O picker "/" lê isto de dentro de um listener antigo — ref, não estado.
   const logadoRef = useRef(logado);
@@ -291,6 +295,9 @@ export function App() {
 
       {/* Minhas pastas: criar/apagar na própria extensão */}
       {pastasModal && <PastasModal />}
+
+      {/* Agenda: calendário da clínica (dia / semana / mês) */}
+      {agenda && <AgendaModal />}
 
       {/* Menus da barra do cabeçalho (pastas / filtros / apagadas) */}
       {menu && <HeaderMenuOverlay menu={menu} contato={contato} />}

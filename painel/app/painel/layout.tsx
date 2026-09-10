@@ -18,6 +18,7 @@ const MENU_ADMIN = [
   { href: '/painel/mensagens', rotulo: 'Mensagens padrão' },
   { href: '/painel/pastas', rotulo: 'Pastas' },
   { href: '/painel/contatos', rotulo: 'Contatos' },
+  { href: '/painel/agenda', rotulo: 'Agenda' },
   { href: '/painel/assinatura', rotulo: 'Assinatura' },
 ];
 const MENU_USUARIO = [
@@ -25,6 +26,7 @@ const MENU_USUARIO = [
   { href: '/painel/mensagens', rotulo: 'Minhas mensagens' },
   { href: '/painel/pastas', rotulo: 'Minhas pastas' },
   { href: '/painel/contatos', rotulo: 'Meus contatos' },
+  { href: '/painel/agenda', rotulo: 'Agenda' },
 ];
 
 export default function LayoutPainel({ children }: { children: React.ReactNode }) {

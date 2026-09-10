@@ -50,6 +50,10 @@ type Proposta = {
 };
 type Nota = { id: string; texto: string; autor_id: string | null; criado_em: string };
 type Usuario = { id: string; nome: string };
+type Compromisso = {
+  id: string; titulo: string; inicio: string; status: 'pendente' | 'concluido' | 'cancelado';
+  criado_por: string | null; responsavel_id: string | null;
+};
 
 export default function FichaDoLead({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -59,6 +63,8 @@ export default function FichaDoLead({ params }: { params: Promise<{ id: string }
   const [vinculos, setVinculos] = useState<Vinculo[]>([]);
   const [propostas, setPropostas] = useState<Proposta[]>([]);
   const [notas, setNotas] = useState<Nota[]>([]);
+  // Agenda deste contato: o que a equipe combinou de retornar (e quem marcou).
+  const [compromissos, setCompromissos] = useState<Compromisso[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [carregando, setCarregando] = useState(true);
 
@@ -94,7 +100,7 @@ export default function FichaDoLead({ params }: { params: Promise<{ id: string }
 
     // O mesmo contato pode ter uma linha por WhatsApp da equipe: a ficha junta tudo pelo remote_jid.
     const conversa = (q: any) => q.eq('remote_jid', ct.remote_jid);
-    const [pa, vi, pr, no, us] = await Promise.all([
+    const [pa, vi, pr, no, ag, us] = await Promise.all([
       supabase.from('pastas').select('id, nome, cor').is('deleted_at', null).order('ordem'),
       conversa(supabase.from('pasta_conversas').select('pasta_id, deleted_at')),
       conversa(
@@ -107,12 +113,19 @@ export default function FichaDoLead({ params }: { params: Promise<{ id: string }
         'criado_em',
         { ascending: false },
       ),
+      conversa(
+        supabase
+          .from('agendamentos')
+          .select('id, titulo, inicio, status, criado_por, responsavel_id')
+          .is('deleted_at', null),
+      ).order('inicio'),
       supabase.from('usuarios').select('id, nome'),
     ]);
     setPastas((pa.data as Pasta[]) ?? []);
     setVinculos((vi.data as Vinculo[]) ?? []);
     setPropostas((pr.data as Proposta[]) ?? []);
     setNotas((no.data as Nota[]) ?? []);
+    setCompromissos((ag.data as Compromisso[]) ?? []);
     setUsuarios((us.data as Usuario[]) ?? []);
     setCarregando(false);
   }, [id]);
@@ -442,6 +455,39 @@ export default function FichaDoLead({ params }: { params: Promise<{ id: string }
             <p className="mt-3 text-[12.5px] text-tinta-4">
               Para enviar uma proposta na conversa, use a guia Contato da extensão — ela anexa o PDF direto no WhatsApp.
             </p>
+          </Cartao>
+
+          {/* Agenda do contato: o retorno combinado e quem ficou de fazer. */}
+          <Cartao className="p-5">
+            <div className="rotulo mb-3">AGENDAMENTOS · {compromissos.length}</div>
+            {compromissos.length === 0 ? (
+              <span className="text-tinta-4">
+                Nada marcado com este contato. A equipe marca pela guia Contato da extensão, ou
+                pela <Link href="/painel/agenda" className="font-medium text-marca">Agenda</Link>.
+              </span>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {compromissos.map((c) => (
+                  <li key={c.id} className="flex items-start gap-2.5 rounded-controle border border-borda px-3.5 py-3">
+                    <span
+                      className="mt-1.5 h-2 w-2 flex-none rounded-full"
+                      style={{ background: c.status === 'concluido' ? '#15803D' : c.status === 'cancelado' ? '#8A8B9C' : 'var(--color-marca)' }}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className={`block font-medium ${c.status === 'cancelado' ? 'line-through' : ''}`}>{c.titulo}</span>
+                      <span className="block text-[12.5px] text-tinta-4">
+                        {formatarData(c.inicio)}
+                        {c.criado_por && ` · marcado por ${nomeDe(c.criado_por)}`}
+                        {c.responsavel_id && c.responsavel_id !== c.criado_por && ` · com ${nomeDe(c.responsavel_id)}`}
+                      </span>
+                    </span>
+                    <span className="flex-none text-[12px] text-tinta-4">
+                      {c.status === 'concluido' ? 'feito' : c.status === 'cancelado' ? 'cancelado' : 'pendente'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </Cartao>
 
           <Cartao className="p-5">

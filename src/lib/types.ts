@@ -137,3 +137,23 @@ export function aplicarVariaveis(
     .replaceAll('{{saudacao}}', saudacao)
     .replaceAll('{{data}}', data);
 }
+
+/**
+ * Compromisso da agenda: um retorno combinado na conversa ou algo marcado
+ * direto no calendário. `remoteJid` vazio = compromisso solto, sem contato.
+ * Datas em ISO; a tela mostra no horário do computador (Brasília, aqui).
+ */
+export type Agendamento = {
+  id: string;
+  remoteJid: string | null;
+  contatoNome: string | null;
+  titulo: string;
+  descricao: string | null;
+  inicio: string;
+  fim: string | null;
+  diaInteiro: boolean;
+  status: 'pendente' | 'concluido' | 'cancelado';
+  autorId: string | null;
+  autorNome: string | null;
+  responsavelId: string | null;
+};

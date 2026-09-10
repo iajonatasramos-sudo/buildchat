@@ -27,6 +27,7 @@ import {
   Smartphone,
   Sparkles,
   Tag,
+  CalendarDays,
   Trash2,
   User,
   Wifi,
@@ -57,9 +58,10 @@ import { enviarArquivo, getInfoConta } from '@/lib/wa';
 import { abaGaveta, modalProposta, pedirContaWhatsapp, perfilAtual, propostasMudaram } from '@/lib/store';
 import { TIPOS, brl, nomeDoArquivoDaProposta } from '@/lib/propostas';
 import { temRecurso } from '@/lib/marca';
-import type { PropostaSalva } from '@/lib/types';
+import type { Agendamento, PropostaSalva } from '@/lib/types';
 import { minhasEquipes } from '@/lib/sync';
 import { carregarPerfil, supabase } from '@/lib/auth';
+import { EditorAgendamento } from './Agenda';
 import {
   CORES_CATEGORIA,
   TIPOS_RESPOSTA,
@@ -1213,6 +1215,9 @@ function ContatoGuia({
   const [tagsContato, setTagsContato] = useState<string[]>([]);
   const [notas, setNotas] = useState<NotaContato[]>([]);
   const [novaNota, setNovaNota] = useState('');
+  // Agenda deste contato (retornos combinados na conversa).
+  const [compromissos, setCompromissos] = useState<Agendamento[]>([]);
+  const [editandoAgenda, setEditandoAgenda] = useState<Partial<Agendamento> | null>(null);
   // Quem sou: decide se posso apagar cada anotação (autor ou admin) e pasta padrão.
   const [perfil, setPerfil] = useState(perfilAtual.get());
   useEffect(() => perfilAtual.subscribe(setPerfil), []);
@@ -1298,6 +1303,7 @@ function ContatoGuia({
       setTagsContato([]);
       setNotas([]);
       setFicha(null);
+      setCompromissos([]);
       return;
     }
     let vivo = true;
@@ -1305,11 +1311,13 @@ function ContatoGuia({
       db.tagsDoContato(contato.chatId),
       db.listarNotas(contato.chatId),
       db.obterFicha(contato.chatId),
-    ]).then(([t, n, f]) => {
+      db.agendaDoContato(contato.chatId),
+    ]).then(([t, n, f, ag]) => {
       if (!vivo) return;
       setTagsContato(t);
       setNotas(n);
       setFicha(f);
+      setCompromissos(ag);
       // Conversa @lid: o telefone chega resolvido pelo WPP — guarda na ficha
       // existente para o painel mostrar o número real, não o LID.
       if (contato.telefone && f.telefone !== contato.telefone.replace(/\D/g, '')) {
@@ -1576,8 +1584,75 @@ function ContatoGuia({
         )}
       </GuiaSecao>
 
+      {/* Agendamentos deste contato — o retorno combinado na conversa. */}
+      <GuiaSecao titulo="Agendamentos" Icon={CalendarDays} cor="var(--brand)" contador={compromissos.filter((a) => a.status === 'pendente').length}>
+        <button
+          type="button"
+          onClick={() => {
+            const q = new Date();
+            q.setDate(q.getDate() + 1);
+            q.setHours(9, 0, 0, 0);
+            setEditandoAgenda({
+              inicio: q.toISOString(),
+              fim: null,
+              titulo: '',
+              descricao: null,
+              remoteJid: contato!.chatId,
+              contatoNome: nomeExibido,
+              diaInteiro: false,
+              status: 'pendente',
+            });
+          }}
+          className="mb-2 w-full rounded-md border border-dashed border-border-strong py-1.5 text-[12px] font-semibold text-text-2 transition hover:border-brand hover:text-brand"
+        >
+          + Marcar retorno
+        </button>
+        {compromissos.length === 0 ? (
+          <span className="text-[12px] text-muted">Nada marcado com este contato.</span>
+        ) : (
+          <ul className="space-y-1.5">
+            {[...compromissos]
+              .sort((a, b) => a.inicio.localeCompare(b.inicio))
+              .map((a) => (
+                <li key={a.id}>
+                  <button
+                    type="button"
+                    onClick={() => setEditandoAgenda(a)}
+                    className="flex w-full items-start gap-2 rounded-md border border-border bg-surface-2 p-2 text-left transition hover:border-brand"
+                  >
+                    <span
+                      className="mt-0.5 h-2 w-2 flex-shrink-0 rounded-full"
+                      style={{ background: a.status === 'concluido' ? 'var(--green)' : a.status === 'cancelado' ? 'var(--muted)' : 'var(--brand)' }}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className={cn('block truncate text-[12px] font-semibold text-text', a.status === 'cancelado' && 'line-through')}>
+                        {a.titulo}
+                      </span>
+                      <span className="block text-[10.5px] text-muted">
+                        {new Date(a.inicio).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        {a.autorNome && ` · ${a.autorNome}`}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+          </ul>
+        )}
+      </GuiaSecao>
+
+      {editandoAgenda && (
+        <EditorAgendamento
+          valor={editandoAgenda}
+          onFechar={() => setEditandoAgenda(null)}
+          onSalvo={() => {
+            setEditandoAgenda(null);
+            db.agendaDoContato(contato!.chatId).then(setCompromissos);
+          }}
+        />
+      )}
+
       {(temPropostas || propostas.length > 0) && (
-        <GuiaSecao titulo="Propostas" Icon={FileText} cor="var(--brand)" contador={propostas.length}>
+      <GuiaSecao titulo="Propostas" Icon={FileText} cor="var(--brand)" contador={propostas.length}>
           {temPropostas && (
             <button
               type="button"

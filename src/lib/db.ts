@@ -21,7 +21,7 @@ import type {
   TipoResposta,
 } from './types';
 import { CORES_CATEGORIA } from './types';
-import type { PropostaSalva } from './types';
+import type { Agendamento, PropostaSalva } from './types';
 import { perfilAtual, propostasMudaram } from './store';
 
 const K = {
@@ -37,6 +37,7 @@ const K = {
   contatos: 'bc2_contatos',
   integracoes: 'bc2_integracoes',
   propostas: 'bc2_propostas',
+  agenda: 'bc2_agenda',
 } as const;
 
 const DEFAULT_SETTINGS: Settings = { webhookUrl: '', triggerChar: '/', tema: 'auto' };
@@ -1022,4 +1023,56 @@ export async function importarSeed(seed: Seed): Promise<void> {
     set(K.tags, tags),
     set(K.contactTags, seed.bc_contact_labels ?? {}),
   ]);
+}
+
+// ───────────────────────── Agenda ─────────────────────────
+// Compromissos da clínica inteira (a agenda é compartilhada). Offline-first
+// como o resto: grava aqui, enfileira, e o sync leva/traz.
+
+export async function listarAgenda(): Promise<Agendamento[]> {
+  const lista = await get<Agendamento[]>(K.agenda, []);
+  return [...lista].sort((a, b) => a.inicio.localeCompare(b.inicio));
+}
+
+/** Compromissos de um contato (os que ainda valem primeiro). */
+export async function agendaDoContato(remoteJid: string): Promise<Agendamento[]> {
+  return (await listarAgenda()).filter((a) => a.remoteJid === remoteJid);
+}
+
+export async function salvarAgendamento(
+  dados: Omit<Agendamento, 'id' | 'autorId' | 'autorNome'> & { id?: string },
+): Promise<Agendamento> {
+  const lista = await get<Agendamento[]>(K.agenda, []);
+  const perfil = perfilAtual.get();
+  const existente = dados.id ? lista.find((a) => a.id === dados.id) : undefined;
+  const item: Agendamento = {
+    ...dados,
+    id: dados.id ?? crypto.randomUUID(),
+    autorId: existente?.autorId ?? perfil?.id ?? null,
+    autorNome: existente?.autorNome ?? perfil?.nome ?? null,
+    responsavelId: dados.responsavelId ?? existente?.responsavelId ?? perfil?.id ?? null,
+  };
+  await set(K.agenda, [...lista.filter((a) => a.id !== item.id), item]);
+  const { enfileirar } = await import('./sync');
+  await enfileirar({ op: 'agenda.upsert', id: item.id });
+  return item;
+}
+
+/** Quem pode mexer: quem criou, quem responde pelo compromisso e o admin. */
+export function podeMexerNoAgendamento(a: Agendamento): boolean {
+  const p = perfilAtual.get();
+  if (!p) return true; // modo local
+  return !a.autorId || a.autorId === p.id || a.responsavelId === p.id || p.papel === 'admin';
+}
+
+export async function removerAgendamento(id: string): Promise<void> {
+  const lista = await get<Agendamento[]>(K.agenda, []);
+  await set(K.agenda, lista.filter((a) => a.id !== id));
+  const { enfileirar } = await import('./sync');
+  await enfileirar({ op: 'agenda.delete', id });
+}
+
+/** Usado pelo sync ao descer a agenda da empresa. */
+export async function salvarAgendaLocal(lista: Agendamento[]): Promise<void> {
+  await set(K.agenda, lista);
 }

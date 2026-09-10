@@ -28,7 +28,9 @@ type OpSemMeta =
   | { op: 'contato.upsert'; remoteJid: string }
   | { op: 'proposta.criar'; id: string }
   | { op: 'proposta.enviada'; id: string }
-  | { op: 'proposta.apagar'; id: string; arquivoPath: string | null };
+  | { op: 'proposta.apagar'; id: string; arquivoPath: string | null }
+  | { op: 'agenda.upsert'; id: string }
+  | { op: 'agenda.delete'; id: string };
 /** Toda operação carrega quantas vezes já tentou e o último erro — nada é descartado no escuro. */
 export type Op = OpSemMeta & { tentativas?: number; ultimoErro?: string };
 
@@ -324,6 +326,38 @@ async function enviarFila(perfil: Perfil): Promise<void> {
             if (error) throw error;
           }
         }
+      } else if (op.op === 'agenda.upsert') {
+        const item = (await db.listarAgenda()).find((a) => a.id === op.id);
+        // Compromisso de outra pessoa: quem sobe é ela. O responsável e o
+        // admin ainda conseguem alterar (a RLS deixa), então o update vai.
+        if (item) {
+          const linha = {
+            empresa_id: perfil.empresa.id,
+            wa_number: wa,
+            remote_jid: item.remoteJid,
+            contato_nome: item.contatoNome,
+            titulo: item.titulo,
+            descricao: item.descricao,
+            inicio: item.inicio,
+            fim: item.fim,
+            dia_inteiro: item.diaInteiro,
+            status: item.status,
+            responsavel_id: item.responsavelId,
+            deleted_at: null,
+          };
+          const { data: alteradas, error: erroUpd } = await sb.from('agendamentos')
+            .update(linha).eq('id', item.id).select('id');
+          if (erroUpd) throw erroUpd;
+          if (!alteradas?.length && (!item.autorId || item.autorId === perfil.id)) {
+            const { error } = await sb.from('agendamentos')
+              .insert({ id: item.id, ...linha, criado_por: perfil.id });
+            if (error) throw error;
+          }
+        }
+      } else if (op.op === 'agenda.delete') {
+        const { error } = await sb.from('agendamentos')
+          .update({ deleted_at: new Date().toISOString() }).eq('id', op.id);
+        if (error) throw error;
       } else if (op.op === 'contato.upsert') {
         if (!wa) { restantes.push(op); continue; }
         const ficha = await db.obterFicha(op.remoteJid);
@@ -717,6 +751,39 @@ async function puxar(perfil: Perfil, desde: string | null): Promise<string> {
         else delete mapa[n.remote_jid];
       }
       await db.salvarMapaNotas(mapa);
+    }
+  }
+
+  // Agenda da clínica inteira (é compartilhada — todo mundo vê o que a
+  // equipe marcou). Incremental como o resto.
+  {
+    let qg = sb
+      .from('agendamentos')
+      .select('id, remote_jid, contato_nome, titulo, descricao, inicio, fim, dia_inteiro, status, criado_por, responsavel_id, deleted_at, usuarios!agendamentos_criado_por_fkey(nome)');
+    if (desde) qg = qg.gt('atualizado_em', desde);
+    const { data: agenda, error: erroAgenda } = await qg;
+    if (erroAgenda) throw erroAgenda;
+    if (agenda?.length) {
+      const porId = new Map((await db.listarAgenda()).map((a) => [a.id, a]));
+      for (const g of agenda as any[]) {
+        if (g.deleted_at) porId.delete(g.id);
+        else
+          porId.set(g.id, {
+            id: g.id,
+            remoteJid: g.remote_jid,
+            contatoNome: g.contato_nome,
+            titulo: g.titulo,
+            descricao: g.descricao,
+            inicio: g.inicio,
+            fim: g.fim,
+            diaInteiro: !!g.dia_inteiro,
+            status: g.status,
+            autorId: g.criado_por,
+            autorNome: g.usuarios?.nome ?? null,
+            responsavelId: g.responsavel_id,
+          });
+      }
+      await db.salvarAgendaLocal([...porId.values()]);
     }
   }
 
