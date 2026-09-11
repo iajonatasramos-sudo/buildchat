@@ -358,9 +358,14 @@ segredo e eventos próprios).
 
 - **O que vai no corpo** é escolha da pessoa: dados do evento, número, foto, pastas do contato,
   perfil do contato e usuário logado. Só o marcado entra no JSON.
-- **Permissão do domínio**: o manifesto libera só o WhatsApp e as nossas APIs, então qualquer
-  outro endereço exige permissão — e o Chrome só a concede **dentro de um clique**. Por isso ela é
-  pedida ao ligar o webhook ou ao mandar o teste (`optional_host_permissions: ["*://*/*"]`).
+- **Permissão do domínio** (`optional_host_permissions: ["*://*/*"]`) — dois detalhes que
+  custaram caro e não podem ser esquecidos:
+  1. **`chrome.permissions` NÃO existe no content script.** Dentro do WhatsApp a API é `undefined`,
+     e o `try/catch` engolia o erro: o botão "Liberar agora" não fazia nada. O pedido mora em
+     **`public/permissao.html`** (página da extensão, aberta pelo service worker via
+     `bc:permissao:abrir`); a consulta vai por mensagem (`bc:permissao:tem`).
+  2. **O padrão de origem não aceita PORTA.** `http://1.2.3.4:8088/*` é inválido; o certo é
+     `http://1.2.3.4/*`, que já vale para qualquer porta — por isso `origemDaUrl` usa `hostname`.
 - **Sem a permissão o envio vai às cegas**: o service worker repete o POST com `mode: 'no-cors'`
   e `text/plain` (que dispensa a verificação prévia), então **o corpo chega** — só não dá para ler
   a resposta. A tela avisa, e o histórico marca `semConfirmacao`. Foi assim que o primeiro teste

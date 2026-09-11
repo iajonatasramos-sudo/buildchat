@@ -83,3 +83,23 @@ chrome.runtime.onMessage.addListener((msg: MsgWebhookAuto, _sender, sendResponse
   })();
   return true;
 });
+
+// ── Permissão do domínio do WebHook ─────────────────────────────────────────
+// `chrome.permissions` não existe no content script, e `request` exige um
+// gesto do usuário (que o service worker não tem). Então: a consulta vem para
+// cá e o PEDIDO acontece numa página da extensão, aberta daqui.
+type MsgPermissao = { type: 'bc:permissao:tem' | 'bc:permissao:abrir'; origem: string };
+chrome.runtime.onMessage.addListener((msg: MsgPermissao, _sender, sendResponse) => {
+  if (msg?.type === 'bc:permissao:tem') {
+    chrome.permissions.contains({ origins: [msg.origem] }, (tem) =>
+      sendResponse({ tem: !!tem && !chrome.runtime.lastError }),
+    );
+    return true;
+  }
+  if (msg?.type === 'bc:permissao:abrir') {
+    chrome.tabs.create({ url: chrome.runtime.getURL(`permissao.html?origem=${encodeURIComponent(msg.origem)}`) });
+    sendResponse({ ok: true });
+    return true;
+  }
+  return undefined;
+});

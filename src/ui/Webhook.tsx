@@ -55,22 +55,42 @@ export function WebhookModal() {
   const alternarCampo = (c: CampoWebhook) =>
     mudar({ campos: { ...(cfg ?? CONFIG_PADRAO).campos, [c]: !(cfg ?? CONFIG_PADRAO).campos[c] } });
 
-  /** O Chrome só concede a permissão dentro de um clique — daí ser aqui. */
+  /**
+   * Abre a página da extensão que pede a autorização. Daqui (content script,
+   * dentro do WhatsApp) a API de permissões nem existe — por isso o pedido
+   * mora em `permissao.html`.
+   */
   async function liberarDominio() {
-    if (!cfg?.url.trim()) return false;
+    if (!cfg?.url.trim()) return;
     if (await temPermissao(cfg.url)) {
       setLiberado(true);
-      return true;
+      return;
     }
-    const ok = await pedirPermissao(cfg.url);
-    setLiberado(ok);
-    if (!ok) toast.error('Sem a permissão, o envio vai às cegas: o destino recebe, mas não dá para confirmar.');
-    return ok;
+    setLiberado(false); // o aviso de "às cegas" precisa aparecer já
+    const abriu = await pedirPermissao(cfg.url);
+    if (!abriu) toast.error('Endereço inválido — comece com http:// ou https://.');
+    else toast.success('Abri uma aba para você autorizar. Volte aqui depois.');
   }
+
+  // Confere ao trocar a URL (com folga para digitar) e ao voltar da aba de
+  // autorização — é assim que o aviso de "às cegas" some sozinho.
+  useEffect(() => {
+    const url = cfg?.url.trim();
+    if (!url) {
+      setLiberado(null);
+      return;
+    }
+    const conferir = () => temPermissao(url).then(setLiberado);
+    const t = window.setTimeout(conferir, 600);
+    window.addEventListener('focus', conferir);
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener('focus', conferir);
+    };
+  }, [cfg?.url]);
 
   async function testar() {
     if (!cfg?.url.trim() || testando) return;
-    await liberarDominio();
     setTestando(true);
     try {
       const r = await dispararWebhook(
@@ -130,10 +150,10 @@ export function WebhookModal() {
           <div className="mt-3 flex items-center gap-3">
             <button
               type="button"
-              onClick={async () => {
+              onClick={() => {
                 const ligando = !cfg.ativo;
-                if (ligando) await liberarDominio();
                 mudar({ ativo: ligando });
+                if (ligando) liberarDominio();
               }}
               title={cfg.ativo ? 'Desligar o envio' : 'Ligar o envio'}
               className={cn(
@@ -170,7 +190,8 @@ export function WebhookModal() {
               seu sistema recebe os dados, mas a extensão não consegue ler a resposta.{' '}
               <button type="button" onClick={liberarDominio} className="font-semibold text-brand underline">
                 Liberar agora
-              </button>
+              </button>{' '}
+              <span className="text-muted">(abre uma aba da extensão para você autorizar)</span>
             </p>
           ) : null}
 

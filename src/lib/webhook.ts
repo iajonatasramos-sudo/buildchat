@@ -175,41 +175,46 @@ export async function aoReceberMensagem(m: MensagemRecebidaWebhook): Promise<voi
 /**
  * Permissão para falar com o domínio do webhook.
  *
- * O `manifest` só libera o WhatsApp e as nossas APIs; para qualquer outro
- * endereço o Chrome exige permissão — e ela tem de ser pedida DENTRO de um
- * clique da pessoa. Sem isso, o navegador barra a resposta e o envio vira
- * "às cegas" (o corpo chega, mas não sabemos o que o destino respondeu).
+ * O manifesto só libera o WhatsApp e as nossas APIs; qualquer outro endereço
+ * exige autorização. Dois detalhes que custaram caro:
+ *  • `chrome.permissions` NÃO existe no content script (é aqui que a gente
+ *    roda), então consulta e pedido passam pelo service worker;
+ *  • o padrão de origem não aceita PORTA — `http://1.2.3.4:8088/*` é inválido;
+ *    o certo é `http://1.2.3.4/*`, que já vale para qualquer porta.
  */
 export function origemDaUrl(url: string): string | null {
   try {
     const u = new URL(url.trim());
-    return /^https?:$/.test(u.protocol) ? `${u.protocol}//${u.host}/*` : null;
+    // `hostname` (e não `host`) porque o padrão de permissão não leva porta.
+    return /^https?:$/.test(u.protocol) ? `${u.protocol}//${u.hostname}/*` : null;
   } catch {
     return null;
   }
 }
 
-export function temPermissao(url: string): Promise<boolean> {
-  const origem = origemDaUrl(url);
-  if (!origem) return Promise.resolve(false);
-  return new Promise((r) => {
+const perguntarAoWorker = <T>(mensagem: unknown, padrao: T): Promise<T> =>
+  new Promise((r) => {
     try {
-      chrome.permissions.contains({ origins: [origem] }, (tem) => r(!!tem && !chrome.runtime.lastError));
+      chrome.runtime.sendMessage(mensagem, (res) => r((chrome.runtime.lastError ? padrao : res) ?? padrao));
     } catch {
-      r(false);
+      r(padrao);
     }
   });
+
+export async function temPermissao(url: string): Promise<boolean> {
+  const origem = origemDaUrl(url);
+  if (!origem) return false;
+  const r = await perguntarAoWorker<{ tem?: boolean }>({ type: 'bc:permissao:tem', origem }, {});
+  return !!r.tem;
 }
 
-/** Pede a permissão — precisa ser chamado a partir de um clique. */
-export function pedirPermissao(url: string): Promise<boolean> {
+/**
+ * Abre a página da extensão onde a autorização pode ser pedida de verdade.
+ * Devolve `false` quando nem dá para tentar (URL inválida).
+ */
+export async function pedirPermissao(url: string): Promise<boolean> {
   const origem = origemDaUrl(url);
-  if (!origem) return Promise.resolve(false);
-  return new Promise((r) => {
-    try {
-      chrome.permissions.request({ origins: [origem] }, (ok) => r(!!ok && !chrome.runtime.lastError));
-    } catch {
-      r(false);
-    }
-  });
+  if (!origem) return false;
+  await perguntarAoWorker({ type: 'bc:permissao:abrir', origem }, {});
+  return true;
 }
