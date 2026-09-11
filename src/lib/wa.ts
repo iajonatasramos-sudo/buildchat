@@ -39,6 +39,8 @@ export function injetarBridge() {
         registrarMensagemCache(msg.data).catch(() => {});
         // Automações: o motor decide se alguma regra casa (import dinâmico: o motor importa este módulo).
         import('./automacoes/motor').then((m) => m.aoReceberMensagem(msg.data)).catch(() => {});
+        // WebHooks de saída (configurados na barra lateral).
+        import('./webhook').then((w) => w.aoReceberMensagem(msg.data)).catch(() => {});
       }
       if (msg.evento === 'msg-revoke') registrarRevogada(msg.data).catch(() => {});
     }

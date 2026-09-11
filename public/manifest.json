@@ -18,18 +18,32 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://web.whatsapp.com/*"],
-      "js": ["content-loader.js"],
+      "matches": [
+        "https://web.whatsapp.com/*"
+      ],
+      "js": [
+        "content-loader.js"
+      ],
       "run_at": "document_start"
     },
     {
-      "matches": ["https://web.whatsapp.com/*"],
-      "js": ["vendor/wppconnect-wa.js", "assets/wa-bridge.js"],
+      "matches": [
+        "https://web.whatsapp.com/*"
+      ],
+      "js": [
+        "vendor/wppconnect-wa.js",
+        "assets/wa-bridge.js"
+      ],
       "run_at": "document_start",
       "world": "MAIN"
     }
   ],
-  "permissions": ["storage", "unlimitedStorage", "alarms", "tabs"],
+  "permissions": [
+    "storage",
+    "unlimitedStorage",
+    "alarms",
+    "tabs"
+  ],
   "host_permissions": [
     "https://web.whatsapp.com/*",
     "https://*.supabase.co/*",
@@ -37,8 +51,19 @@
   ],
   "web_accessible_resources": [
     {
-      "matches": ["https://web.whatsapp.com/*"],
-      "resources": ["assets/*", "vendor/*", "seed/*", "seed/media/*", "icons/*"]
+      "matches": [
+        "https://web.whatsapp.com/*"
+      ],
+      "resources": [
+        "assets/*",
+        "vendor/*",
+        "seed/*",
+        "seed/media/*",
+        "icons/*"
+      ]
     }
+  ],
+  "optional_host_permissions": [
+    "*://*/*"
   ]
 }

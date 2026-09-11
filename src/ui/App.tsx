@@ -2,7 +2,7 @@
 // do Saleschat, picker "/" e configurações (webhook / caractere de atalho).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BookUser, Bot, Loader2, Smartphone, User, X, Zap } from 'lucide-react';
+import { BookUser, Bot, Loader2, Smartphone, User, Webhook, X, Zap } from 'lucide-react';
 import { cn, emPx } from '@/lib/utils';
 import * as db from '@/lib/db';
 import { iniciarMotor } from '@/lib/automacoes/motor';
@@ -23,7 +23,8 @@ import { ContaModal } from './Conta';
 import { PropostaModal } from './Proposta';
 import { PastasModal } from './Pastas';
 import { AgendaModal } from './Agenda';
-import { modalAgenda, progressoExecucao, type ProgressoExecucao, gavetaAberta, menuHeader, modalAnotacoes, modalConfiguracoes, modalConta, modalPastas, modalProposta, perfilAtual, pastasAtivas, type MenuHeader, abaGaveta, pedirContaWhatsapp, LARGURA_TRILHO } from '@/lib/store';
+import { WebhookModal } from './Webhook';
+import { modalAgenda, modalWebhook, progressoExecucao, type ProgressoExecucao, gavetaAberta, menuHeader, modalAnotacoes, modalConfiguracoes, modalConta, modalPastas, modalProposta, perfilAtual, pastasAtivas, type MenuHeader, abaGaveta, pedirContaWhatsapp, LARGURA_TRILHO } from '@/lib/store';
 import { carregarPerfil, observarSessao, trocarSenha } from '@/lib/auth';
 import { iniciarSyncPeriodico, nomesDasMinhasEquipes, sincronizar } from '@/lib/sync';
 import { toast, Toaster } from './toast';
@@ -55,6 +56,7 @@ export function App() {
   const [proposta, setProposta] = useState(modalProposta.get());
   const [pastasModal, setPastasModal] = useState(modalPastas.get());
   const [agenda, setAgenda] = useState(modalAgenda.get());
+  const [webhook, setWebhook] = useState(modalWebhook.get());
 
   useEffect(() => pastasAtivas.subscribe(setPastas), []);
   useEffect(() => menuHeader.subscribe(setMenu), []);
@@ -63,6 +65,7 @@ export function App() {
   useEffect(() => modalProposta.subscribe(setProposta), []);
   useEffect(() => modalPastas.subscribe(setPastasModal), []);
   useEffect(() => modalAgenda.subscribe(setAgenda), []);
+  useEffect(() => modalWebhook.subscribe(setWebhook), []);
 
   // Sessão: carrega o perfil ao abrir e acompanha login/logout/refresh.
   useEffect(() => {
@@ -100,10 +103,11 @@ export function App() {
     if (proposta) modalProposta.set(false);
     if (pastasModal) modalPastas.set(false);
     if (agenda) modalAgenda.set(false);
+    if (webhook) modalWebhook.set(false);
     if (dlgSettings) modalConfiguracoes.set(false);
     if (pastas.length) pastasAtivas.set([]);
     modalConta.set(true);
-  }, [perfil, perfilResolvido, aberto, menu, anotacoes, proposta, pastasModal, dlgSettings, pastas, agenda]);
+  }, [perfil, perfilResolvido, aberto, menu, anotacoes, proposta, pastasModal, dlgSettings, pastas, agenda, webhook]);
   const logado = !servidorConfigurado() || !!perfil;
   // O picker "/" lê isto de dentro de um listener antigo — ref, não estado.
   const logadoRef = useRef(logado);
@@ -298,6 +302,9 @@ export function App() {
 
       {/* Agenda: calendário da clínica (dia / semana / mês) */}
       {agenda && <AgendaModal />}
+
+      {/* WebHooks: manda os dados do contato para outro sistema */}
+      {webhook && <WebhookModal />}
 
       {/* Menus da barra do cabeçalho (pastas / filtros / apagadas) */}
       {menu && <HeaderMenuOverlay menu={menu} contato={contato} />}
@@ -672,6 +679,14 @@ function TrilhoLateral() {
           <Bot size={17} />
         </button>
       )}
+      <button
+        type="button"
+        title="WebHooks — enviar dados para outro sistema"
+        className={botao(false)}
+        onClick={() => modalWebhook.set(true)}
+      >
+        <Webhook size={17} />
+      </button>
       <button
         type="button"
         title="Conta de WhatsApp em uso"

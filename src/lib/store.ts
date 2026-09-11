@@ -56,6 +56,8 @@ export const modalConfiguracoes = criarSinal<boolean>(false);
 export const modalPastas = criarSinal<boolean>(false);
 /** Tela do calendário (agenda da clínica). */
 export const modalAgenda = criarSinal<boolean>(false);
+/** Modal "WebHooks" (envio dos dados do contato para outro sistema). */
+export const modalWebhook = criarSinal<boolean>(false);
 
 /** Perfil carregado do servidor (null = sem login / modo local). */
 import type { Perfil } from './auth';

@@ -349,6 +349,24 @@ Anti-revoke em duas camadas, tudo local — nada disso sobe para servidor nenhum
   com **contador** no ícone.
 - **Só captura com a aba aberta e a extensão ativa** — o que foi apagado antes disso não existe.
 
+## WebHooks (`src/lib/webhook.ts` + `src/ui/Webhook.tsx`)
+
+Ícone de webhook na **barra lateral**: endereço, liga/desliga, o que enviar e o histórico dos
+últimos 30 envios. Dispara a cada **mensagem recebida de contato** (grupo fica de fora, como no
+motor das automações) — é o webhook "do balcão"; o de Automações é outro (nasce numa regra, tem
+segredo e eventos próprios).
+
+- **O que vai no corpo** é escolha da pessoa: dados do evento, número, foto, pastas do contato,
+  perfil do contato e usuário logado. Só o marcado entra no JSON.
+- **Permissão do domínio**: o manifesto libera só o WhatsApp e as nossas APIs, então qualquer
+  outro endereço exige permissão — e o Chrome só a concede **dentro de um clique**. Por isso ela é
+  pedida ao ligar o webhook ou ao mandar o teste (`optional_host_permissions: ["*://*/*"]`).
+- **Sem a permissão o envio vai às cegas**: o service worker repete o POST com `mode: 'no-cors'`
+  e `text/plain` (que dispensa a verificação prévia), então **o corpo chega** — só não dá para ler
+  a resposta. A tela avisa, e o histórico marca `semConfirmacao`. Foi assim que o primeiro teste
+  entregou corpo vazio: o servidor só via a verificação prévia (OPTIONS) e o POST morria no CORS.
+- O envio sempre sai pelo service worker (`bc:webhook:saida`), nunca da página.
+
 ## Automações (`src/lib/automacoes/` + `src/ui/Automacoes.tsx`)
 
 Guia da gaveta com **Bots | Campanhas | Notificações | Webhook**, espelhando o Sales

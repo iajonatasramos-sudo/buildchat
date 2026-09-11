@@ -49,20 +49,36 @@ chrome.alarms.onAlarm.addListener((alarme) => {
   });
 });
 
-// Webhook das automações: URL própria (não a das configurações), com segredo opcional.
-type MsgWebhookAuto = { type: 'bc:webhook:auto'; url: string; segredo?: string; event: string; payload: unknown };
+// Webhook com URL própria: o das Automações (com segredo) e o da barra lateral
+// ("WebHooks"). Os dois saem daqui porque a URL é de qualquer domínio.
+type MsgWebhookAuto = { type: 'bc:webhook:auto' | 'bc:webhook:saida'; url: string; segredo?: string; event: string; payload: unknown };
 chrome.runtime.onMessage.addListener((msg: MsgWebhookAuto, _sender, sendResponse) => {
-  if (msg?.type !== 'bc:webhook:auto') return;
+  if (msg?.type !== 'bc:webhook:auto' && msg?.type !== 'bc:webhook:saida') return;
   (async () => {
+    const corpo = JSON.stringify({ source: 'buildchat', event: msg.event, payload: msg.payload });
     try {
       const res = await fetch(msg.url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(msg.segredo ? { [CABECALHO_SEGREDO]: msg.segredo } : {}) },
-        body: JSON.stringify({ source: 'buildchat', event: msg.event, payload: msg.payload }),
+        body: corpo,
       });
       sendResponse({ ok: res.ok, status: res.status });
-    } catch (e: any) {
-      sendResponse({ ok: false, erro: e?.message ?? 'Falha no webhook.' });
+    } catch {
+      // Sem permissão para o domínio (ou sem CORS do outro lado), o navegador
+      // barra a resposta. O envio "cego" ainda entrega o corpo: vai como
+      // text/plain, que não exige verificação prévia (preflight). O preço é
+      // não saber o que o destino respondeu.
+      try {
+        await fetch(msg.url, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+          body: corpo,
+        });
+        sendResponse({ ok: true, semConfirmacao: true });
+      } catch (e: any) {
+        sendResponse({ ok: false, erro: e?.message ?? 'Falha no webhook.' });
+      }
     }
   })();
   return true;
