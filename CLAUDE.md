@@ -428,6 +428,14 @@ exclusão lógica por `deleted_at`, e vínculo pasta↔conversa por **número co
   **A adoção falhar não derruba o ciclo**: fica para a próxima e o pull continua — senão
   uma recusa ali (permissão, limite do plano) deixaria a pessoa sem licença, sem acervo e
   sem as integrações, com a nuvem riscada. Foi exatamente esse o sintoma do furo das pastas.
+- **O que o servidor deixa de mostrar some daqui** (`conferirVisiveis`): quando o admin tira a
+  visibilidade de uma pasta (ou mensagem/categoria), a RLS **para de devolver a linha** — ela não
+  vem com `deleted_at`, ela simplesmente some, e o pull incremental nunca ficava sabendo: a pasta
+  ficava para sempre na extensão. A cada ciclo a gente busca só os **ids visíveis** e tira do
+  acervo o que não está mais lá. Nunca mexe no que ainda está na fila de saída (senão derrubaria o
+  que a pessoa criou sem rede). Vale para pastas, respostas, categorias e agenda.
+- Ciclo: a cada 5 min, ao focar a aba e **ao abrir a gaveta** — mudança feita no painel aparece
+  sem esperar.
 - Estado na barra do topo: nuvem verde (ok), girando (sincronizando), riscada (sem rede),
   escudo (assinatura pendente). Sem conta, o ícone não aparece.
 - Sincroniza: pastas, vínculos, categorias, respostas (com a sequência de ações),
@@ -504,6 +512,22 @@ exclusão lógica por `deleted_at`, e vínculo pasta↔conversa por **número co
   ainda não tem o nome do WhatsApp). O painel completa o resto: ao abrir `/painel/contatos`
   ele materializa a ficha de toda conversa que já tem pasta, proposta ou anotação sem ficha —
   foi assim que os 208 vínculos antigos da MCA viraram contatos.
+
+## Acessos: quem vê cada função (`src/lib/acessos.ts` + `/painel/acessos`)
+
+A barra lateral e a agenda podem ser limitadas **por pessoa ou por equipe**, com a mesma gramática
+de pastas e mensagens (`visivel_todos` + `visivel_equipes` / `visivel_usuarios`), em
+`recurso_acesso` (`0030`).
+
+- **Sem linha para a função, ela vale para todo mundo** — clínica que nunca mexeu nisso continua
+  vendo tudo. E o **admin enxerga sempre**: é ele quem configura, não pode se trancar de fora.
+- Chaves (o catálogo mora na extensão, porque é a tela que sabe o que existe; o banco guarda só o
+  texto, então função nova não pede migração): `contato`, `rapidas`, `automacoes`, `agenda`,
+  `webhooks`, `conta_whatsapp`, `meus_contatos`.
+- O pull desce a tabela inteira a cada ciclo (é minúscula) para `bc2_acessos`; `meusRecursos()`
+  resolve, e `TrilhoLateral`/`TopBar` montam a partir dela. Enquanto a resposta não chega, mostra
+  tudo — nada pisca fora do lugar.
+- Configuração em `/painel/acessos` (só admin, como usuários e equipes).
 
 ## Painel web (`painel/`) — Fase 5
 

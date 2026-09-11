@@ -597,6 +597,57 @@ async function enviarResposta(perfil: Perfil, resp: RespostaDC): Promise<void> {
 
 // ───────────────────────────── Leitura (pull) ─────────────────────────────
 
+/**
+ * O que o servidor deixou de me mostrar tem de sumir daqui também.
+ *
+ * Quando o admin tira a visibilidade de uma pasta (ou de uma mensagem), a RLS
+ * simplesmente PARA de devolver a linha — ela não vem com `deleted_at`, ela
+ * some. O pull incremental, que só olha o que mudou desde a última vez, nunca
+ * ficava sabendo, e a pasta continuava na extensão para sempre.
+ *
+ * A conferência abaixo é barata (só os ids) e roda a cada ciclo: o que não
+ * está mais na lista do servidor sai do acervo local. Nunca mexe no que ainda
+ * está na fila de saída — isso derrubaria o que a pessoa acabou de criar sem
+ * rede.
+ */
+async function conferirVisiveis(perfil: Perfil): Promise<void> {
+  const sb = supabase()!;
+  const naFila = new Set(
+    (await ler<Op[]>(K_OUTBOX, []))
+      .map((o) => ('id' in o ? o.id : null))
+      .filter((x): x is string => !!x),
+  );
+
+  const idsDoServidor = async (tabela: string) => {
+    const { data, error } = await sb.from(tabela).select('id').is('deleted_at', null);
+    if (error) throw error;
+    return new Set((data ?? []).map((r: any) => r.id as string));
+  };
+
+  // Pastas
+  const pastasOk = await idsDoServidor('pastas');
+  const tags = await db.listarTags();
+  const tagsFicam = tags.filter((t) => pastasOk.has(t.id) || naFila.has(t.id));
+  if (tagsFicam.length !== tags.length) await db.salvarTags(tagsFicam);
+
+  // Mensagens rápidas e categorias (mesma história: some da RLS, some daqui)
+  const respostasOk = await idsDoServidor('respostas');
+  const respostas = await db.listarRespostas();
+  const respostasFicam = respostas.filter((r) => respostasOk.has(r.id) || naFila.has(r.id));
+  if (respostasFicam.length !== respostas.length) await db.salvarRespostas(respostasFicam);
+
+  const categoriasOk = await idsDoServidor('categorias');
+  const categorias = await db.listarCategorias();
+  const categoriasFicam = categorias.filter((c) => categoriasOk.has(c.id) || naFila.has(c.id));
+  if (categoriasFicam.length !== categorias.length) await db.salvarCategorias(categoriasFicam);
+
+  // Agenda: o que saiu do alcance da minha equipe também sai daqui.
+  const agendaOk = await idsDoServidor('agendamentos');
+  const agenda = await db.listarAgenda();
+  const agendaFica = agenda.filter((a) => agendaOk.has(a.id) || naFila.has(a.id));
+  if (agendaFica.length !== agenda.length) await db.salvarAgendaLocal(agendaFica);
+}
+
 async function puxar(perfil: Perfil, desde: string | null): Promise<string> {
   const sb = supabase()!;
   const agora = new Date().toISOString();
@@ -788,6 +839,29 @@ async function puxar(perfil: Perfil, desde: string | null): Promise<string> {
       await db.salvarAgendaLocal([...porId.values()]);
     }
   }
+
+  // Quem vê cada função da extensão (barra lateral). A tabela é pequena e a
+  // configuração precisa valer na hora, então desce inteira todo ciclo.
+  {
+    const { data: acessos, error } = await sb
+      .from('recurso_acesso')
+      .select('recurso, visivel_todos, visivel_equipes, visivel_usuarios')
+      .is('deleted_at', null);
+    if (error) throw error;
+    const { salvarAcessos } = await import('./acessos');
+    await salvarAcessos(
+      (acessos ?? []).map((a: any) => ({
+        recurso: a.recurso,
+        visivelTodos: !!a.visivel_todos,
+        visivelEquipes: a.visivel_equipes ?? [],
+        visivelUsuarios: a.visivel_usuarios ?? [],
+      })),
+    );
+  }
+
+  // O que o servidor deixou de mostrar sai do acervo local (visibilidade
+  // trocada no painel). Falhar aqui não pode derrubar o ciclo.
+  await conferirVisiveis(perfil).catch((e) => console.warn('[BuildChat] conferência de visibilidade falhou:', e));
 
   // Preferências (só na primeira carga desta máquina — depois o local manda)
   if (!desde) {

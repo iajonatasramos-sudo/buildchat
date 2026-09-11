@@ -19,6 +19,7 @@ const MENU_ADMIN = [
   { href: '/painel/pastas', rotulo: 'Pastas' },
   { href: '/painel/contatos', rotulo: 'Contatos' },
   { href: '/painel/agenda', rotulo: 'Agenda' },
+  { href: '/painel/acessos', rotulo: 'Acessos' },
   { href: '/painel/assinatura', rotulo: 'Assinatura' },
 ];
 const MENU_USUARIO = [

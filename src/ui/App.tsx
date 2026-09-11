@@ -9,6 +9,7 @@ import { iniciarMotor } from '@/lib/automacoes/motor';
 import type { Perfil } from '@/lib/auth';
 import { servidorConfigurado } from '@/lib/config';
 import { MARCA, temRecurso } from '@/lib/marca';
+import { meusRecursos, type ChaveRecurso } from '@/lib/acessos';
 import { urlDoPainel } from '@/lib/auth';
 import { DOM, executarResposta, getContatoAtivo, observarConversa } from '@/lib/wa';
 import { inserirTextoNoCompose, reconciliarTagsContatos } from '@/lib/wa';
@@ -26,7 +27,7 @@ import { AgendaModal } from './Agenda';
 import { WebhookModal } from './Webhook';
 import { modalAgenda, modalWebhook, progressoExecucao, type ProgressoExecucao, gavetaAberta, menuHeader, modalAnotacoes, modalConfiguracoes, modalConta, modalPastas, modalProposta, perfilAtual, pastasAtivas, type MenuHeader, abaGaveta, pedirContaWhatsapp, LARGURA_TRILHO } from '@/lib/store';
 import { carregarPerfil, observarSessao, trocarSenha } from '@/lib/auth';
-import { iniciarSyncPeriodico, nomesDasMinhasEquipes, sincronizar } from '@/lib/sync';
+import { agendar, iniciarSyncPeriodico, nomesDasMinhasEquipes, sincronizar } from '@/lib/sync';
 import { toast, Toaster } from './toast';
 
 export function App() {
@@ -126,6 +127,12 @@ export function App() {
   useEffect(() => {
     menuHeader.set(null);
   }, [contato?.chatId]);
+
+  // Abrir a gaveta pede uma sincronização: o que o admin mudou no painel
+  // (visibilidade de pasta ou mensagem) aparece sem esperar o ciclo de 5 min.
+  useEffect(() => {
+    if (aberto) agendar(300);
+  }, [aberto]);
 
   // Com a gaveta aberta, o corpo do WhatsApp encolhe (classe no <html> ativa a
   // regra injetada no <head>) — o painel ocupa a faixa liberada, sem sobrepor.
@@ -639,6 +646,19 @@ function BannerExecucao() {
 function TrilhoLateral() {
   const [aba, setAba] = useState(abaGaveta.get());
   useEffect(() => abaGaveta.subscribe(setAba), []);
+  // O admin pode limitar funções por pessoa ou equipe (painel → Acessos).
+  // Enquanto não sabemos, mostramos tudo — nada pisca fora do lugar.
+  const [pode, setPode] = useState<Record<ChaveRecurso, boolean> | null>(null);
+  useEffect(() => {
+    const carregar = () => meusRecursos().then(setPode);
+    carregar();
+    const onChange = (m: Record<string, unknown>) => {
+      if ('bc2_acessos' in m || 'bc2_minhas_equipes' in m) carregar();
+    };
+    chrome.storage.onChanged.addListener(onChange as any);
+    return () => chrome.storage.onChanged.removeListener(onChange as any);
+  }, []);
+  const liberado = (c: ChaveRecurso) => !pode || pode[c];
 
   const ir = (destino: 'cliente' | 'rapidas' | 'automacoes') => {
     abaGaveta.set(destino);
@@ -668,25 +688,32 @@ function TrilhoLateral() {
       onClick={cliqueLivre}
       title="Abrir mensagens rápidas"
     >
-      <button type="button" title="Contato" className={botao(aba === 'cliente')} onClick={() => ir('cliente')}>
-        <User size={17} />
-      </button>
-      <button type="button" title="Mensagens rápidas" className={botao(aba === 'rapidas')} onClick={() => ir('rapidas')}>
-        <Zap size={17} />
-      </button>
-      {temRecurso('automacoes') && (
+      {liberado('contato') && (
+        <button type="button" title="Contato" className={botao(aba === 'cliente')} onClick={() => ir('cliente')}>
+          <User size={17} />
+        </button>
+      )}
+      {liberado('rapidas') && (
+        <button type="button" title="Mensagens rápidas" className={botao(aba === 'rapidas')} onClick={() => ir('rapidas')}>
+          <Zap size={17} />
+        </button>
+      )}
+      {temRecurso('automacoes') && liberado('automacoes') && (
         <button type="button" title="Automações" className={botao(aba === 'automacoes')} onClick={() => ir('automacoes')}>
           <Bot size={17} />
         </button>
       )}
-      <button
-        type="button"
-        title="WebHooks — enviar dados para outro sistema"
-        className={botao(false)}
-        onClick={() => modalWebhook.set(true)}
-      >
-        <Webhook size={17} />
-      </button>
+      {liberado('webhooks') && (
+        <button
+          type="button"
+          title="WebHooks — enviar dados para outro sistema"
+          className={botao(false)}
+          onClick={() => modalWebhook.set(true)}
+        >
+          <Webhook size={17} />
+        </button>
+      )}
+      {liberado('conta_whatsapp') && (
       <button
         type="button"
         title="Conta de WhatsApp em uso"
@@ -698,9 +725,11 @@ function TrilhoLateral() {
       >
         <Smartphone size={17} />
       </button>
+      )}
       <span className="my-1 h-px w-6 bg-border" />
       {/* Meus contatos no painel web, já logado com a sessão da extensão. A aba
           nasce ANTES do await (o clique ainda vale como gesto) e recebe o endereço depois. */}
+      {liberado('meus_contatos') && (
       <button
         type="button"
         title={`Meus contatos no painel ${MARCA.nome}`}
@@ -715,6 +744,7 @@ function TrilhoLateral() {
       >
         <BookUser size={17} />
       </button>
+      )}
 
       {/* Estado do WPP e da nuvem, no pé da barra (saíram da barra do topo). */}
       <div className="mt-auto pb-3">

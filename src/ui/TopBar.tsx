@@ -28,6 +28,7 @@ import {
 } from '@/lib/store';
 import { bridgeDisponivel } from '@/lib/wa';
 import { MARCA } from '@/lib/marca';
+import { meusRecursos, type ChaveRecurso } from '@/lib/acessos';
 import { ContaBotao } from './Conta';
 import type { TagOpt } from '@/lib/types';
 
@@ -50,6 +51,18 @@ export function TopBar() {
   const [ativas, setAtivas] = useState<string[]>(pastasAtivas.get());
   const [gaveta, setGaveta] = useState(gavetaAberta.get());
   const [configAberta, setConfigAberta] = useState(modalConfiguracoes.get());
+  // Acessos por pessoa/equipe (painel → Acessos): enquanto não sabemos, mostra.
+  const [pode, setPode] = useState<Record<ChaveRecurso, boolean> | null>(null);
+  useEffect(() => {
+    const carregar = () => meusRecursos().then(setPode);
+    carregar();
+    const onChange = (m: Record<string, unknown>) => {
+      if ('bc2_acessos' in m || 'bc2_minhas_equipes' in m) carregar();
+    };
+    chrome.storage.onChanged.addListener(onChange as any);
+    return () => chrome.storage.onChanged.removeListener(onChange as any);
+  }, []);
+  const liberado = (c: ChaveRecurso) => !pode || pode[c];
 
   useEffect(() => gavetaAberta.subscribe(setGaveta), []);
   useEffect(() => modalConfiguracoes.subscribe(setConfigAberta), []);
@@ -92,6 +105,7 @@ export function TopBar() {
   const abrirRapidas = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button, a, input')) return;
     if (!exigirLogin()) return;
+    if (!liberado('rapidas')) return; // função limitada para esta pessoa
     abaGaveta.set('rapidas');
     gavetaAberta.set(true);
   };
@@ -118,14 +132,16 @@ export function TopBar() {
       </button>
 
       {/* Agenda: fica ao lado da marca, antes das pastas, e abre o calendário. */}
-      <button
-        type="button"
-        onClick={() => exigirLogin() && modalAgenda.set(!modalAgenda.get())}
-        title="Agenda — compromissos da clínica"
-        className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-md text-text-2 transition hover:bg-surface-2 hover:text-brand"
-      >
-        <CalendarDays size={16} />
-      </button>
+      {liberado('agenda') && (
+        <button
+          type="button"
+          onClick={() => exigirLogin() && modalAgenda.set(!modalAgenda.get())}
+          title="Agenda — compromissos da clínica"
+          className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-md text-text-2 transition hover:bg-surface-2 hover:text-brand"
+        >
+          <CalendarDays size={16} />
+        </button>
+      )}
 
       <span className="h-5 w-px flex-shrink-0 bg-border" />
 
