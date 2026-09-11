@@ -860,7 +860,7 @@ function RespostaDialog({
               <>
                 <div className="mb-1 text-[11px] font-semibold">Departamentos</div>
                 <div className="mb-2 flex flex-wrap gap-1.5">
-                  {equipesOpts.length === 0 && <span className="text-[11px] text-muted">Nenhumo departamento.</span>}
+                  {equipesOpts.length === 0 && <span className="text-[11px] text-muted">Nenhum departamento.</span>}
                   {equipesOpts.map((e) => (
                     <button
                       key={e.id}

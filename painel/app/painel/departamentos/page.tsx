@@ -49,7 +49,7 @@ export default function Equipes() {
   }
 
   async function apagar(id: string) {
-    if (!confirm('Apagar este departamento? As mensagens restritas a ela deixam de ser vistas por esses usuários.')) return;
+    if (!confirm('Apagar este departamento? As mensagens restritas a ele deixam de ser vistas por esses usuários.')) return;
     await supabase.from('equipes').update({ deleted_at: new Date().toISOString() }).eq('id', id);
     carregar();
   }
@@ -64,8 +64,8 @@ export default function Equipes() {
 
       {equipes.length === 0 ? (
         <Vazio
-          titulo="Nenhumo departamento ainda"
-          texto="Crie departamentos como “Recepção” ou “Vendas” e depois restrinja as mensagens padrão a elas."
+          titulo="Nenhum departamento ainda"
+          texto="Crie departamentos como “Recepção” ou “Vendas” e depois restrinja as mensagens padrão a eles."
           acao={ehAdmin && <Botao onClick={() => setCriando(true)}>Criar a primeira</Botao>}
         />
       ) : (

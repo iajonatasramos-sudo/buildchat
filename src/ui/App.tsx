@@ -546,7 +546,7 @@ function MinhaConta() {
       {/* Equipes: quem define é o admin, no painel — aqui é só informativo. */}
       <div className="mt-2">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">
-          {equipes.length > 1 ? 'Minhas departamentos' : 'Minho departamento'}
+          {equipes.length > 1 ? 'Meus departamentos' : 'Meu departamento'}
         </span>
         <div className="mt-1 flex flex-wrap gap-1.5">
           {equipes.length === 0 ? (

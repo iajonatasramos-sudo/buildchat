@@ -271,7 +271,7 @@ function PastaModal({
               <div className="grid gap-3 rounded-controle border border-borda bg-fundo p-3 sm:grid-cols-2">
                 <div>
                   <div className="rotulo mb-1.5">EQUIPES</div>
-                  {equipes.length === 0 && <div className="text-[12.5px] text-tinta-4">Nenhumo departamento.</div>}
+                  {equipes.length === 0 && <div className="text-[12.5px] text-tinta-4">Nenhum departamento.</div>}
                   {equipes.map((e) => (
                     <label key={e.id} className="flex items-center gap-2 py-0.5 text-[13px]">
                       <input type="checkbox" checked={vEquipes.includes(e.id)} onChange={() => setVEquipes(alternar(vEquipes, e.id))} />

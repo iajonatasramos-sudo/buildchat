@@ -22,6 +22,13 @@ const RECURSOS: { chave: string; nome: string; onde: string }[] = [
   { chave: 'webhooks', nome: 'WebHooks', onde: 'envio dos dados para outro sistema' },
   { chave: 'conta_whatsapp', nome: 'Conta de WhatsApp', onde: 'qual número está conectado' },
   { chave: 'meus_contatos', nome: 'Meus contatos no painel', onde: 'atalho da barra lateral para o painel' },
+  // Seções de dentro da guia Contato — dá para liberar a guia e esconder um
+  // pedaço dela (proposta, por exemplo, quase nunca é de todo mundo).
+  { chave: 'contato_etiquetas', nome: 'Contato · Etiquetas', onde: 'seção de pastas dentro da guia Contato' },
+  { chave: 'contato_interesses', nome: 'Contato · Interesses', onde: 'seção de interesses do contato' },
+  { chave: 'contato_agendamentos', nome: 'Contato · Agendamentos', onde: 'marcar retorno pela guia Contato' },
+  { chave: 'contato_propostas', nome: 'Contato · Propostas', onde: 'gerar e reenviar proposta' },
+  { chave: 'contato_anotacoes', nome: 'Contato · Anotações', onde: 'seção de anotações do contato' },
 ];
 
 type Acesso = {
@@ -77,7 +84,7 @@ export default function Acessos() {
     <div>
       <Cabecalho
         titulo="Acessos"
-        subtitulo="Quem enxerga cada função da extensão. Sem restrição, a função aparece para toda o departamento."
+        subtitulo="Quem enxerga cada função da extensão. Sem restrição, ela aparece para a clínica inteira."
       />
 
       {erro && <div className="mb-4 rounded-controle bg-alerta-fundo px-4 py-3 text-alerta">{erro}</div>}
@@ -210,7 +217,7 @@ function EditorAcesso({
               <div className="rotulo mb-1.5">EQUIPES</div>
               <div className="flex flex-wrap gap-2">
                 {equipes.length === 0 ? (
-                  <span className="text-[13px] text-tinta-4">Nenhumo departamento criada ainda.</span>
+                  <span className="text-[13px] text-tinta-4">Nenhum departamento criado ainda.</span>
                 ) : (
                   equipes.map((e) => (
                     <Pilula key={e.id} ativa={eqs.includes(e.id)} onClick={() => alternar(eqs, setEqs, e.id)}>
