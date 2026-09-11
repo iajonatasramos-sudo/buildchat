@@ -40,7 +40,7 @@ export function AgendaModal() {
   const [foco, setFoco] = useState(new Date());
   const [itens, setItens] = useState<Agendamento[] | null>(null);
   const [editando, setEditando] = useState<Partial<Agendamento> | null>(null);
-  // "Minha agenda" × "Equipe". O que desce do servidor já vem limitado à
+  // "Minha agenda" × "Departamento". O que desce do servidor já vem limitado à
   // equipe (RLS); aqui a pessoa escolhe se quer ver só o que é dela.
   const [soMinha, setSoMinha] = useState(true);
   // Filtros do calendário: etiqueta, atrasadas e busca no texto da atividade.
@@ -76,7 +76,7 @@ export function AgendaModal() {
 
   const { de, ate } = periodo(visao, foco);
   // Sem autor nem responsável (compromisso local antigo) conta como meu — senão
-  // ele sumiria tanto em "Minha" quanto em "Equipe".
+  // ele sumiria tanto em "Minha" quanto em "Departamento".
   const meu = (a: Agendamento) =>
     !perfil || a.autorId === perfil.id || a.responsavelId === perfil.id || (!a.autorId && !a.responsavelId);
   const semAcento = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -155,9 +155,9 @@ export function AgendaModal() {
             type="button"
             data-ativo={!soMinha ? 1 : 0}
             onClick={() => setSoMinha(false)}
-            title={perfil?.papel === 'admin' ? 'Toda a clínica' : 'Também os colegas da minha equipe'}
+            title={perfil?.papel === 'admin' ? 'Toda a clínica' : 'Também os colegas da minho departamento'}
           >
-            {perfil?.papel === 'admin' ? 'Clínica' : 'Equipe'}
+            {perfil?.papel === 'admin' ? 'Clínica' : 'Departamento'}
             {deOutros > 0 && <span className="ml-1 opacity-70">{deOutros}</span>}
           </button>
         </span>

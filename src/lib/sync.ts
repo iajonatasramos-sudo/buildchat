@@ -160,9 +160,18 @@ export function agendar(atrasoMs = 1500): void {
   }, atrasoMs);
 }
 
+/** Pedido que chegou no meio de um ciclo: roda assim que ele terminar. */
+let pedidoPendente = false;
+
 export async function sincronizar(): Promise<void> {
   const sb = supabase();
-  if (!sb || rodando) return;
+  if (!sb) return;
+  if (rodando) {
+    // Alguém pediu (abriu a gaveta, focou a aba) enquanto o ciclo rodava.
+    // Descartar aqui fazia a mudança do painel esperar os 5 min seguintes.
+    pedidoPendente = true;
+    return;
+  }
 
   const perfil = await carregarPerfil();
   if (!perfil || !avaliarLicenca(perfil).ativa) {
@@ -222,6 +231,10 @@ export async function sincronizar(): Promise<void> {
     estadoSync.set('erro');
   } finally {
     rodando = false;
+    if (pedidoPendente) {
+      pedidoPendente = false;
+      agendar(500);
+    }
   }
 }
 

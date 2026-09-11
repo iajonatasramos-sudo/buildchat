@@ -1,7 +1,7 @@
 'use client';
 
 // Equipes da clínica: agrupam usuários para restringir mensagens padrão
-// ("visível só para a equipe de Vendas", por exemplo).
+// ("visível só para o departamento de Vendas", por exemplo).
 
 import { useCallback, useEffect, useState } from 'react';
 import { carregarPerfil, supabase, type Perfil } from '@/lib/supabase';
@@ -49,7 +49,7 @@ export default function Equipes() {
   }
 
   async function apagar(id: string) {
-    if (!confirm('Apagar esta equipe? As mensagens restritas a ela deixam de ser vistas por esses usuários.')) return;
+    if (!confirm('Apagar este departamento? As mensagens restritas a ela deixam de ser vistas por esses usuários.')) return;
     await supabase.from('equipes').update({ deleted_at: new Date().toISOString() }).eq('id', id);
     carregar();
   }
@@ -57,15 +57,15 @@ export default function Equipes() {
   return (
     <div>
       <Cabecalho
-        titulo="Equipes"
+        titulo="Departamentos"
         subtitulo="Agrupe usuários para publicar mensagens só para eles."
-        acao={ehAdmin && <Botao onClick={() => setCriando(true)}>Nova equipe</Botao>}
+        acao={ehAdmin && <Botao onClick={() => setCriando(true)}>Novo departamento</Botao>}
       />
 
       {equipes.length === 0 ? (
         <Vazio
-          titulo="Nenhuma equipe ainda"
-          texto="Crie equipes como “Recepção” ou “Vendas” e depois restrinja as mensagens padrão a elas."
+          titulo="Nenhumo departamento ainda"
+          texto="Crie departamentos como “Recepção” ou “Vendas” e depois restrinja as mensagens padrão a elas."
           acao={ehAdmin && <Botao onClick={() => setCriando(true)}>Criar a primeira</Botao>}
         />
       ) : (
@@ -151,7 +151,7 @@ function NovaEquipeModal({
   }
 
   return (
-    <Modal titulo="Nova equipe" onFechar={onFechar}>
+    <Modal titulo="Novo departamento" onFechar={onFechar}>
       <div className="flex flex-col gap-4">
         <CampoTexto rotulo="Nome" valor={nome} onChange={setNome} placeholder="Ex.: Recepção" />
         <div>

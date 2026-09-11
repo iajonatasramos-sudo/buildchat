@@ -18,7 +18,14 @@ export type ChaveRecurso =
   | 'agenda'
   | 'webhooks'
   | 'conta_whatsapp'
-  | 'meus_contatos';
+  | 'meus_contatos'
+  // Seções de dentro da guia Contato — dá para liberar a guia e esconder um
+  // pedaço dela (proposta, por exemplo, quase nunca é de todo mundo).
+  | 'contato_etiquetas'
+  | 'contato_interesses'
+  | 'contato_agendamentos'
+  | 'contato_propostas'
+  | 'contato_anotacoes';
 
 export const RECURSOS: { chave: ChaveRecurso; nome: string; onde: string }[] = [
   { chave: 'contato', nome: 'Guia Contato', onde: 'barra lateral — dados, etiquetas, agenda e anotações do contato' },
@@ -28,6 +35,11 @@ export const RECURSOS: { chave: ChaveRecurso; nome: string; onde: string }[] = [
   { chave: 'webhooks', nome: 'WebHooks', onde: 'barra lateral — envio para outro sistema' },
   { chave: 'conta_whatsapp', nome: 'Conta de WhatsApp', onde: 'barra lateral — qual número está conectado' },
   { chave: 'meus_contatos', nome: 'Meus contatos no painel', onde: 'barra lateral — atalho para o painel web' },
+  { chave: 'contato_etiquetas', nome: 'Contato · Etiquetas', onde: 'seção de pastas dentro da guia Contato' },
+  { chave: 'contato_interesses', nome: 'Contato · Interesses', onde: 'seção de interesses do contato' },
+  { chave: 'contato_agendamentos', nome: 'Contato · Agendamentos', onde: 'marcar retorno pela guia Contato' },
+  { chave: 'contato_propostas', nome: 'Contato · Propostas', onde: 'gerar e reenviar proposta' },
+  { chave: 'contato_anotacoes', nome: 'Contato · Anotações', onde: 'seção de anotações do contato' },
 ];
 
 export type AcessoRecurso = {

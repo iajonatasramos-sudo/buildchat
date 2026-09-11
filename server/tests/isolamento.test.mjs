@@ -4,6 +4,7 @@
 import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { criarBanco, semearEmpresa } from './harness.mjs';
+import { mesmoDepartamento } from './harness.mjs';
 
 let h, A, B;
 
@@ -26,6 +27,9 @@ before(async () => {
   await h.como(A.admin,
     `insert into pasta_conversas (empresa_id, pasta_id, wa_number, remote_jid, criado_por)
      values ($1, $2, '5511964788124', '5511999999999@c.us', $3)`, [A.id, pastaA.id, A.admin]);
+  // Nota e etiqueta são departamentais (0031): para o atendente enxergar o
+  // que o admin registrou, os dois precisam trabalhar juntos.
+  await mesmoDepartamento(h, A.id, [A.admin, A.usuario]);
 });
 
 after(async () => h.fechar());
@@ -99,8 +103,8 @@ describe('escopo pessoal × empresa', () => {
   });
 });
 
-describe('dados operacionais são compartilhados na empresa', () => {
-  test('colega vê o vínculo de pasta e a anotação feitos por outro', async () => {
+describe('dados operacionais são compartilhados no departamento', () => {
+  test('colega do mesmo departamento vê o vínculo e a anotação do outro', async () => {
     const p = await h.como(A.usuario, `select count(*)::int as n from pasta_conversas`);
     const a = await h.como(A.usuario, `select count(*)::int as n from anotacoes`);
     assert.equal(p.rows[0].n, 1);

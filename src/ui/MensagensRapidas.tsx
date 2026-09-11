@@ -58,6 +58,7 @@ import { enviarArquivo, getInfoConta } from '@/lib/wa';
 import { abaGaveta, modalProposta, pedirContaWhatsapp, perfilAtual, propostasMudaram } from '@/lib/store';
 import { TIPOS, brl, nomeDoArquivoDaProposta } from '@/lib/propostas';
 import { temRecurso } from '@/lib/marca';
+import { meusRecursos, type ChaveRecurso } from '@/lib/acessos';
 import type { Agendamento, PropostaSalva } from '@/lib/types';
 import { minhasEquipes } from '@/lib/sync';
 import { carregarPerfil, supabase } from '@/lib/auth';
@@ -857,9 +858,9 @@ function RespostaDialog({
             </button>
             {!visTodos && (
               <>
-                <div className="mb-1 text-[11px] font-semibold">Equipes</div>
+                <div className="mb-1 text-[11px] font-semibold">Departamentos</div>
                 <div className="mb-2 flex flex-wrap gap-1.5">
-                  {equipesOpts.length === 0 && <span className="text-[11px] text-muted">Nenhuma equipe.</span>}
+                  {equipesOpts.length === 0 && <span className="text-[11px] text-muted">Nenhumo departamento.</span>}
                   {equipesOpts.map((e) => (
                     <button
                       key={e.id}
@@ -1221,6 +1222,18 @@ function ContatoGuia({
   // Quem sou: decide se posso apagar cada anotação (autor ou admin) e pasta padrão.
   const [perfil, setPerfil] = useState(perfilAtual.get());
   useEffect(() => perfilAtual.subscribe(setPerfil), []);
+  // O admin pode esconder seções inteiras desta guia (painel → Acessos).
+  const [pode, setPode] = useState<Record<ChaveRecurso, boolean> | null>(null);
+  useEffect(() => {
+    const carregar = () => meusRecursos().then(setPode);
+    carregar();
+    const onChange = (m: Record<string, unknown>) => {
+      if ('bc2_acessos' in m || 'bc2_minhas_equipes' in m) carregar();
+    };
+    chrome.storage.onChanged.addListener(onChange as any);
+    return () => chrome.storage.onChanged.removeListener(onChange as any);
+  }, []);
+  const liberado = (c: ChaveRecurso) => !pode || pode[c];
   const possoMexerNaNota = (n: NotaContato) => !n.autorId || n.autorId === perfil?.id || perfil?.papel === 'admin';
   const [ficha, setFicha] = useState<FichaContato | null>(null);
   const [editandoNome, setEditandoNome] = useState(false);
@@ -1446,6 +1459,7 @@ function ContatoGuia({
 
       {/* O nome acima é o que entra em {{nome}} nas mensagens rápidas. */}
 
+      {liberado('contato_etiquetas') && (
       <GuiaSecao titulo="Etiquetas" Icon={Tag} cor="var(--brand)" contador={tagsContato.length}>
         {/* Mostra apenas as pastas em que o contato está; o + abre a lista. */}
         <div className="flex flex-wrap items-center gap-1.5">
@@ -1567,7 +1581,9 @@ function ContatoGuia({
           </div>
         )}
       </GuiaSecao>
+      )}
 
+      {liberado('contato_interesses') && (
       <GuiaSecao titulo="Interesses" Icon={Sparkles} cor="var(--amber)">
         <textarea
           value={interesses}
@@ -1583,8 +1599,10 @@ function ContatoGuia({
           </p>
         )}
       </GuiaSecao>
+      )}
 
       {/* Agendamentos deste contato — o retorno combinado na conversa. */}
+      {liberado('contato_agendamentos') && (
       <GuiaSecao titulo="Agendamentos" Icon={CalendarDays} cor="var(--brand)" contador={compromissos.filter((a) => a.status === 'pendente').length}>
         <button
           type="button"
@@ -1640,6 +1658,7 @@ function ContatoGuia({
           </ul>
         )}
       </GuiaSecao>
+      )}
 
       {editandoAgenda && (
         <EditorAgendamento
@@ -1652,7 +1671,7 @@ function ContatoGuia({
         />
       )}
 
-      {(temPropostas || propostas.length > 0) && (
+      {liberado('contato_propostas') && (temPropostas || propostas.length > 0) && (
       <GuiaSecao titulo="Propostas" Icon={FileText} cor="var(--brand)" contador={propostas.length}>
           {temPropostas && (
             <button
@@ -1724,6 +1743,7 @@ function ContatoGuia({
         </GuiaSecao>
       )}
 
+      {liberado('contato_anotacoes') && (
       <GuiaSecao titulo="Anotações" Icon={NotebookPen} cor="var(--green)" contador={notas.length}>
         <div className="mb-2 flex gap-1.5">
           <input
@@ -1774,6 +1794,7 @@ function ContatoGuia({
           </div>
         )}
       </GuiaSecao>
+      )}
     </div>
   );
 }

@@ -92,3 +92,18 @@ export async function criarAuthUser(h, email) {
     `insert into auth.users (email) values ($1) returning id`, [email]);
   return u.id;
 }
+
+/**
+ * Põe as pessoas no mesmo departamento (tabela `equipes`).
+ *
+ * Desde a 0031 a leitura de anotações e etiquetas é departamental: teste que
+ * trata de outro assunto precisa dizer que os personagens trabalham juntos.
+ */
+export async function mesmoDepartamento(h, empresaId, usuarios, nome = 'Departamento') {
+  const { rows: [d] } = await h.servidor(
+    `insert into equipes (empresa_id, nome) values ($1, $2) returning id`, [empresaId, nome]);
+  for (const u of usuarios) {
+    await h.servidor(`insert into equipe_usuarios (equipe_id, usuario_id) values ($1, $2)`, [d.id, u]);
+  }
+  return d.id;
+}

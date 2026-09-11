@@ -435,7 +435,8 @@ exclusão lógica por `deleted_at`, e vínculo pasta↔conversa por **número co
   acervo o que não está mais lá. Nunca mexe no que ainda está na fila de saída (senão derrubaria o
   que a pessoa criou sem rede). Vale para pastas, respostas, categorias e agenda.
 - Ciclo: a cada 5 min, ao focar a aba e **ao abrir a gaveta** — mudança feita no painel aparece
-  sem esperar.
+  sem esperar. **Pedido que chega no meio de um ciclo não é perdido**: fica pendente e roda logo
+  depois (antes ele era descartado e a mudança esperava os 5 min seguintes).
 - Estado na barra do topo: nuvem verde (ok), girando (sincronizando), riscada (sem rede),
   escudo (assinatura pendente). Sem conta, o ícone não aparece.
 - Sincroniza: pastas, vínculos, categorias, respostas (com a sequência de ações),
@@ -448,7 +449,9 @@ exclusão lógica por `deleted_at`, e vínculo pasta↔conversa por **número co
 
 ## Equipes, visibilidade e ficha do contato
 
-- **Equipes** (`equipes` + `equipe_usuarios`): agrupam usuários. Só admin cria e move gente.
+- **Departamentos** (tabela `equipes` + `equipe_usuarios` — o nome mudou só na TELA; renomear a
+  tabela custaria caro e não mudaria comportamento): agrupam usuários. Só admin cria e move gente.
+  Rota do painel: `/painel/departamentos`.
 - **Padrão × pessoal, para mensagens E pastas** (`0020`): o **admin** cria o padrão (escopo
   `empresa`) **pelo painel** e escolhe para quem aparece — `visivel_todos` + `visivel_equipes` /
   `visivel_usuarios`. Mensagem nova nasce visível para **ninguém**; pasta nova nasce para
@@ -484,6 +487,12 @@ exclusão lógica por `deleted_at`, e vínculo pasta↔conversa por **número co
   renderização e o observer reaplica; `chrome.storage.onChanged` em `bc2_contatos` refaz o
   mapa quando a ficha muda.
 - `ultimo_contato` é gravado a cada envio pela extensão — é o que alimenta o CRM.
+- **Anotação e etiqueta valem no DEPARTAMENTO** (`0031`): vejo a minha, a de quem divide
+  departamento comigo (`app.mesma_equipe`), e o admin vê tudo — por cima disso continuam valendo
+  as chaves de compartilhamento do contato (`0023`). **Linha antiga sem autor** (`autor_id` /
+  `criado_por` nulos) segue valendo para a empresa, senão o acervo antigo sumiria da tela de
+  todos. **Quem não está em nenhum departamento vê só o que é dele** — é a regra, e é por isso que
+  a tela de Departamentos importa.
 - **Anotações têm autor** (`0025`): a extensão assina `autor_id` ao criar (`autorId`/`autorNome`
   na `NotaContato`; o pull traz `usuarios(nome)` embutido) e mostra data **e hora em
   Brasília** (`formatarDataHora`) com o nome de quem escreveu. **Só o autor e o admin editam
@@ -519,6 +528,9 @@ A barra lateral e a agenda podem ser limitadas **por pessoa ou por equipe**, com
 de pastas e mensagens (`visivel_todos` + `visivel_equipes` / `visivel_usuarios`), em
 `recurso_acesso` (`0030`).
 
+- Também dá para esconder **seções de dentro da guia Contato** (`contato_etiquetas`,
+  `contato_interesses`, `contato_agendamentos`, `contato_propostas`, `contato_anotacoes`) — a
+  proposta, por exemplo, quase nunca é para todo mundo.
 - **Sem linha para a função, ela vale para todo mundo** — clínica que nunca mexeu nisso continua
   vendo tudo. E o **admin enxerga sempre**: é ele quem configura, não pode se trancar de fora.
 - Chaves (o catálogo mora na extensão, porque é a tela que sabe o que existe; o banco guarda só o

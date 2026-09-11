@@ -74,7 +74,7 @@ export default function Mensagens() {
         titulo={ehAdmin ? 'Mensagens padrão da empresa' : 'Minhas mensagens'}
         subtitulo={
           ehAdmin
-            ? 'Você escolhe para quem cada uma aparece: todos, equipes ou pessoas.'
+            ? 'Você escolhe para quem cada uma aparece: todos, departamentos ou pessoas.'
             : 'Só você vê e usa estas mensagens. As padrão da clínica aparecem direto na extensão.'
         }
         acao={<MenuCriar onMensagem={() => router.push('/painel/mensagens/nova')} onCategoria={() => setCriandoCategoria(true)} />}

@@ -5,6 +5,7 @@
 import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { criarBanco, criarAuthUser, semearEmpresa } from './harness.mjs';
+import { mesmoDepartamento } from './harness.mjs';
 
 let h, A, colega, pasta;
 const JID = '214220167757933@lid';
@@ -21,6 +22,9 @@ before(async () => {
   const { rows: [p] } = await h.servidor(
     `insert into pastas (empresa_id, escopo, owner_id, nome, cor, ordem) values ($1, 'empresa', null, 'Analise de Ponto', '#639', 0) returning id`, [A.id]);
   pasta = p.id;
+  // O assunto aqui é o mesmo contato em DOIS números; o departamento é outra
+  // dimensão (0031), então os dois atendentes ficam juntos.
+  await mesmoDepartamento(h, A.id, [A.usuario, colega]);
 });
 
 after(async () => h.fechar());

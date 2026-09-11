@@ -4,6 +4,7 @@
 import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { criarBanco, criarAuthUser, semearEmpresa } from './harness.mjs';
+import { mesmoDepartamento } from './harness.mjs';
 
 let h, A, colega, pasta;
 const WA = '5511964788124';
@@ -19,6 +20,9 @@ before(async () => {
   const { rows: [p] } = await h.servidor(
     `insert into pastas (empresa_id, escopo, owner_id, nome, cor, ordem) values ($1, 'empresa', null, 'Leads', '#c00', 0) returning id`, [A.id]);
   pasta = p.id;
+  // Notas e etiquetas valem dentro do departamento (0031): aqui o assunto é
+  // outro (compartilhamento por item), então os dois ficam no mesmo.
+  await mesmoDepartamento(h, A.id, [A.usuario, colega]);
 });
 
 after(async () => h.fechar());

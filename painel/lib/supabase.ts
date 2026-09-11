@@ -125,5 +125,5 @@ export async function meusNumeros(): Promise<MeuNumero[]> {
 }
 
 /** Rotas do painel que só o admin da clínica acessa. */
-export const SO_ADMIN = ['/painel/usuarios', '/painel/equipes', '/painel/assinatura', '/painel/acessos'];
+export const SO_ADMIN = ['/painel/usuarios', '/painel/departamentos', '/painel/assinatura', '/painel/acessos'];
 export const ehAdmin = (p: Perfil | null) => p?.papel === 'admin';

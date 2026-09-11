@@ -3,6 +3,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { criarBanco, criarAuthUser, semearEmpresa } from './harness.mjs';
+import { mesmoDepartamento } from './harness.mjs';
 
 let h, A, colega, notaId;
 const WA = '5511964788124';
@@ -15,6 +16,9 @@ before(async () => {
   await h.servidor(
     `insert into usuarios (id, empresa_id, nome, email, papel) values ($1, $2, 'Colega', 'colega@clinica-a.com', 'usuario')`,
     [colega, A.id]);
+  // Aqui o assunto é QUEM EDITA; para o colega poder ao menos ler, os dois
+  // ficam no mesmo departamento (a leitura é departamental desde a 0031).
+  await mesmoDepartamento(h, A.id, [A.usuario, colega]);
 });
 
 after(async () => h.fechar());

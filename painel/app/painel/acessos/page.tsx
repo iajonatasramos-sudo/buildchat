@@ -60,7 +60,7 @@ export default function Acessos() {
   }, [carregar]);
 
   const regraDe = (chave: string) => acessos.find((a) => a.recurso === chave);
-  const nomeEquipe = (id: string) => equipes.find((e) => e.id === id)?.nome ?? 'equipe';
+  const nomeEquipe = (id: string) => equipes.find((e) => e.id === id)?.nome ?? 'departamento';
   const nomeUsuario = (id: string) => usuarios.find((u) => u.id === id)?.nome ?? 'pessoa';
 
   function paraQuem(chave: string): string {
@@ -77,7 +77,7 @@ export default function Acessos() {
     <div>
       <Cabecalho
         titulo="Acessos"
-        subtitulo="Quem enxerga cada função da extensão. Sem restrição, a função aparece para toda a equipe."
+        subtitulo="Quem enxerga cada função da extensão. Sem restrição, a função aparece para toda o departamento."
       />
 
       {erro && <div className="mb-4 rounded-controle bg-alerta-fundo px-4 py-3 text-alerta">{erro}</div>}
@@ -210,7 +210,7 @@ function EditorAcesso({
               <div className="rotulo mb-1.5">EQUIPES</div>
               <div className="flex flex-wrap gap-2">
                 {equipes.length === 0 ? (
-                  <span className="text-[13px] text-tinta-4">Nenhuma equipe criada ainda.</span>
+                  <span className="text-[13px] text-tinta-4">Nenhumo departamento criada ainda.</span>
                 ) : (
                   equipes.map((e) => (
                     <Pilula key={e.id} ativa={eqs.includes(e.id)} onClick={() => alternar(eqs, setEqs, e.id)}>

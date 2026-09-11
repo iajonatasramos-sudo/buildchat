@@ -14,7 +14,7 @@ import { useMarca } from '../marca-cliente';
 const MENU_ADMIN = [
   { href: '/painel', rotulo: 'Visão geral' },
   { href: '/painel/usuarios', rotulo: 'Usuários' },
-  { href: '/painel/equipes', rotulo: 'Equipes' },
+  { href: '/painel/departamentos', rotulo: 'Departamentos' },
   { href: '/painel/mensagens', rotulo: 'Mensagens padrão' },
   { href: '/painel/pastas', rotulo: 'Pastas' },
   { href: '/painel/contatos', rotulo: 'Contatos' },

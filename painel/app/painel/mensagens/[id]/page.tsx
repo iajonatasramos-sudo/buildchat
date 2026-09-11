@@ -220,7 +220,7 @@ export default function Editor({ params }: { params: Promise<{ id: string }> }) 
             Cancelar
           </Botao>
           <Botao onClick={salvar} desabilitado={salvando || titulo.trim().length < 2}>
-            {perfil.papel === 'admin' ? 'Publicar para a equipe' : 'Salvar'}
+            {perfil.papel === 'admin' ? 'Publicar para o departamento' : 'Salvar'}
           </Botao>
         </div>
       </div>
@@ -434,7 +434,7 @@ export default function Editor({ params }: { params: Promise<{ id: string }> }) 
 
               {equipes.length > 0 && (
                 <>
-                  <div className="mb-1.5 text-[12.5px] font-medium text-tinta-3">Equipes</div>
+                  <div className="mb-1.5 text-[12.5px] font-medium text-tinta-3">Departamentos</div>
                   <div className="mb-3 flex flex-wrap gap-1.5">
                     {equipes.map((e) => {
                       const marcada = visivelEquipes.includes(e.id);

@@ -75,7 +75,7 @@ export default function Pastas() {
     carregar();
   }
 
-  const nomeEquipe = (id: string) => equipes.find((e) => e.id === id)?.nome ?? 'equipe';
+  const nomeEquipe = (id: string) => equipes.find((e) => e.id === id)?.nome ?? 'departamento';
   const nomeUsuario = (id: string) => usuarios.find((u) => u.id === id)?.nome ?? 'pessoa';
   function paraQuem(p: Pasta): string {
     if (p.escopo === 'pessoal') return 'só você';
@@ -271,7 +271,7 @@ function PastaModal({
               <div className="grid gap-3 rounded-controle border border-borda bg-fundo p-3 sm:grid-cols-2">
                 <div>
                   <div className="rotulo mb-1.5">EQUIPES</div>
-                  {equipes.length === 0 && <div className="text-[12.5px] text-tinta-4">Nenhuma equipe.</div>}
+                  {equipes.length === 0 && <div className="text-[12.5px] text-tinta-4">Nenhumo departamento.</div>}
                   {equipes.map((e) => (
                     <label key={e.id} className="flex items-center gap-2 py-0.5 text-[13px]">
                       <input type="checkbox" checked={vEquipes.includes(e.id)} onChange={() => setVEquipes(alternar(vEquipes, e.id))} />
@@ -291,7 +291,7 @@ function PastaModal({
               </div>
             )}
             {!todos && vEquipes.length + vUsuarios.length === 0 && (
-              <p className="text-[12.5px] text-alerta">Ninguém marcado: a pasta fica invisível para a equipe até você escolher.</p>
+              <p className="text-[12.5px] text-alerta">Ninguém marcado: a pasta fica invisível para o departamento até você escolher.</p>
             )}
           </div>
         ) : (
