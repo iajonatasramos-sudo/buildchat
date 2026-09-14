@@ -1,4 +1,4 @@
-// Agenda da clínica: todo mundo vê o que a equipe marcou; mexer é de quem
+// Agenda da clínica: o compromisso é de quem marcou; mexer é de quem
 // criou, de quem responde pelo compromisso ou do admin.
 
 import { test, before, after, describe } from 'node:test';
@@ -55,10 +55,10 @@ describe('marcar um retorno durante a conversa', () => {
   });
 });
 
-describe('a agenda é da clínica, até onde vai a equipe', () => {
+describe('a agenda é de quem marcou', () => {
   // Quem divide equipe enxerga (ver agenda-equipe.test.mjs). Aqui o colega
   // está solto, sem equipe: só o autor, o responsável e o admin veem.
-  test('colega sem equipe em comum NÃO vê o compromisso alheio', async () => {
+  test('colega NÃO vê o compromisso alheio', async () => {
     const { rows } = await h.como(colega, `select titulo from agendamentos where id = $1`, [compromisso]);
     assert.equal(rows.length, 0);
   });

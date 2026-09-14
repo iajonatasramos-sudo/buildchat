@@ -124,23 +124,29 @@ export default function Agenda() {
         <button onClick={() => andar(-1)} aria-label="Anterior" className="h-8 w-8 rounded-controle border border-borda bg-white text-tinta-3 hover:border-marca">‹</button>
         <button onClick={() => andar(1)} aria-label="Próximo" className="h-8 w-8 rounded-controle border border-borda bg-white text-tinta-3 hover:border-marca">›</button>
         <span className="text-[15px] font-extrabold first-letter:uppercase">{rotuloDoPeriodo(visao, foco)}</span>
-        <span className="ml-auto flex overflow-hidden rounded-controle border border-borda bg-white">
-          <button
-            onClick={() => setSoMinha(true)}
-            title="Só o que eu marquei ou respondo"
-            className={`px-3 py-1.5 text-[13px] font-medium transition ${soMinha ? 'bg-marca text-white' : 'text-tinta-3 hover:bg-fundo'}`}
-          >
-            Minha
-          </button>
-          <button
-            onClick={() => setSoMinha(false)}
-            title={perfil && ehAdmin(perfil) ? 'Toda a clínica' : 'Também os colegas da minha equipe'}
-            className={`px-3 py-1.5 text-[13px] font-medium transition ${!soMinha ? 'bg-marca text-white' : 'text-tinta-3 hover:bg-fundo'}`}
-          >
-            {perfil && ehAdmin(perfil) ? 'Clínica' : 'Equipe'}
-            {deOutros > 0 && <span className="ml-1 opacity-70">{deOutros}</span>}
-          </button>
-        </span>
+        {/* O compromisso é de quem marcou (0032): só o admin tem visão maior
+            que a própria, então para os demais o botão não teria efeito. */}
+        {perfil && ehAdmin(perfil) ? (
+          <span className="ml-auto flex overflow-hidden rounded-controle border border-borda bg-white">
+            <button
+              onClick={() => setSoMinha(true)}
+              title="Só o que eu marquei ou respondo"
+              className={`px-3 py-1.5 text-[13px] font-medium transition ${soMinha ? 'bg-marca text-white' : 'text-tinta-3 hover:bg-fundo'}`}
+            >
+              Minha
+            </button>
+            <button
+              onClick={() => setSoMinha(false)}
+              title="Toda a clínica"
+              className={`px-3 py-1.5 text-[13px] font-medium transition ${!soMinha ? 'bg-marca text-white' : 'text-tinta-3 hover:bg-fundo'}`}
+            >
+              Clínica
+              {deOutros > 0 && <span className="ml-1 opacity-70">{deOutros}</span>}
+            </button>
+          </span>
+        ) : (
+          <span className="ml-auto" />
+        )}
 
         <span className="flex overflow-hidden rounded-controle border border-borda bg-white">
           {(['dia', 'semana', 'mes'] as Visao[]).map((v) => (

@@ -33,6 +33,7 @@ create policy anotacoes_ver on anotacoes for select
 -- poder ser mais estreita sem travar quem etiqueta.
 drop policy if exists pconv_empresa on pasta_conversas;
 
+drop policy if exists pconv_ver on pasta_conversas;
 create policy pconv_ver on pasta_conversas for select
   using (
     empresa_id = app.empresa_atual()
@@ -43,12 +44,15 @@ create policy pconv_ver on pasta_conversas for select
     and (criado_por = auth.uid() or app.contato_libera(empresa_id, wa_number, remote_jid, 'etiquetas'))
   );
 
+drop policy if exists pconv_criar on pasta_conversas;
 create policy pconv_criar on pasta_conversas for insert
   with check (empresa_id = app.empresa_atual());
 
+drop policy if exists pconv_editar on pasta_conversas;
 create policy pconv_editar on pasta_conversas for update
   using (empresa_id = app.empresa_atual())
   with check (empresa_id = app.empresa_atual());
 
+drop policy if exists pconv_apagar on pasta_conversas;
 create policy pconv_apagar on pasta_conversas for delete
   using (empresa_id = app.empresa_atual());

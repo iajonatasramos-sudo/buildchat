@@ -300,10 +300,11 @@ conversa aparece no painel no sync seguinte, e vice-versa.
 - **O compromisso é do contato**: guarda `remote_jid` + `contato_nome` (aparece na ficha do
   painel, em `/painel/contatos/[id]`) e **quem marcou** (`criado_por`), além do **responsável**
   (`responsavel_id`, que nasce igual ao autor por trigger). Dá para marcar algo solto, sem contato.
-- **Quem vê** (`0028`): cada pessoa enxerga o que marcou, o que está sob a responsabilidade dela e
-  **o de quem divide equipe com ela** (`app.mesma_equipe`); o admin vê a clínica inteira. É regra
-  de banco, não de tela. Em cima disso, o filtro **Minha × Equipe** (Clínica, para o admin) decide
-  o que aparece no calendário — começa em "Minha".
+- **Quem vê** (`0028`, estreitado pela `0032`): **só quem marcou, o responsável e o admin**. O
+  retorno combinado com um cliente é assunto de quem atendeu — dividir departamento NÃO abre a
+  agenda do colega, nem na guia Contato. É regra de banco, não de tela. O responsável continua na
+  regra porque é para isso que o campo existe (marcar algo para outra pessoa). Como só o admin tem
+  visão maior que a própria, o filtro **Minha × Clínica** aparece **só para ele** nas duas telas.
 - **Etiqueta da atividade** (`0029`): a lista é **de cada marca** (`etiquetasAgenda` em
   `src/lib/marca.ts` e `painel/lib/marca.ts`) — BuildChat: Follow-up, Reunião, Cobrar, Urgente;
   Anamni: Follow-up, Consulta, Retorno, Urgente. O banco guarda só o **texto**: mudar a lista não

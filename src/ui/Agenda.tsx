@@ -146,21 +146,20 @@ export function AgendaModal() {
           {rotuloDoPeriodo(visao, foco)}
         </span>
 
-        {/* De quem: só meus compromissos ou também os da minha equipe. */}
-        <span className="bc-seg flex flex-shrink-0 items-center">
-          <button type="button" data-ativo={soMinha ? 1 : 0} onClick={() => setSoMinha(true)} title="Só o que eu marquei ou respondo">
-            Minha
-          </button>
-          <button
-            type="button"
-            data-ativo={!soMinha ? 1 : 0}
-            onClick={() => setSoMinha(false)}
-            title={perfil?.papel === 'admin' ? 'Toda a clínica' : 'Também os colegas da minho departamento'}
-          >
-            {perfil?.papel === 'admin' ? 'Clínica' : 'Departamento'}
-            {deOutros > 0 && <span className="ml-1 opacity-70">{deOutros}</span>}
-          </button>
-        </span>
+        {/* De quem. O compromisso é de quem marcou (0032), então só o admin
+            tem uma visão maior que a própria — para os demais o botão sumiria
+            sem efeito nenhum. */}
+        {perfil?.papel === 'admin' && (
+          <span className="bc-seg flex flex-shrink-0 items-center">
+            <button type="button" data-ativo={soMinha ? 1 : 0} onClick={() => setSoMinha(true)} title="Só o que eu marquei ou respondo">
+              Minha
+            </button>
+            <button type="button" data-ativo={!soMinha ? 1 : 0} onClick={() => setSoMinha(false)} title="Toda a clínica">
+              Clínica
+              {deOutros > 0 && <span className="ml-1 opacity-70">{deOutros}</span>}
+            </button>
+          </span>
+        )}
 
         <span className="bc-seg flex flex-shrink-0 items-center">
           {(['dia', 'semana', 'mes'] as Visao[]).map((v) => (

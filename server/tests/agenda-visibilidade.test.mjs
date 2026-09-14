@@ -1,5 +1,6 @@
-// A agenda vai até onde vai a equipe: vejo o que marquei, o que está sob minha
-// responsabilidade e o de quem divide equipe comigo. O admin vê tudo.
+// O compromisso é de quem marcou (0032): vejo o que marquei e o que está sob
+// minha responsabilidade; o admin vê a clínica inteira. Dividir departamento
+// NÃO dá acesso — o retorno combinado com um cliente é assunto de quem atendeu.
 
 import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -51,11 +52,11 @@ describe('quem enxerga o quê', () => {
     assert.ok((await vistos(A.usuario)).includes('Retorno do atendente'));
   });
 
-  test('vejo o de quem divide equipe comigo', async () => {
-    assert.deepEqual(await vistos(daEquipe), ['Retorno do atendente']);
+  test('NÃO vejo o de quem divide departamento comigo', async () => {
+    assert.deepEqual(await vistos(daEquipe), [], 'mesmo departamento não abre a agenda do colega');
   });
 
-  test('NÃO vejo o de quem está em outra equipe', async () => {
+  test('NÃO vejo o de quem está em outro departamento', async () => {
     assert.ok(!(await vistos(A.usuario)).includes('Compromisso da recepção'));
     assert.deepEqual(await vistos(deFora), ['Compromisso da recepção'], 'ela vê só o dela');
   });
@@ -65,11 +66,26 @@ describe('quem enxerga o quê', () => {
   });
 });
 
-describe('responsável enxerga, mesmo sem equipe em comum', () => {
+describe('responsável enxerga — é para isso que o campo existe', () => {
   test('marcado por outro, mas sob minha responsabilidade', async () => {
     await marcar(A.admin, 'Ligar para o paciente novo', deFora);
     assert.ok((await vistos(deFora)).includes('Ligar para o paciente novo'));
     assert.ok(!(await vistos(daEquipe)).includes('Ligar para o paciente novo'),
-      'quem não é da equipe do autor nem responsável continua de fora');
+      'quem não marcou nem é responsável continua de fora');
+  });
+});
+
+describe('o compromisso de um contato não vaza para o colega', () => {
+  test('marquei o retorno da Dra. Ana: só eu e o admin vemos', async () => {
+    await h.como(A.usuario,
+      `insert into agendamentos (empresa_id, titulo, inicio, criado_por, responsavel_id, remote_jid, contato_nome)
+       values ($1, 'Perguntar do lavabo', now() + interval '2 days', $2, $2, '5511964788124@c.us', 'Dra. Ana')`,
+      [A.id, A.usuario]);
+    const doContato = async (quem) =>
+      (await h.como(quem, `select titulo from agendamentos where remote_jid = '5511964788124@c.us'`)).rows.map((r) => r.titulo);
+    assert.deepEqual(await doContato(A.usuario), ['Perguntar do lavabo']);
+    assert.deepEqual(await doContato(daEquipe), [], 'o colega abre o mesmo contato e não vê');
+    assert.deepEqual(await doContato(deFora), []);
+    assert.deepEqual(await doContato(A.admin), ['Perguntar do lavabo']);
   });
 });
