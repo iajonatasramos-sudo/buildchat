@@ -13,10 +13,30 @@ export const CORES_CATEGORIA: string[] = [
   '#6366f1',
 ];
 
-export type TipoResposta = 'texto' | 'imagem' | 'audio' | 'video' | 'documento';
-export const TIPOS_RESPOSTA: TipoResposta[] = ['texto', 'imagem', 'audio', 'video', 'documento'];
+export type TipoResposta =
+  | 'texto' | 'imagem' | 'audio' | 'video' | 'documento'
+  // Ações de pasta: o id da pasta vai no campo `texto` (em `pasta_del`, o
+  // valor `todas` tira o contato de todas as pastas de uma vez).
+  | 'pasta_add' | 'pasta_del';
+export const TIPOS_RESPOSTA: TipoResposta[] = [
+  'texto', 'imagem', 'audio', 'video', 'documento', 'pasta_add', 'pasta_del',
+];
 /** Tipos que exigem arquivo (mídia). */
 export const TIPOS_MIDIA: TipoResposta[] = ['imagem', 'audio', 'video', 'documento'];
+/** Tipos que mexem em pasta em vez de mandar conteúdo. */
+export const TIPOS_PASTA: TipoResposta[] = ['pasta_add', 'pasta_del'];
+export const ehAcaoDePasta = (t: TipoResposta) => t === 'pasta_add' || t === 'pasta_del';
+/** Em `pasta_del`, tira o contato de todas as pastas. */
+export const TODAS_AS_PASTAS = 'todas';
+export const ROTULO_TIPO: Record<TipoResposta, string> = {
+  texto: 'Texto',
+  imagem: 'Imagem',
+  audio: 'Áudio',
+  video: 'Vídeo',
+  documento: 'Documento',
+  pasta_add: 'Colocar na pasta',
+  pasta_del: 'Tirar da pasta',
+};
 
 export type CategoriaDC = {
   id: string;

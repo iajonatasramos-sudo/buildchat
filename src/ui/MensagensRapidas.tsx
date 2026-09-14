@@ -10,6 +10,8 @@ import {
   ChevronUp,
   ExternalLink,
   FileText,
+  FolderInput,
+  FolderMinus,
   Film,
   GripVertical,
   Image as ImageIcon,
@@ -67,6 +69,8 @@ import {
   CORES_CATEGORIA,
   TIPOS_RESPOSTA,
   TIPOS_MIDIA,
+  TODAS_AS_PASTAS,
+  ehAcaoDePasta,
   VARIAVEIS_DISPONIVEIS,
   type AcaoDC,
   type CategoriaDC,
@@ -86,6 +90,8 @@ const TIPO_ICON: Record<TipoResposta, typeof FileText> = {
   audio: Mic,
   video: Film,
   documento: FileText,
+  pasta_add: FolderInput,
+  pasta_del: FolderMinus,
 };
 const TIPO_LABEL: Record<TipoResposta, string> = {
   texto: 'Texto',
@@ -93,6 +99,8 @@ const TIPO_LABEL: Record<TipoResposta, string> = {
   audio: 'Áudio',
   video: 'Vídeo',
   documento: 'Documento',
+  pasta_add: 'Colocar na pasta',
+  pasta_del: 'Tirar da pasta',
 };
 // Cor da categoria: hex livre. Mapeia os nomes antigos pra hex.
 function corHex(cor: string): string {
@@ -908,6 +916,7 @@ function RespostaDialog({
               acao={a}
               indice={i}
               total={acoes.length}
+              tags={tags}
               onChange={(p) => patch(i, p)}
               onRemover={() => removerAcao(i)}
               onMover={(dir) => mover(i, dir)}
@@ -948,6 +957,7 @@ function AcaoEditor({
   acao,
   indice,
   total,
+  tags,
   onChange,
   onRemover,
   onMover,
@@ -955,11 +965,13 @@ function AcaoEditor({
   acao: AcaoForm;
   indice: number;
   total: number;
+  tags: TagOpt[];
   onChange: (p: Partial<AcaoForm>) => void;
   onRemover: () => void;
   onMover: (dir: -1 | 1) => void;
 }) {
   const ehMidia = TIPOS_MIDIA.includes(acao.tipo);
+  const ehPasta = ehAcaoDePasta(acao.tipo);
   const aceita =
     acao.tipo === 'imagem' ? 'image/*' : acao.tipo === 'audio' ? 'audio/*' : acao.tipo === 'video' ? 'video/*' : undefined;
 
@@ -981,7 +993,18 @@ function AcaoEditor({
         <span className="grid h-5 w-5 flex-shrink-0 place-items-center rounded bg-brand/10 text-[10px] font-bold text-brand">{indice + 1}</span>
         <select
           value={acao.tipo}
-          onChange={(e) => onChange({ tipo: e.target.value as TipoResposta, midiaPath: null, midiaMime: null, midiaNome: null })}
+          onChange={(e) => {
+            const tipo = e.target.value as TipoResposta;
+            // Trocar de tipo limpa o que não vale mais: o `texto` guarda o id
+            // da pasta nas ações de pasta, e a mensagem nas demais.
+            onChange({
+              tipo,
+              midiaPath: null,
+              midiaMime: null,
+              midiaNome: null,
+              texto: ehAcaoDePasta(tipo) !== ehAcaoDePasta(acao.tipo) ? '' : acao.texto,
+            });
+          }}
           className="h-7 flex-1 rounded-md border border-border-strong bg-surface px-1.5 text-[12px] outline-none focus:border-brand"
         >
           {TIPOS_RESPOSTA.map((t) => (
@@ -1019,6 +1042,20 @@ function AcaoEditor({
         </div>
       )}
 
+      {ehPasta ? (
+        <select
+          value={acao.texto}
+          onChange={(e) => onChange({ texto: e.target.value })}
+          className="w-full rounded-md border border-border-strong bg-surface px-2 py-1.5 text-[12px] outline-none focus:border-brand"
+        >
+          <option value="">Escolha a pasta…</option>
+          {/* Só faz sentido tirar de TODAS — colocar em todas, não. */}
+          {acao.tipo === 'pasta_del' && <option value={TODAS_AS_PASTAS}>Todas as pastas</option>}
+          {tags.map((t) => (
+            <option key={t.id} value={t.id}>{t.nome}</option>
+          ))}
+        </select>
+      ) : (
       <textarea
         value={acao.texto}
         onChange={(e) => onChange({ texto: e.target.value })}
@@ -1026,7 +1063,8 @@ function AcaoEditor({
         placeholder={ehMidia ? 'Legenda (opcional)…' : 'Texto da mensagem…'}
         className="w-full resize-none rounded-md border border-border-strong bg-surface px-2.5 py-1.5 text-[12px] outline-none focus:border-brand"
       />
-      {!ehMidia && (
+      )}
+      {!ehMidia && !ehPasta && (
         <div className="mt-1 flex flex-wrap gap-1">
           {VARIAVEIS_DISPONIVEIS.map((v) => (
             <button

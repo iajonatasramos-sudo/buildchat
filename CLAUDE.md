@@ -204,6 +204,21 @@ descerem a remoção (`proposta.apagar` na fila).
 - Licença tem **tolerância offline de 7 dias** (perfil em cache): sem rede o atendente
   não pode ficar travado.
 
+## Ações de pasta na mensagem rápida (`0033`)
+
+Além de texto e mídia, uma ação da sequência pode **Colocar na pasta** (`pasta_add`) ou
+**Tirar da pasta** (`pasta_del`). Assim dá para montar "tira de Lead, põe em Cliente" num
+clique só.
+
+- O **id da pasta vai na coluna `texto`** (que nesses tipos estaria vazia). Em `pasta_del`, o
+  valor `todas` (`TODAS_AS_PASTAS`) limpa **todas** as pastas do contato de uma vez — colocar em
+  todas não existe, não faria sentido.
+- Editor: o campo de texto vira um seletor de pastas (nas duas telas — extensão e painel).
+  Trocar de família (mídia ↔ pasta) limpa o `texto`, senão o id da pasta viraria legenda.
+- O campo **"Etiqueta (ao usar)"** da mensagem continua existindo: é o atalho do caso simples.
+- Antes de entrar numa pasta, `executarResposta` registra o contato no CRM — senão a etiqueta
+  ficaria pendurada num contato que ainda não existe.
+
 ## Executar mensagem rápida
 
 `executarResposta(resposta, aoProgredir)` (wa.ts) roda a sequência e avisa a cada passo;

@@ -2,9 +2,12 @@
 // + helpers de DOM com fallback (herdados do BuildChat v1).
 
 import { aguardar, uid } from './utils';
-import { aplicarVariaveis, type ContatoAtivo, type RespostaDC } from './types';
+import { aplicarVariaveis, ehAcaoDePasta, TODAS_AS_PASTAS, type ContatoAtivo, type RespostaDC } from './types';
 import {
   aplicarTagContato,
+  registrarContato,
+  removerTagContato,
+  tagsDoContato,
   obterFicha,
   registrarUltimoContato,
   obterMediaDataUrl,
@@ -512,6 +515,8 @@ const ROTULO_TIPO: Record<string, string> = {
   audio: 'enviando áudio',
   video: 'enviando vídeo',
   documento: 'enviando documento',
+  pasta_add: 'colocando na pasta',
+  pasta_del: 'tirando da pasta',
 };
 
 export async function executarResposta(resposta: RespostaDC, aoProgredir?: AoProgredir): Promise<ResultadoExecucao> {
@@ -522,18 +527,38 @@ export async function executarResposta(resposta: RespostaDC, aoProgredir?: AoPro
   const ficha = await obterFicha(contatoWa.chatId);
   const contato = { ...contatoWa, nome: ficha.nome?.trim() || contatoWa.nome };
 
-  // Atividades = ações com conteúdo + a pasta (se a mensagem etiqueta o contato).
-  const acoes = resposta.acoes.filter((a) => a.midiaPath || a.texto.trim() || a.delaySegundos > 0);
+  // Atividades = ações com conteúdo (ou de pasta) + a etiqueta da mensagem.
+  const acoes = resposta.acoes.filter(
+    (a) => ehAcaoDePasta(a.tipo) || a.midiaPath || a.texto.trim() || a.delaySegundos > 0,
+  );
   const total = acoes.length + (resposta.tagId ? 1 : 0);
   let atual = 0;
   const avisar = (rotulo: string) => aoProgredir?.({ atual: ++atual, total, rotulo });
 
   try {
     for (const acao of acoes) {
-      const rotulo = acao.midiaPath ? ROTULO_TIPO[acao.tipo] ?? 'enviando mídia' : acao.texto.trim() ? 'enviando mensagem' : 'aguardando';
+      const rotulo = ehAcaoDePasta(acao.tipo)
+        ? ROTULO_TIPO[acao.tipo]
+        : acao.midiaPath
+          ? ROTULO_TIPO[acao.tipo] ?? 'enviando mídia'
+          : acao.texto.trim()
+            ? 'enviando mensagem'
+            : 'aguardando';
       avisar(acao.delaySegundos > 0 ? `aguardando ${acao.delaySegundos}s · ${rotulo}` : rotulo);
       if (acao.delaySegundos > 0) await aguardar(acao.delaySegundos * 1000);
-      if (acao.midiaPath) {
+      if (ehAcaoDePasta(acao.tipo)) {
+        // O contato precisa existir no CRM antes de entrar numa pasta.
+        await registrarContato(contato.chatId, contatoWa.nome, contatoWa.telefone).catch(() => {});
+        if (acao.tipo === 'pasta_add') {
+          if (acao.texto) await aplicarTagContato(contato.chatId, acao.texto);
+        } else if (acao.texto === TODAS_AS_PASTAS) {
+          for (const id of await tagsDoContato(contato.chatId)) {
+            await removerTagContato(contato.chatId, id);
+          }
+        } else if (acao.texto) {
+          await removerTagContato(contato.chatId, acao.texto);
+        }
+      } else if (acao.midiaPath) {
         await enviarMidia(
           { midiaPath: acao.midiaPath, midiaMime: acao.midiaMime, midiaNome: acao.midiaNome, tipo: acao.tipo, texto: aplicarVariaveis(acao.texto, contato) },
           contato.chatId.startsWith('wa:') ? undefined : contato.chatId,

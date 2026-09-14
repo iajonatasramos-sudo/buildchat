@@ -9,13 +9,19 @@ import { useRouter } from 'next/navigation';
 import { carregarPerfil, supabase, type Perfil } from '@/lib/supabase';
 import { Botao, Cartao, CampoTexto } from '@/componentes/ui';
 
-type Tipo = 'texto' | 'imagem' | 'audio' | 'video' | 'documento';
+// `pasta_add` / `pasta_del` põem e tiram o contato de uma pasta; o id da pasta
+// vai no campo `texto` e, em `pasta_del`, `todas` limpa todas de uma vez.
+type Tipo = 'texto' | 'imagem' | 'audio' | 'video' | 'documento' | 'pasta_add' | 'pasta_del';
+const TODAS_AS_PASTAS = 'todas';
+const ehAcaoDePasta = (t: Tipo) => t === 'pasta_add' || t === 'pasta_del';
 const TIPOS: { valor: Tipo; rotulo: string }[] = [
   { valor: 'texto', rotulo: 'Texto' },
   { valor: 'imagem', rotulo: 'Imagem' },
   { valor: 'audio', rotulo: 'Áudio' },
   { valor: 'video', rotulo: 'Vídeo' },
   { valor: 'documento', rotulo: 'Documento' },
+  { valor: 'pasta_add', rotulo: 'Colocar na pasta' },
+  { valor: 'pasta_del', rotulo: 'Tirar da pasta' },
 ];
 const VARIAVEIS = [
   { chave: '{{nome}}', descricao: 'nome completo' },
@@ -260,7 +266,17 @@ export default function Editor({ params }: { params: Promise<{ id: string }> }) 
                   <div className="mb-2.5 flex items-center gap-2.5">
                     <select
                       value={a.tipo}
-                      onChange={(e) => patch(i, { tipo: e.target.value as Tipo, midia_path: null, midia_nome: null })}
+                      onChange={(e) => {
+                        const tipo = e.target.value as Tipo;
+                        // O `texto` guarda o id da pasta nas ações de pasta e a
+                        // mensagem nas demais: trocar de família limpa o campo.
+                        patch(i, {
+                          tipo,
+                          midia_path: null,
+                          midia_nome: null,
+                          ...(ehAcaoDePasta(tipo) !== ehAcaoDePasta(a.tipo) ? { texto: '' } : {}),
+                        });
+                      }}
                       className="rounded-controle border border-borda-forte bg-white px-2.5 py-[7px] text-[13px]"
                     >
                       {TIPOS.map((t) => (
@@ -290,7 +306,7 @@ export default function Editor({ params }: { params: Promise<{ id: string }> }) 
                     )}
                   </div>
 
-                  {a.tipo !== 'texto' && (
+                  {a.tipo !== 'texto' && !ehAcaoDePasta(a.tipo) && (
                     <div className="mb-2.5 flex items-center gap-3 rounded-controle border border-dashed border-borda-forte bg-fundo p-3">
                       <div className="grid h-[30px] w-[30px] place-items-center rounded-lg bg-marca-suave text-marca">
                         {a.tipo === 'audio' ? '▶' : a.tipo === 'documento' ? 'PDF' : '🖼'}
@@ -316,12 +332,27 @@ export default function Editor({ params }: { params: Promise<{ id: string }> }) 
                     </div>
                   )}
 
-                  <textarea
-                    value={a.texto}
-                    onChange={(e) => patch(i, { texto: e.target.value })}
-                    placeholder={a.tipo === 'texto' ? 'Texto da mensagem…' : 'Legenda (opcional)…'}
-                    className="campo focus:campo-foco min-h-[68px] resize-y leading-relaxed"
-                  />
+                  {ehAcaoDePasta(a.tipo) ? (
+                    <select
+                      value={a.texto}
+                      onChange={(e) => patch(i, { texto: e.target.value })}
+                      className="campo focus:campo-foco font-normal"
+                    >
+                      <option value="">Escolha a pasta…</option>
+                      {/* Só faz sentido tirar de TODAS — colocar em todas, não. */}
+                      {a.tipo === 'pasta_del' && <option value={TODAS_AS_PASTAS}>Todas as pastas</option>}
+                      {pastas.map((pa) => (
+                        <option key={pa.id} value={pa.id}>{pa.nome}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <textarea
+                      value={a.texto}
+                      onChange={(e) => patch(i, { texto: e.target.value })}
+                      placeholder={a.tipo === 'texto' ? 'Texto da mensagem…' : 'Legenda (opcional)…'}
+                      className="campo focus:campo-foco min-h-[68px] resize-y leading-relaxed"
+                    />
+                  )}
                 </div>
               </div>
             </Cartao>

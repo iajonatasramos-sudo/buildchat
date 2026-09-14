@@ -1,7 +1,7 @@
 // Seletor de respostas rápidas aberto ao digitar "/" no compose do WhatsApp.
 // Visual seguindo o padrão do painel (surface/border/brand do Saleschat).
 
-import { FileText, Film, Image as ImageIcon, Layers, Mic, Zap } from 'lucide-react';
+import { FileText, Film, FolderInput, FolderMinus, Image as ImageIcon, Layers, Mic, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { RespostaDC, TipoResposta } from '@/lib/types';
 
@@ -11,6 +11,8 @@ const TIPO_ICON: Record<TipoResposta, typeof FileText> = {
   audio: Mic,
   video: Film,
   documento: FileText,
+  pasta_add: FolderInput,
+  pasta_del: FolderMinus,
 };
 
 export function QuickPicker({
