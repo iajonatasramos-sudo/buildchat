@@ -6,6 +6,21 @@
 // que a barra lateral e o rodapé da gaveta mostram.
 
 import { useEffect, useState } from 'react';
+import {
+  closestCenter,
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  horizontalListSortingStrategy,
+  SortableContext,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { CalendarDays, Cloud, CloudOff, Loader2, Plus, Settings as SettingsIcon, ShieldAlert } from 'lucide-react';
 import { cn, emPx } from '@/lib/utils';
 import * as db from '@/lib/db';
@@ -51,6 +66,21 @@ export function TopBar() {
   const [ativas, setAtivas] = useState<string[]>(pastasAtivas.get());
   const [gaveta, setGaveta] = useState(gavetaAberta.get());
   const [configAberta, setConfigAberta] = useState(modalConfiguracoes.get());
+  // Arrastar chip para a esquerda/direita reordena a barra. O gesto só começa
+  // depois de 6 px, senão um clique simples viraria arraste e o filtro não
+  // ligaria mais.
+  const sensores = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+
+  async function aoSoltar(e: DragEndEvent) {
+    if (!e.over || e.active.id === e.over.id) return;
+    const ids = tags.map((t) => t.id);
+    const de = ids.indexOf(String(e.active.id));
+    const para = ids.indexOf(String(e.over.id));
+    if (de < 0 || para < 0) return;
+    const nova = arrayMove(tags, de, para);
+    setTags(nova); // a barra acompanha o dedo na hora
+    await db.reordenarTags(nova.map((t) => t.id));
+  }
   // Acessos por pessoa/equipe (painel → Acessos): enquanto não sabemos, mostra.
   const [pode, setPode] = useState<Record<ChaveRecurso, boolean> | null>(null);
   useEffect(() => {
@@ -149,21 +179,27 @@ export function TopBar() {
         <Chip ativo={ativas.length === 0} onClick={() => exigirLogin() && pastasAtivas.set([])}>
           Todas
         </Chip>
-        {/* Mais de uma pasta marcada = só as conversas que estão em todas elas. */}
-        {tags.map((t) => (
-          <Chip
-            key={t.id}
-            ativo={ativas.includes(t.id)}
-            cor={t.cor}
-            onClick={() => exigirLogin() && alternarPastaAtiva(t.id)}
-            titulo={ativas.includes(t.id) ? 'Tirar do filtro' : 'Filtrar por esta pasta (combine com outras)'}
-          >
-            {t.nome}
-            {contagem[t.id] ? (
-              <span className="rounded-full bg-black/25 px-1 text-[9px] font-bold">{contagem[t.id]}</span>
-            ) : null}
-          </Chip>
-        ))}
+        {/* Mais de uma pasta marcada = só as conversas que estão em todas elas.
+            Segurar e arrastar muda a posição do chip na barra. */}
+        <DndContext sensors={sensores} collisionDetection={closestCenter} onDragEnd={aoSoltar}>
+          <SortableContext items={tags.map((t) => t.id)} strategy={horizontalListSortingStrategy}>
+            {tags.map((t) => (
+              <ChipArrastavel
+                key={t.id}
+                id={t.id}
+                ativo={ativas.includes(t.id)}
+                cor={t.cor}
+                onClick={() => exigirLogin() && alternarPastaAtiva(t.id)}
+                titulo={ativas.includes(t.id) ? 'Tirar do filtro' : 'Filtrar por esta pasta (arraste para mudar de lugar)'}
+              >
+                {t.nome}
+                {contagem[t.id] ? (
+                  <span className="rounded-full bg-black/25 px-1 text-[9px] font-bold">{contagem[t.id]}</span>
+                ) : null}
+              </ChipArrastavel>
+            ))}
+          </SortableContext>
+        </DndContext>
       </div>
 
       {/* FORA da faixa que rola: com muitas pastas, o "+" ficava lá no fim e
@@ -265,6 +301,56 @@ function Chip({
         ativo ? 'ring-2 ring-white/70' : 'opacity-85 hover:opacity-100',
       )}
       style={estilo}
+    >
+      {children}
+    </button>
+  );
+}
+
+/**
+ * Chip de pasta que pode ser arrastado para mudar de posição.
+ *
+ * O mesmo botão serve para filtrar e para arrastar: o sensor só considera
+ * arraste depois de 6 px, então o clique continua valendo. `touch-none` é
+ * obrigatório — sem ele o navegador rola a faixa em vez de arrastar.
+ */
+function ChipArrastavel({
+  id,
+  children,
+  ativo,
+  cor,
+  onClick,
+  titulo,
+}: {
+  id: string;
+  children: React.ReactNode;
+  ativo?: boolean;
+  cor?: string;
+  onClick?: () => void;
+  titulo?: string;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const estilo: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.7 : 1,
+    ...(cor ? { background: cor, borderColor: cor, color: '#fff' } : {}),
+  };
+  return (
+    <button
+      ref={setNodeRef}
+      type="button"
+      onClick={onClick}
+      title={titulo}
+      style={estilo}
+      {...attributes}
+      {...listeners}
+      className={cn(
+        'inline-flex flex-shrink-0 touch-none items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 py-0.5 text-[11.5px] font-bold text-white transition',
+        !cor && 'border-brand bg-brand',
+        ativo ? 'ring-2 ring-white/70' : 'opacity-85 hover:opacity-100',
+        isDragging ? 'cursor-grabbing' : 'cursor-grab',
+      )}
     >
       {children}
     </button>

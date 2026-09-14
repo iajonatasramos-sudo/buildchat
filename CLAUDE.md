@@ -76,6 +76,13 @@ nela fecha agenda, gaveta, modais, menus e o filtro de pastas, devolvendo o What
 do sync saíram da barra: viraram `IndicadoresEstado`, mostrados no **pé da barra lateral**
 (empilhados) e no rodapé da gaveta quando ela está aberta.
 
+**Arrastar chip muda a ordem da barra**: segurar e puxar para os lados reordena as pastas
+(`@dnd-kit`, `horizontalListSortingStrategy`). A ordem é **deste aparelho** — só os ids, em
+`bc2_tags_ordem`, aplicada por `db.listarTags()`. Nada vai para o servidor: assim funciona
+também para quem não pode escrever numa pasta padrão da clínica, e não briga com o pull. O
+sensor só considera arraste depois de **6 px**, senão o clique deixaria de filtrar; o chip
+precisa de `touch-none`, senão o navegador rola a faixa em vez de arrastar.
+
 **Filtro por várias pastas**: `pastasAtivas` (store) é uma lista; chip clicado entra/sai
 (`alternarPastaAtiva`). Com mais de uma, `PastaPanel` mostra só as conversas que estão em
 **todas** (E, não OU) — o cabeçalho lista os nomes com " + ". O menu "Filtrar conversas" do
@@ -144,6 +151,7 @@ topo), `#buildchat2-headerbar` (barra no cabeçalho da conversa) e o ⚡ do comp
 |---|---|
 | `bc2_categorias`, `bc2_respostas` | mensagens rápidas (categoria + resposta com ações) |
 | `bc2_tags` | pastas/etiquetas (nome, cor) |
+| `bc2_tags_ordem` | ordem dos chips na barra (só ids, deste aparelho) |
 | `bc2_contact_tags` | vínculo conversa → pastas (`Record<chatId, tagId[]>`) |
 | `bc2_notes` | anotações por conversa |
 | `bc2_settings` | webhook, caractere de atalho, tema |

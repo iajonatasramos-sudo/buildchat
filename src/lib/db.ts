@@ -28,6 +28,7 @@ const K = {
   categorias: 'bc2_categorias',
   respostas: 'bc2_respostas',
   tags: 'bc2_tags',
+  tagsOrdem: 'bc2_tags_ordem',
   contactTags: 'bc2_contact_tags',
   notes: 'bc2_notes',
   settings: 'bc2_settings',
@@ -173,8 +174,27 @@ export async function registrarUso(id: string): Promise<void> {
 
 // ───────────────────────── Etiquetas (tags) ─────────────────────────
 
+/**
+ * Pastas na ordem em que a pessoa arrumou a barra.
+ *
+ * A ordem é DESTE APARELHO (`bc2_tags_ordem`, só os ids): arrastar um chip não
+ * mexe na pasta no servidor, então funciona para todo mundo — inclusive para
+ * quem não pode escrever numa pasta padrão da clínica. Pasta que chega depois
+ * (nova, ou que ainda não foi arrastada) entra no fim.
+ */
 export async function listarTags(): Promise<TagOpt[]> {
-  return get<TagOpt[]>(K.tags, []);
+  const [lista, ordem] = await Promise.all([
+    get<TagOpt[]>(K.tags, []),
+    get<string[]>(K.tagsOrdem, []),
+  ]);
+  if (ordem.length === 0) return lista;
+  const posicao = new Map(ordem.map((id, i) => [id, i]));
+  return [...lista].sort((a, b) => (posicao.get(a.id) ?? Infinity) - (posicao.get(b.id) ?? Infinity));
+}
+
+/** Grava a ordem da barra (arrastar chip). Só ids — some sozinho o que for apagado. */
+export async function reordenarTags(idsNaOrdem: string[]): Promise<void> {
+  await set(K.tagsOrdem, idsNaOrdem);
 }
 
 export async function criarTag(nome: string, cor: string): Promise<TagOpt> {
