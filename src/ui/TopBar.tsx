@@ -13,6 +13,7 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type Modifier,
 } from '@dnd-kit/core';
 import {
   arrayMove,
@@ -50,6 +51,15 @@ import type { TagOpt } from '@/lib/types';
 /** Altura VISUAL da barra (px reais do viewport). Internamente o conteúdo
  *  mede ALTURA_TOPBAR/ZOOM, pois o .bc-root está ampliado em ZOOM. */
 export const ALTURA_TOPBAR = 50;
+
+/**
+ * Arrastar chip anda só para os lados.
+ *
+ * A barra é uma faixa horizontal: deixar o chip subir e descer junto com o
+ * dedo atrapalhava a mira e ele passava por cima da conversa. Um "modifier" do
+ * dnd-kit é só uma função que corrige o deslocamento — aqui, zerando o Y.
+ */
+const soNaHorizontal: Modifier = ({ transform }) => ({ ...transform, y: 0 });
 
 /** Sem conta, qualquer recurso leva ao login. Devolve se pode seguir. */
 function exigirLogin(): boolean {
@@ -181,7 +191,12 @@ export function TopBar() {
         </Chip>
         {/* Mais de uma pasta marcada = só as conversas que estão em todas elas.
             Segurar e arrastar muda a posição do chip na barra. */}
-        <DndContext sensors={sensores} collisionDetection={closestCenter} onDragEnd={aoSoltar}>
+        <DndContext
+          sensors={sensores}
+          collisionDetection={closestCenter}
+          modifiers={[soNaHorizontal]}
+          onDragEnd={aoSoltar}
+        >
           <SortableContext items={tags.map((t) => t.id)} strategy={horizontalListSortingStrategy}>
             {tags.map((t) => (
               <ChipArrastavel

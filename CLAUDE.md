@@ -81,7 +81,9 @@ do sync saíram da barra: viraram `IndicadoresEstado`, mostrados no **pé da bar
 `bc2_tags_ordem`, aplicada por `db.listarTags()`. Nada vai para o servidor: assim funciona
 também para quem não pode escrever numa pasta padrão da clínica, e não briga com o pull. O
 sensor só considera arraste depois de **6 px**, senão o clique deixaria de filtrar; o chip
-precisa de `touch-none`, senão o navegador rola a faixa em vez de arrastar.
+precisa de `touch-none`, senão o navegador rola a faixa em vez de arrastar. O arraste é
+**travado na horizontal** (`soNaHorizontal`, um `Modifier` que zera o Y): deixar o chip subir
+e descer junto com o dedo atrapalhava a mira e o jogava por cima da conversa.
 
 **Filtro por várias pastas**: `pastasAtivas` (store) é uma lista; chip clicado entra/sai
 (`alternarPastaAtiva`). Com mais de uma, `PastaPanel` mostra só as conversas que estão em
